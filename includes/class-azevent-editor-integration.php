@@ -156,6 +156,38 @@ class AzEvent_Editor_Integration
                         </div>
                     </section>
 
+                    <section id="azevent-intent-review-view" class="azevent-view" hidden>
+                        <div class="azevent-review-header">
+                            <div>
+                                <span class="azevent-step-kicker"><?php _e('Search Intent hoàn tất', 'azevent-seo-content'); ?></span>
+                                <h3><?php _e('Kiểm tra kết quả trước khi tạo Outline', 'azevent-seo-content'); ?></h3>
+                                <p><?php _e('Bạn có thể chỉnh trực tiếp kết quả phân tích để định hướng Outline chính xác hơn.', 'azevent-seo-content'); ?></p>
+                            </div>
+                            <span class="azevent-review-badge"><?php _e('Chờ tiếp tục', 'azevent-seo-content'); ?></span>
+                        </div>
+
+                        <div class="azevent-intent-result">
+                            <label for="azevent-intent-result-text"><?php _e('Kết quả Search Intent', 'azevent-seo-content'); ?></label>
+                            <textarea id="azevent-intent-result-text" rows="20"></textarea>
+                        </div>
+
+                        <div class="azevent-intent-note">
+                            <span class="dashicons dashicons-info-outline" aria-hidden="true"></span>
+                            <span><?php _e('Outline chưa chạy. Chỉ khi bấm Tiếp tục tạo Outline, plugin mới gửi request tiếp theo.', 'azevent-seo-content'); ?></span>
+                        </div>
+
+                        <div class="azevent-actions azevent-review-actions">
+                            <button type="button" id="azevent-rerun-intent-btn" class="button azevent-secondary-button">
+                                <span class="dashicons dashicons-update" aria-hidden="true"></span>
+                                <?php _e('Phân tích lại Search Intent', 'azevent-seo-content'); ?>
+                            </button>
+                            <button type="button" id="azevent-continue-outline-btn" class="button button-primary azevent-primary-button">
+                                <?php _e('Tiếp tục tạo Outline', 'azevent-seo-content'); ?>
+                                <span class="dashicons dashicons-arrow-right-alt2" aria-hidden="true"></span>
+                            </button>
+                        </div>
+                    </section>
+
                     <section id="azevent-review-view" class="azevent-view" hidden>
                         <div class="azevent-review-header">
                             <div>
@@ -274,6 +306,7 @@ class AzEvent_Editor_Integration
             'nonce' => wp_create_nonce('azevent_seo_nonce'),
             'post_id' => get_the_ID(),
             'default_language' => get_option('azevent_seo_default_language', 'Vietnamese'),
+            'auto_advance' => (bool) get_option('azevent_seo_browser_auto_advance', false),
             'admin_url' => admin_url(),
         ));
     }

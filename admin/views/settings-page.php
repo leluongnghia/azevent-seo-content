@@ -51,6 +51,7 @@ if (!isset($azevent_text_models[$azevent_text_model]) && $azevent_text_model !==
 }
 $azevent_api_ready = AzEvent_API_Client::is_configured();
 $azevent_default_language = get_option('azevent_seo_default_language', 'Vietnamese');
+$azevent_browser_auto_advance = absint(get_option('azevent_seo_browser_auto_advance', 0));
 $default_prompts = AzEvent_Editor_Integration::get_default_prompts();
 $get_prompt = function ($option, $default) {
     $value = get_option($option, '');
@@ -242,6 +243,11 @@ $prompt_tokens = array(
         .azevent-field textarea { min-height: 105px; padding: 10px 11px; resize: vertical; line-height: 1.55; }
         .azevent-field input:focus, .azevent-field select:focus, .azevent-field textarea:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,.12); outline: none; }
         .azevent-help { margin: 6px 0 0; color: #94a3b8; font-size: 11px; line-height: 1.5; }
+        .azevent-field label.azevent-workflow-option { display: flex; align-items: flex-start; gap: 13px; margin-bottom: 0; padding: 15px; border: 1px solid #dbe4f3; border-radius: 11px; background: #f8fafc; }
+        .azevent-workflow-option input[type="checkbox"] { width: 18px; height: 18px; margin: 2px 0 0; accent-color: #4f46e5; }
+        .azevent-workflow-option strong, .azevent-workflow-option span { display: block; }
+        .azevent-workflow-option strong { margin-bottom: 4px; color: #1e293b; font-size: 13px; }
+        .azevent-workflow-option span { color: #64748b; font-size: 12px; line-height: 1.55; }
         .azevent-model-tools { display: flex; gap: 8px; align-items: stretch; margin-top: 9px; }
         .azevent-model-tools input { flex: 1; min-width: 0; }
         .azevent-model-add { flex: 0 0 auto; padding: 0 12px; border: 1px solid #c7d2fe; border-radius: 8px; background: #eef2ff; color: #4338ca; cursor: pointer; font-size: 12px; font-weight: 700; }
@@ -470,7 +476,18 @@ $prompt_tokens = array(
                                 <option value="Vietnamese" <?php selected($azevent_default_language, 'Vietnamese'); ?>>Tiếng Việt</option>
                                 <option value="English" <?php selected($azevent_default_language, 'English'); ?>>English</option>
                             </select>
-                            <p class="azevent-help"><?php _e('Có thể đổi lại cho từng lần chạy tại màn hình Post.', 'azevent-seo-content'); ?></p>
+                            <p class="azevent-help"><?php _e('Được áp dụng tự động khi tạo mới, viết lại và chạy Background Queue.', 'azevent-seo-content'); ?></p>
+                        </div>
+                        <div class="azevent-field">
+                            <label><?php _e('Quy trình trên trình duyệt', 'azevent-seo-content'); ?></label>
+                            <input type="hidden" name="azevent_seo_browser_auto_advance" value="0">
+                            <label class="azevent-workflow-option" for="azevent_seo_browser_auto_advance">
+                                <input id="azevent_seo_browser_auto_advance" type="checkbox" name="azevent_seo_browser_auto_advance" value="1" <?php checked($azevent_browser_auto_advance, 1); ?>>
+                                <span>
+                                    <strong><?php _e('Tự động chuyển sang bước tiếp theo', 'azevent-seo-content'); ?></strong>
+                                    <span><?php _e('Mặc định tắt. Khi tắt, plugin sẽ hiển thị kết quả Search Intent và chờ bạn bấm Tiếp tục tạo Outline.', 'azevent-seo-content'); ?></span>
+                                </span>
+                            </label>
                         </div>
                     </div>
                 </section>

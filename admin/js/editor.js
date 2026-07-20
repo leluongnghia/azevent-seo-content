@@ -3,10 +3,13 @@ jQuery(function($) {
     const $openButton = $('#azevent-open-studio');
     const $setupView = $('#azevent-setup-view');
     const $workflowView = $('#azevent-workflow-view');
+    const $intentReviewView = $('#azevent-intent-review-view');
     const $reviewView = $('#azevent-review-view');
     const $completeView = $('#azevent-complete-view');
     const $queueView = $('#azevent-queue-view');
     const $startButton = $('#azevent-start-btn');
+    const $continueOutlineButton = $('#azevent-continue-outline-btn');
+    const $rerunIntentButton = $('#azevent-rerun-intent-btn');
     const $openQueueButton = $('#azevent-open-queue');
     const $approveButton = $('#azevent-approve-btn');
     const $regenerateButton = $('#azevent-regenerate-content-btn');
@@ -20,6 +23,7 @@ jQuery(function($) {
     const $keywordHelp = $('#azevent-keyword-help');
     const $regenerateImage = $('#azevent-regenerate-image');
     const $reviewFrame = $('#azevent-review-frame');
+    const $intentResult = $('#azevent-intent-result-text');
     const $queueRows = $('#azevent-queue-rows');
     const $queueEmpty = $('#azevent-queue-empty');
     const $queueNotice = $('#azevent-queue-notice');
@@ -74,6 +78,7 @@ jQuery(function($) {
     function showView(view) {
         $setupView.prop('hidden', view !== 'setup');
         $workflowView.prop('hidden', view !== 'workflow');
+        $intentReviewView.prop('hidden', view !== 'intent-review');
         $reviewView.prop('hidden', view !== 'review');
         $completeView.prop('hidden', view !== 'complete');
         $queueView.prop('hidden', view !== 'queue');
@@ -155,6 +160,8 @@ jQuery(function($) {
         $startButton.prop('disabled', disabled);
         $approveButton.prop('disabled', disabled);
         $regenerateButton.prop('disabled', disabled);
+        $continueOutlineButton.prop('disabled', disabled);
+        $rerunIntentButton.prop('disabled', disabled);
     }
 
     function resetStudio() {
@@ -170,6 +177,7 @@ jQuery(function($) {
         lastRequestContext = {};
         stopQueuePolling();
         $log.empty();
+        $intentResult.val('');
         $processingPanel.removeClass('is-error');
         $errorActions.prop('hidden', true);
         $('.azevent-stepper li').removeClass('is-active is-complete');
@@ -215,6 +223,18 @@ jQuery(function($) {
                 ? 'Duyệt, tạo ảnh và lưu Draft <span class="dashicons dashicons-yes-alt" aria-hidden="true"></span>'
                 : 'Duyệt và lưu Draft <span class="dashicons dashicons-yes-alt" aria-hidden="true"></span>'
         );
+    }
+
+    function showIntentReview(context) {
+        studioState = 'intent-review';
+        isProcessing = false;
+        currentContext = context || {};
+        setControlsDisabled(false);
+        $intentResult.val(currentContext.search_intent || '');
+        showView('intent-review');
+        window.setTimeout(function() {
+            $intentResult.trigger('focus');
+        }, 20);
     }
 
     function updateEditor(data) {
@@ -335,6 +355,14 @@ jQuery(function($) {
             }
 
             updateStatus(response.data.message || 'Đã hoàn tất bước hiện tại.');
+            if (
+                response.data.next_step === 'outline' &&
+                !azevent_seo.auto_advance &&
+                (step === 'start' || step === 'search_intent')
+            ) {
+                showIntentReview(responseContext);
+                return;
+            }
             if (response.data.next_step === 'image' || response.data.next_step === 'finalize') {
                 showReview(responseContext, response.data.next_step);
                 return;
@@ -584,6 +612,21 @@ jQuery(function($) {
             return;
         }
         runStep('content', currentContext);
+    });
+
+    $continueOutlineButton.on('click', function() {
+        const reviewedIntent = $intentResult.val().trim();
+        if (!reviewedIntent) {
+            $intentResult.trigger('focus');
+            return;
+        }
+        currentContext.search_intent = reviewedIntent;
+        runStep('outline', currentContext);
+    });
+
+    $rerunIntentButton.on('click', function() {
+        currentContext.search_intent = '';
+        runStep('search_intent', currentContext);
     });
 
     $regenerateImage.on('change', function() {

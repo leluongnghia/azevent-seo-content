@@ -548,6 +548,54 @@ body.azevent-modal-open {
     font-weight: 700;
 }
 
+.azevent-intent-result {
+    margin-top: 4px;
+}
+
+.azevent-intent-result label {
+    display: block;
+    margin-bottom: 8px;
+    color: #334155;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.azevent-intent-result textarea {
+    width: 100%;
+    min-height: min(56vh, 620px);
+    padding: 22px 24px;
+    border: 1px solid #cbd5e1;
+    border-radius: 12px;
+    background: #fff;
+    color: #1e293b;
+    font: 14px/1.72 Consolas, Monaco, monospace;
+    resize: vertical;
+}
+
+.azevent-intent-result textarea:focus {
+    border-color: #5965d8;
+    box-shadow: 0 0 0 3px rgba(89, 101, 216, .16);
+    outline: 0;
+}
+
+.azevent-intent-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    margin-top: 13px;
+    padding: 11px 13px;
+    border: 1px solid #c7d2fe;
+    border-radius: 9px;
+    background: #eef2ff;
+    color: #4338ca;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.azevent-intent-note .dashicons {
+    flex: 0 0 auto;
+}
+
 .azevent-review-meta {
     display: grid;
     grid-template-columns: 1fr 1.4fr;
@@ -918,6 +966,11 @@ body.azevent-modal-open {
 
     #azevent-review-frame {
         height: 62vh;
+    }
+
+    .azevent-intent-result textarea {
+        min-height: 52vh;
+        padding: 17px;
     }
 
     .azevent-queue-table-wrap {

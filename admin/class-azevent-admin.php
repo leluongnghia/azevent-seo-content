@@ -46,6 +46,9 @@ class AzEvent_Admin
         ));
         register_setting('azevent_seo_settings_group', 'aprg_seo_default_cliproxy_image_model');
         register_setting('azevent_seo_settings_group', 'azevent_seo_default_language');
+        register_setting('azevent_seo_settings_group', 'azevent_seo_browser_auto_advance', array(
+            'sanitize_callback' => 'absint',
+        ));
         register_setting('azevent_seo_settings_group', 'azevent_seo_openai_key');
         register_setting('azevent_seo_settings_group', 'azevent_seo_anthropic_key');
         register_setting('azevent_seo_settings_group', 'azevent_seo_openai_model', array(
