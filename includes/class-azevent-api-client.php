@@ -80,7 +80,7 @@ class AzEvent_API_Client
         );
 
         if ($is_gpt5 || $is_reasoning) {
-            $body['max_completion_tokens'] = max($max_tokens, 16384);
+            $body['max_completion_tokens'] = max($max_tokens, 1024);
         } else {
             $body['max_tokens'] = $max_tokens;
             $body['temperature'] = isset($options['temperature']) ? (float) $options['temperature'] : 0.7;
@@ -96,7 +96,7 @@ class AzEvent_API_Client
         }
 
         if ($result['status'] < 200 || $result['status'] >= 300) {
-            return $this->api_error('AzEvent API Text', $result);
+            return $this->api_error('AzEvent API Text', $result, $model);
         }
 
         $content = isset($result['data']['choices'][0]['message']['content'])
@@ -210,7 +210,7 @@ class AzEvent_API_Client
         $attempt = 0;
         $response = null;
 
-        while ($attempt <= 3) {
+        while (true) {
             $response = wp_remote_post(self::get_api_base_url($this->base_url) . $path, array(
                 'headers' => array(
                     'Authorization' => 'Bearer ' . $this->api_key,
@@ -226,12 +226,21 @@ class AzEvent_API_Client
             }
 
             $status = (int) wp_remote_retrieve_response_code($response);
-            if ($status !== 429 || $attempt >= 3) {
+            $rate_limited = $status === 429;
+            $temporary_error = in_array($status, array(500, 502, 503, 504, 520, 521, 522, 523, 524), true);
+            $max_retries = $rate_limited ? 3 : ($temporary_error ? 1 : 0);
+            if ($attempt >= $max_retries) {
                 break;
             }
 
             $attempt++;
-            sleep($attempt * 15);
+            $retry_after = absint(wp_remote_retrieve_header($response, 'retry-after'));
+            if ($retry_after <= 0) {
+                $retry_data = json_decode(wp_remote_retrieve_body($response), true);
+                $retry_after = is_array($retry_data) ? absint($retry_data['retry_after'] ?? 0) : 0;
+            }
+            $default_delay = $rate_limited ? $attempt * 15 : 5;
+            sleep(min(30, max(1, $retry_after ?: $default_delay)));
         }
 
         $raw_body = wp_remote_retrieve_body($response);
@@ -243,6 +252,7 @@ class AzEvent_API_Client
         return array(
             'status' => (int) wp_remote_retrieve_response_code($response),
             'data' => $data,
+            'attempts' => $attempt + 1,
         );
     }
 
@@ -382,6 +392,13 @@ class AzEvent_API_Client
     private function api_error($prefix, array $result, $model = '')
     {
         $message = $this->extract_error_message($result['data'], $result['status']);
+        if ((int) $result['status'] === 524) {
+            $message = 'HTTP 524 — Cloudflare đã chờ 120 giây nhưng model chưa trả xong.';
+            if (absint($result['attempts'] ?? 1) > 1) {
+                $message .= ' Plugin đã tự thử lại một lần.';
+            }
+            $message .= ' Hãy chọn model nhanh hơn cho bước này hoặc dùng endpoint API không qua proxy Cloudflare.';
+        }
         $suffix = $model !== '' ? ' (' . $model . ')' : '';
         return new WP_Error(
             'azevent_api_error',

@@ -137,7 +137,8 @@ class AzEvent_Content_Pipeline
                 $result = $ai->call_anthropic(
                     $replace_placeholders($user_prompt, $context),
                     $replace_placeholders($system_prompt, $context),
-                    $step_models['intent']
+                    $step_models['intent'],
+                    4096
                 );
                 if (is_wp_error($result)) {
                     return $this->attach_error_context($result, $post_id, $context);
@@ -160,7 +161,8 @@ class AzEvent_Content_Pipeline
                 $result = $ai->call_anthropic(
                     $replace_placeholders($user_prompt, $context),
                     $replace_placeholders($system_prompt, $context),
-                    $step_models['outline']
+                    $step_models['outline'],
+                    6144
                 );
                 if (is_wp_error($result)) {
                     return $this->attach_error_context($result, $post_id, $context);
@@ -183,7 +185,8 @@ class AzEvent_Content_Pipeline
                 $result = $ai->call_anthropic(
                     $replace_placeholders($user_prompt, $context),
                     $replace_placeholders($system_prompt, $context),
-                    $step_models['content']
+                    $step_models['content'],
+                    8192
                 );
                 if (is_wp_error($result)) {
                     return $this->attach_error_context($result, $post_id, $context);
@@ -203,7 +206,10 @@ class AzEvent_Content_Pipeline
                 if ($mode === 'rewrite') {
                     $user_prompt .= $rewrite_instructions['seo'];
                 }
-                $seo_arguments = array('response_format' => array('type' => 'json_object'));
+                $seo_arguments = array(
+                    'response_format' => array('type' => 'json_object'),
+                    'max_tokens' => 2048,
+                );
                 if ($step_models['seo'] !== '') {
                     $seo_arguments['model'] = $step_models['seo'];
                 }
