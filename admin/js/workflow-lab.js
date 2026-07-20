@@ -43,6 +43,9 @@
         description: document.getElementById('azlab-step-description'),
         textEditor: document.getElementById('azlab-text-editor'),
         textResult: document.getElementById('azlab-text-result'),
+        serpSources: document.getElementById('azlab-serp-sources'),
+        serpMeta: document.getElementById('azlab-serp-meta'),
+        serpList: document.getElementById('azlab-serp-list'),
         contentEditor: document.getElementById('azlab-content-editor'),
         contentPreview: document.getElementById('azlab-content-preview'),
         contentHtml: document.getElementById('azlab-content-html'),
@@ -154,6 +157,34 @@
         });
     }
 
+    function renderSerpSources() {
+        const snapshot = context && context.serp_snapshot ? context.serp_snapshot : null;
+        const results = snapshot && Array.isArray(snapshot.organic_results) ? snapshot.organic_results : [];
+        elements.serpSources.hidden = !results.length;
+        elements.serpList.innerHTML = '';
+        if (!results.length) {
+            return;
+        }
+        const fetchedAt = parseInt(snapshot.fetched_at, 10) || 0;
+        elements.serpMeta.textContent = (snapshot.provider || 'SERP') + ' · ' + (snapshot.location || '') + (fetchedAt ? ' · ' + new Date(fetchedAt * 1000).toLocaleString() : '');
+        results.forEach(function (result) {
+            const item = document.createElement('li');
+            const link = document.createElement('a');
+            link.href = result.url || '#';
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.textContent = (result.position ? '#' + result.position + ' ' : '') + (result.title || result.domain || result.url || 'Kết quả SERP');
+            const domain = document.createElement('small');
+            const structure = result.page_structure && result.page_structure.status === 'success'
+                ? ' · đã đọc cấu trúc trang'
+                : '';
+            domain.textContent = (result.domain || '') + structure;
+            item.appendChild(link);
+            item.appendChild(domain);
+            elements.serpList.appendChild(item);
+        });
+    }
+
     function captureCurrentEdits() {
         if (!context || !context.results) {
             return;
@@ -203,6 +234,11 @@
         if (step === 'research' || step === 'brief') {
             elements.textEditor.hidden = false;
             elements.textResult.value = context.results[step] || '';
+            if (step === 'research') {
+                renderSerpSources();
+            } else {
+                elements.serpSources.hidden = true;
+            }
         } else if (step === 'content') {
             elements.contentEditor.hidden = false;
             elements.contentHtml.value = context.results.content || '';

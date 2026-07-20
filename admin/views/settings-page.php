@@ -196,6 +196,7 @@ $lab_prompt_tokens = array(
     '{secondary_keywords}' => __('Danh sách từ khóa phụ do người dùng nhập.', 'azevent-seo-content'),
     '{audience}' => __('Đối tượng đọc do người dùng nhập.', 'azevent-seo-content'),
     '{competitor_notes}' => __('Dữ liệu SERP/đối thủ do người dùng cung cấp.', 'azevent-seo-content'),
+    '{serp_snapshot}' => __('Snapshot SERP tự động gồm vị trí, title, snippet và cấu trúc trang.', 'azevent-seo-content'),
     '{brand_name}' => __('Tên thương hiệu.', 'azevent-seo-content'),
     '{brand_info}' => __('Thông tin thương hiệu đã xác thực.', 'azevent-seo-content'),
     '{brand_solution}' => __('Dịch vụ và giải pháp thương hiệu.', 'azevent-seo-content'),
@@ -434,6 +435,9 @@ $lab_prompt_tokens = array(
         .azevent-lab-reset-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 16px; }
         .azevent-lab-reset-status { color: #64748b; font-size: 11px; }
         .azevent-lab-reset-status.is-ready { color: #047857; }
+        .azevent-serp-box { margin-bottom: 18px; padding: 17px; border: 1px solid #bfdbfe; border-radius: 13px; background: linear-gradient(135deg, #eff6ff, #f8fafc); }
+        .azevent-serp-box h3 { margin: 0; color: #1e3a8a; font-size: 14px; }
+        .azevent-serp-box > p { margin: 6px 0 15px; color: #64748b; font-size: 11px; line-height: 1.55; }
         .azevent-footer { position: sticky; bottom: 16px; z-index: 4; display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; padding: 13px 15px; border: 1px solid #e2e8f0; border-radius: 12px; background: rgba(255,255,255,.92); box-shadow: 0 10px 26px rgba(15,23,42,.1); backdrop-filter: blur(10px); }
         .azevent-footer .button-primary { min-width: 154px; height: 42px; border: 0; border-radius: 10px; background: linear-gradient(135deg, #4f46e5, #7c3aed); box-shadow: 0 8px 18px rgba(79,70,229,.24); font-weight: 700; }
         @media (max-width: 800px) {
@@ -769,6 +773,45 @@ $lab_prompt_tokens = array(
                                 <div>
                                 <h2><?php _e('Workflow Lab Prompts', 'azevent-seo-content'); ?></h2>
                                 <p class="azevent-card-description"><?php _e('Prompt và model độc lập cho 5 bước SEO Workflow Lab; không ảnh hưởng Content Studio.', 'azevent-seo-content'); ?></p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="azevent-serp-box">
+                            <h3><?php _e('Tự động nghiên cứu đối thủ bằng SERP thật', 'azevent-seo-content'); ?></h3>
+                            <p><?php _e('Khi ô “Dữ liệu đối thủ / SERP thực tế” trong Workflow Lab để trống, plugin dùng SerpApi để lấy kết quả Google, loại domain của website hiện tại và đọc có giới hạn title, meta, H1–H3 của các trang đầu. Snapshot được cache 6 giờ và lưu trong checkpoint.', 'azevent-seo-content'); ?></p>
+                            <div class="azevent-grid">
+                                <div class="azevent-field">
+                                    <label for="azevent_lab_serpapi_key"><?php _e('SerpApi API Key', 'azevent-seo-content'); ?></label>
+                                    <input id="azevent_lab_serpapi_key" type="password" name="azevent_lab_serpapi_key" value="<?php echo esc_attr(get_option('azevent_lab_serpapi_key', '')); ?>" autocomplete="off">
+                                    <p class="azevent-help"><?php _e('Không đưa key vào prompt hoặc JavaScript frontend.', 'azevent-seo-content'); ?></p>
+                                </div>
+                                <div class="azevent-field">
+                                    <label for="azevent_lab_serp_location"><?php _e('Vị trí tìm kiếm', 'azevent-seo-content'); ?></label>
+                                    <input id="azevent_lab_serp_location" type="text" name="azevent_lab_serp_location" value="<?php echo esc_attr(get_option('azevent_lab_serp_location', 'Vietnam')); ?>" placeholder="Vietnam hoặc Hanoi, Vietnam">
+                                </div>
+                                <div class="azevent-field">
+                                    <label for="azevent_lab_serp_country"><?php _e('Mã quốc gia Google', 'azevent-seo-content'); ?></label>
+                                    <input id="azevent_lab_serp_country" type="text" name="azevent_lab_serp_country" value="<?php echo esc_attr(get_option('azevent_lab_serp_country', 'vn')); ?>" maxlength="2" placeholder="vn">
+                                </div>
+                                <div class="azevent-field">
+                                    <label for="azevent_lab_serp_language"><?php _e('Ngôn ngữ SERP', 'azevent-seo-content'); ?></label>
+                                    <input id="azevent_lab_serp_language" type="text" name="azevent_lab_serp_language" value="<?php echo esc_attr(get_option('azevent_lab_serp_language', 'vi')); ?>" maxlength="5" placeholder="vi">
+                                </div>
+                                <div class="azevent-field">
+                                    <label for="azevent_lab_serp_result_count"><?php _e('Số kết quả organic', 'azevent-seo-content'); ?></label>
+                                    <select id="azevent_lab_serp_result_count" name="azevent_lab_serp_result_count">
+                                        <option value="5" <?php selected(absint(get_option('azevent_lab_serp_result_count', 10)), 5); ?>>5</option>
+                                        <option value="10" <?php selected(absint(get_option('azevent_lab_serp_result_count', 10)), 10); ?>>10</option>
+                                    </select>
+                                </div>
+                                <div class="azevent-field">
+                                    <label for="azevent_lab_serp_fetch_pages"><?php _e('Đọc cấu trúc trang đối thủ', 'azevent-seo-content'); ?></label>
+                                    <select id="azevent_lab_serp_fetch_pages" name="azevent_lab_serp_fetch_pages">
+                                        <option value="0" <?php selected(absint(get_option('azevent_lab_serp_fetch_pages', 3)), 0); ?>><?php _e('Không đọc trang — chỉ dùng SERP', 'azevent-seo-content'); ?></option>
+                                        <option value="3" <?php selected(absint(get_option('azevent_lab_serp_fetch_pages', 3)), 3); ?>><?php _e('Đọc 3 trang đầu', 'azevent-seo-content'); ?></option>
+                                        <option value="5" <?php selected(absint(get_option('azevent_lab_serp_fetch_pages', 3)), 5); ?>><?php _e('Đọc 5 trang đầu', 'azevent-seo-content'); ?></option>
+                                    </select>
+                                    <p class="azevent-help"><?php _e('Chỉ lưu title, meta và tối đa 24 heading; không sao chép toàn bộ nội dung.', 'azevent-seo-content'); ?></p>
                                 </div>
                             </div>
                         </div>

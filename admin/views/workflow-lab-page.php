@@ -53,8 +53,8 @@ $recent_query = new WP_Query(array(
                     </label>
                     <label class="azlab-field azlab-field-wide">
                         <span><?php _e('Dữ liệu đối thủ / SERP thực tế', 'azevent-seo-content'); ?></span>
-                        <textarea id="azlab-competitors" rows="6" placeholder="Dán URL, tiêu đề, heading hoặc ghi chú bạn đã thu thập. Để trống thì Lab không đưa ra kết luận đối thủ đang top."></textarea>
-                        <small><?php _e('Lab không tự bịa đối thủ hoặc thứ hạng khi chưa có dữ liệu SERP thật.', 'azevent-seo-content'); ?></small>
+                        <textarea id="azlab-competitors" rows="6" placeholder="Dán dữ liệu bạn đã thu thập hoặc để trống để Lab tự tìm SERP và phân tích đối thủ."></textarea>
+                        <small><?php _e('Để trống: Lab dùng SerpApi đã cấu hình. Có dữ liệu: Lab ưu tiên nội dung bạn nhập và không tốn lượt SERP API.', 'azevent-seo-content'); ?></small>
                     </label>
                 </div>
 
@@ -91,6 +91,10 @@ $recent_query = new WP_Query(array(
 
                     <div id="azlab-text-editor" class="azlab-result" hidden>
                         <textarea id="azlab-text-result" rows="28"></textarea>
+                        <div id="azlab-serp-sources" class="azlab-serp-sources" hidden>
+                            <div class="azlab-serp-heading"><strong><?php _e('Nguồn SERP đã phân tích', 'azevent-seo-content'); ?></strong><span id="azlab-serp-meta"></span></div>
+                            <ol id="azlab-serp-list"></ol>
+                        </div>
                     </div>
 
                     <div id="azlab-content-editor" class="azlab-result" hidden>

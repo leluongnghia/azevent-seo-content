@@ -114,6 +114,24 @@ class AzEvent_Admin
         register_setting('azevent_seo_settings_group', 'azevent_seo_brand_name');
         register_setting('azevent_seo_settings_group', 'azevent_seo_brand_info');
         register_setting('azevent_seo_settings_group', 'azevent_seo_brand_solution');
+        register_setting('azevent_seo_settings_group', 'azevent_lab_serpapi_key', array(
+            'sanitize_callback' => 'sanitize_text_field',
+        ));
+        register_setting('azevent_seo_settings_group', 'azevent_lab_serp_location', array(
+            'sanitize_callback' => 'sanitize_text_field',
+        ));
+        register_setting('azevent_seo_settings_group', 'azevent_lab_serp_country', array(
+            'sanitize_callback' => 'sanitize_key',
+        ));
+        register_setting('azevent_seo_settings_group', 'azevent_lab_serp_language', array(
+            'sanitize_callback' => 'sanitize_key',
+        ));
+        register_setting('azevent_seo_settings_group', 'azevent_lab_serp_result_count', array(
+            'sanitize_callback' => 'absint',
+        ));
+        register_setting('azevent_seo_settings_group', 'azevent_lab_serp_fetch_pages', array(
+            'sanitize_callback' => 'absint',
+        ));
 
         // Prompts
         $prompts = array('intent', 'outline', 'content', 'seo');

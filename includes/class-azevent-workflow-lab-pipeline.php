@@ -99,6 +99,17 @@ class AzEvent_Workflow_Lab_Pipeline
 
     private function run_research($post_id, array $context)
     {
+        $manual_competitor_notes = trim((string) ($context['input']['competitor_notes'] ?? ''));
+        if ($manual_competitor_notes === '' && empty($context['serp_snapshot']['organic_results'])) {
+            $serp_snapshot = (new AzEvent_SERP_Client())->search($context['input']['keyword']);
+            if (is_wp_error($serp_snapshot)) {
+                return $serp_snapshot;
+            }
+            $context['serp_snapshot'] = $serp_snapshot;
+            $context['competitor_source'] = 'automatic_serp';
+        } elseif ($manual_competitor_notes !== '') {
+            $context['competitor_source'] = 'manual';
+        }
         $prompts = $this->build_prompts('research', $context);
 
         $result = $this->call_text('research', $prompts['user'], $prompts['system'], 4096);
@@ -320,9 +331,15 @@ class AzEvent_Workflow_Lab_Pipeline
         $input = isset($context['input']) && is_array($context['input']) ? $context['input'] : array();
         $results = isset($context['results']) && is_array($context['results']) ? $context['results'] : array();
         $brand = AzEvent_SEO_Content::get_brand_profile();
+        $serp_snapshot = isset($context['serp_snapshot']) && is_array($context['serp_snapshot'])
+            ? $context['serp_snapshot']
+            : array();
+        $serp_json = wp_json_encode($serp_snapshot, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $competitor_notes = trim((string) ($input['competitor_notes'] ?? ''));
-        if ($competitor_notes === '') {
-            $competitor_notes = 'Không có dữ liệu SERP/đối thủ được cung cấp. Không được tự nhận định website nào đang đứng top.';
+        if ($competitor_notes === '' && !empty($serp_snapshot['organic_results'])) {
+            $competitor_notes = "Dữ liệu được plugin tự động lấy từ SERP thật:\n" . $serp_json;
+        } elseif ($competitor_notes === '') {
+            $competitor_notes = 'Không có dữ liệu SERP/đối thủ. Không được tự nhận định website nào đang đứng top.';
         }
         $replacements = array(
             '{language}' => sanitize_text_field($context['language'] ?? 'Vietnamese'),
@@ -330,6 +347,7 @@ class AzEvent_Workflow_Lab_Pipeline
             '{secondary_keywords}' => implode(', ', (array) ($input['secondary_keywords'] ?? array())),
             '{audience}' => sanitize_textarea_field($input['audience'] ?? ''),
             '{competitor_notes}' => $competitor_notes,
+            '{serp_snapshot}' => $serp_json,
             '{brand_name}' => $brand['azevent_seo_brand_name'],
             '{brand_info}' => $brand['azevent_seo_brand_info'],
             '{brand_solution}' => $brand['azevent_seo_brand_solution'],
