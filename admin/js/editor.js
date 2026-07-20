@@ -444,6 +444,10 @@ jQuery(function($) {
             }
         }
         if (response.data.next_step === 'image' || response.data.next_step === 'finalize') {
+            if (azevent_seo.auto_advance) {
+                runStep(response.data.next_step, responseContext);
+                return;
+            }
             showReview(responseContext, response.data.next_step);
             return;
         }
@@ -567,6 +571,10 @@ jQuery(function($) {
             return;
         }
         if (nextStep === 'image' || nextStep === 'finalize') {
+            if (azevent_seo.auto_advance) {
+                runStep(nextStep, currentContext);
+                return;
+            }
             showReview(currentContext, nextStep);
             return;
         }

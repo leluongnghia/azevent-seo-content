@@ -549,8 +549,8 @@ $prompt_tokens = array(
                             <label class="azevent-workflow-option" for="azevent_seo_browser_auto_advance">
                                 <input id="azevent_seo_browser_auto_advance" type="checkbox" name="azevent_seo_browser_auto_advance" value="1" <?php checked($azevent_browser_auto_advance, 1); ?>>
                                 <span>
-                                    <strong><?php _e('Tự động chuyển sang bước tiếp theo', 'azevent-seo-content'); ?></strong>
-                                    <span><?php _e('Mặc định tắt. Khi tắt, plugin sẽ dừng để bạn xem Search Intent, Outline, Content và SEO trước khi bấm tiếp tục.', 'azevent-seo-content'); ?></span>
+                                    <strong><?php _e('Bỏ qua duyệt thủ công', 'azevent-seo-content'); ?></strong>
+                                    <span><?php _e('Khi tích chọn, Content Studio tự chạy Search Intent → Outline → Content → SEO → tạo ảnh và lưu Draft. Khi bỏ tích, plugin dừng để bạn duyệt từng bước.', 'azevent-seo-content'); ?></span>
                                 </span>
                             </label>
                         </div>
