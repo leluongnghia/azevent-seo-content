@@ -7,8 +7,8 @@ if (!defined('ABSPATH')) {
 return array (
   'intent' => 
   array (
-    'system' => '[Instruction]: Answer in Markdown format with clear structure, bullet points, and short paragraphs.|[Role]: You are a Researcher & Semantic SEO Expert who is a master of the Topical Authority Concept from Koray. Your task is to analyze the Search Intent behind the query.### Output Language:*Vietnamese*',
-    'user' => 'Analyze the query: [{keyword}] & [{secondary_keywords}] what would they be looking for if they searched it? What is the search intent on Google and how to fullfil it?  Vietnamese articles',
+    'system' => '[Instruction]: Answer in Markdown format with clear structure, bullet points, and short paragraphs.|[Role]: You are a Researcher & Semantic SEO Expert who is a master of the Topical Authority Concept from Koray. Your task is to analyze the Search Intent behind the query.### Output Language:*{language}*',
+    'user' => 'Analyze the query: [{keyword}] & [{secondary_keywords}] what would they be looking for if they searched it? What is the search intent on Google and how to fullfil it? The article must be written in {language}.',
   ),
   'outline' => 
   array (
@@ -257,7 +257,7 @@ Please provide a complete outline with detailed article methodology for each sec
   ),
   'content' => 
   array (
-    'system' => 'You are an expert SEO & Semantic SEO content writer, fluent in Vietnamese and familiar with topical authority, entities, H1–H2–H3 structure, and writing content that is easy to understand, persuasive, and user-friendly.',
+    'system' => 'You are an expert SEO & Semantic SEO content writer, fluent in {language} and familiar with topical authority, entities, H1–H2–H3 structure, and writing content that is easy to understand, persuasive, and user-friendly.',
     'user' => 'Your task:
 Using the detailed outline I provide, write a complete, in‑depth SEO article that strictly follows the outline, fully satisfies user search intent, and is optimized for Semantic SEO.
 
@@ -468,4 +468,3 @@ Your output must only be the meta description and nothing else.
 Return only valid JSON with exactly these keys: title, slug, meta, image_prompt. The image_prompt must describe a professional event-organizing featured image with no text, logo, or watermark.',
   ),
 );
-

@@ -42,78 +42,158 @@ class AzEvent_Editor_Integration
      */
     public function render_meta_box($post)
     {
-        $default_mode = $post->ID > 0 ? 'rewrite' : 'create';
+        $is_existing_post = $post->ID > 0 && $post->post_status !== 'auto-draft';
+        $default_mode = $is_existing_post ? 'rewrite' : 'create';
         $default_language = get_option('azevent_seo_default_language', 'Vietnamese');
+        $language_labels = array(
+            'Vietnamese' => __('Tiếng Việt', 'azevent-seo-content'),
+            'English' => __('English', 'azevent-seo-content'),
+        );
+        $default_language_label = isset($language_labels[$default_language])
+            ? $language_labels[$default_language]
+            : $default_language;
         ?>
-        <div id="azevent-seo-box">
-            <p>
-                <label for="azevent-mode"><strong><?php _e('Chế độ:', 'azevent-seo-content'); ?></strong></label><br>
-                <select id="azevent-mode" style="width:100%;">
-                    <option value="rewrite" <?php selected($default_mode, 'rewrite'); ?>><?php _e('Viết lại bài hiện tại', 'azevent-seo-content'); ?></option>
-                    <option value="create" <?php selected($default_mode, 'create'); ?>><?php _e('Tạo nội dung mới', 'azevent-seo-content'); ?></option>
-                </select>
-            </p>
-            <p>
-                <label for="azevent_keyword"><strong>
-                        <?php _e('Từ khóa chính:', 'azevent-seo-content'); ?>
-                    </strong></label><br>
-                <textarea id="azevent-keywords" name="azevent_keywords" rows="4" style="width:100%; resize:vertical;"
-                    placeholder="<?php _e("Mỗi dòng một từ khóa. Ví dụ:\nTổ chức hội nghị doanh nghiệp\nDịch vụ gala dinner", 'azevent-seo-content'); ?>"><?php echo esc_textarea($default_mode === 'rewrite' ? $post->post_title : ''); ?></textarea>
-                <span style="display:block; margin-top:4px; color:#777; font-size:11px;">
-                    <?php _e('Tạo mới: mỗi dòng sẽ tạo một Draft riêng. Viết lại: chỉ dùng một từ khóa.', 'azevent-seo-content'); ?>
-                </span>
-            </p>
-            <p>
-                <label for="azevent_language"><strong>
-                        <?php _e('Ngôn ngữ:', 'azevent-seo-content'); ?>
-                    </strong></label><br>
-                <select id="azevent_language" style="width:100%;">
-                    <option value="Vietnamese" <?php selected($default_language, 'Vietnamese'); ?>>Tiếng Việt</option>
-                    <option value="English" <?php selected($default_language, 'English'); ?>>English</option>
-                </select>
-            </p>
-            <p>
-                <label>
-                    <input type="checkbox" id="azevent-regenerate-image" value="1">
-                    <?php _e('Tạo lại ảnh đại diện', 'azevent-seo-content'); ?>
-                </label>
-            </p>
-            <button type="button" id="azevent-generate-btn" class="button button-primary button-large" style="width:100%;">
-                <?php _e('Bắt đầu tạo bài viết', 'azevent-seo-content'); ?>
+        <div class="azevent-launch-card">
+            <span class="azevent-launch-eyebrow"><?php _e('AzEvent Content Studio', 'azevent-seo-content'); ?></span>
+            <strong><?php _e('Tạo bài SEO theo quy trình AI', 'azevent-seo-content'); ?></strong>
+            <p><?php _e('Chọn chế độ và từ khóa trong cửa sổ làm việc tập trung.', 'azevent-seo-content'); ?></p>
+            <button type="button" id="azevent-open-studio" class="button azevent-launch-button">
+                <span class="dashicons dashicons-edit-page" aria-hidden="true"></span>
+                <?php _e('Mở Content Studio', 'azevent-seo-content'); ?>
             </button>
-
-            <div id="azevent-progress" style="margin-top:15px; display:none;">
-                <div class="azevent-spinner" style="display:inline-block; vertical-align:middle; margin-right:5px;"></div>
-                <span id="azevent-status-text">
-                    <?php _e('Đang chuẩn bị...', 'azevent-seo-content'); ?>
-                </span>
-            </div>
-
-            <div id="azevent-log"
-                style="margin-top:10px; font-size:11px; max-height:100px; overflow-y:auto; border-top:1px solid #ddd; padding-top:5px; display:none;">
-            </div>
         </div>
 
-        <style>
-            .azevent-spinner {
-                border: 3px solid #f3f3f3;
-                border-top: 3px solid #3498db;
-                border-radius: 50%;
-                width: 15px;
-                height: 15px;
-                animation: azevent-spin 1s linear infinite;
-            }
+        <div id="azevent-studio-modal" class="azevent-modal" aria-hidden="true">
+            <div class="azevent-modal-backdrop" data-azevent-close></div>
+            <div class="azevent-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="azevent-modal-title">
+                <header class="azevent-modal-header">
+                    <div>
+                        <span class="azevent-modal-eyebrow"><?php _e('AzEvent AI SEO', 'azevent-seo-content'); ?></span>
+                        <h2 id="azevent-modal-title"><?php _e('Content Studio', 'azevent-seo-content'); ?></h2>
+                    </div>
+                    <button type="button" id="azevent-modal-close" class="azevent-icon-button" aria-label="<?php esc_attr_e('Đóng cửa sổ', 'azevent-seo-content'); ?>" data-azevent-close>
+                        <span class="dashicons dashicons-no-alt" aria-hidden="true"></span>
+                    </button>
+                </header>
 
-            @keyframes azevent-spin {
-                0% {
-                    transform: rotate(0deg);
-                }
+                <div class="azevent-modal-body">
+                    <section id="azevent-setup-view" class="azevent-view">
+                        <div class="azevent-view-heading">
+                            <span class="azevent-step-kicker"><?php _e('Bước 1', 'azevent-seo-content'); ?></span>
+                            <h3><?php _e('Thiết lập nội dung', 'azevent-seo-content'); ?></h3>
+                            <p><?php _e('Chọn cách xử lý và nhập từ khóa. Ngôn ngữ được lấy tự động từ phần cài đặt.', 'azevent-seo-content'); ?></p>
+                        </div>
 
-                100% {
-                    transform: rotate(360deg);
-                }
-            }
-        </style>
+                        <fieldset class="azevent-mode-picker">
+                            <legend><?php _e('Chế độ', 'azevent-seo-content'); ?></legend>
+                            <label class="azevent-mode-card">
+                                <input type="radio" name="azevent_mode" value="create" <?php checked($default_mode, 'create'); ?>>
+                                <span class="dashicons dashicons-welcome-write-blog" aria-hidden="true"></span>
+                                <span><strong><?php _e('Tạo nội dung mới', 'azevent-seo-content'); ?></strong><small><?php _e('Mỗi dòng tạo một Draft riêng.', 'azevent-seo-content'); ?></small></span>
+                            </label>
+                            <label class="azevent-mode-card<?php echo $is_existing_post ? '' : ' is-disabled'; ?>">
+                                <input type="radio" name="azevent_mode" value="rewrite" <?php checked($default_mode, 'rewrite'); ?> <?php disabled(!$is_existing_post); ?>>
+                                <span class="dashicons dashicons-update" aria-hidden="true"></span>
+                                <span><strong><?php _e('Viết lại bài hiện tại', 'azevent-seo-content'); ?></strong><small><?php _e('Đọc bài đang mở và cải thiện nội dung.', 'azevent-seo-content'); ?></small></span>
+                            </label>
+                        </fieldset>
+
+                        <div class="azevent-field">
+                            <label for="azevent-keywords"><?php _e('Từ khóa chính', 'azevent-seo-content'); ?></label>
+                            <textarea id="azevent-keywords" name="azevent_keywords" rows="6"
+                                placeholder="<?php esc_attr_e("Mỗi dòng một từ khóa. Ví dụ:\nTổ chức hội nghị doanh nghiệp\nDịch vụ gala dinner", 'azevent-seo-content'); ?>"><?php echo esc_textarea($default_mode === 'rewrite' ? $post->post_title : ''); ?></textarea>
+                            <span id="azevent-keyword-help"><?php _e('Tạo mới: mỗi dòng sẽ tạo một Draft riêng.', 'azevent-seo-content'); ?></span>
+                        </div>
+
+                        <div class="azevent-language-summary">
+                            <span class="dashicons dashicons-translation" aria-hidden="true"></span>
+                            <span><?php _e('Ngôn ngữ đầu ra', 'azevent-seo-content'); ?><strong><?php echo esc_html($default_language_label); ?></strong></span>
+                            <a href="<?php echo esc_url(admin_url('admin.php?page=azevent-seo-settings')); ?>"><?php _e('Thay đổi trong cài đặt', 'azevent-seo-content'); ?></a>
+                        </div>
+
+                        <div class="azevent-actions azevent-actions-end">
+                            <button type="button" id="azevent-start-btn" class="button button-primary azevent-primary-button">
+                                <?php _e('Bắt đầu phân tích', 'azevent-seo-content'); ?>
+                                <span class="dashicons dashicons-arrow-right-alt2" aria-hidden="true"></span>
+                            </button>
+                        </div>
+                    </section>
+
+                    <section id="azevent-workflow-view" class="azevent-view" hidden>
+                        <ol class="azevent-stepper" aria-label="<?php esc_attr_e('Tiến trình tạo nội dung', 'azevent-seo-content'); ?>">
+                            <li data-step="intent"><span>1</span><small>Search Intent</small></li>
+                            <li data-step="outline"><span>2</span><small>Outline</small></li>
+                            <li data-step="content"><span>3</span><small>Content</small></li>
+                            <li data-step="seo"><span>4</span><small>SEO</small></li>
+                            <li data-step="review"><span>5</span><small><?php _e('Duyệt bài', 'azevent-seo-content'); ?></small></li>
+                            <li data-step="finish"><span>6</span><small><?php _e('Ảnh & Lưu', 'azevent-seo-content'); ?></small></li>
+                        </ol>
+
+                        <div id="azevent-processing-panel" class="azevent-processing-panel">
+                            <div class="azevent-spinner" aria-hidden="true"></div>
+                            <div>
+                                <span class="azevent-processing-label"><?php _e('Đang xử lý trên trình duyệt', 'azevent-seo-content'); ?></span>
+                                <h3 id="azevent-status-text"><?php _e('Đang chuẩn bị...', 'azevent-seo-content'); ?></h3>
+                                <p><?php _e('Giữ tab này mở cho đến khi quy trình hoàn tất.', 'azevent-seo-content'); ?></p>
+                            </div>
+                        </div>
+
+                        <div id="azevent-log" class="azevent-log" aria-live="polite"></div>
+                        <div id="azevent-error-actions" class="azevent-actions azevent-actions-end" hidden>
+                            <button type="button" id="azevent-restart-btn" class="button azevent-secondary-button"><?php _e('Quay lại thiết lập', 'azevent-seo-content'); ?></button>
+                            <button type="button" id="azevent-retry-btn" class="button button-primary azevent-primary-button"><?php _e('Thử lại bước này', 'azevent-seo-content'); ?></button>
+                        </div>
+                    </section>
+
+                    <section id="azevent-review-view" class="azevent-view" hidden>
+                        <div class="azevent-review-header">
+                            <div>
+                                <span class="azevent-step-kicker"><?php _e('Bước duyệt nội dung', 'azevent-seo-content'); ?></span>
+                                <h3><?php _e('Kiểm tra trước khi tạo ảnh và lưu', 'azevent-seo-content'); ?></h3>
+                                <p><?php _e('Nội dung AI chưa được ghi vào Draft cho đến khi bạn bấm duyệt.', 'azevent-seo-content'); ?></p>
+                            </div>
+                            <span class="azevent-review-badge"><?php _e('Chờ duyệt', 'azevent-seo-content'); ?></span>
+                        </div>
+
+                        <div class="azevent-review-meta">
+                            <div><span><?php _e('SEO Title', 'azevent-seo-content'); ?></span><strong id="azevent-review-title"></strong></div>
+                            <div><span><?php _e('Meta Description', 'azevent-seo-content'); ?></span><p id="azevent-review-meta"></p></div>
+                        </div>
+
+                        <div class="azevent-preview-shell">
+                            <div class="azevent-preview-toolbar"><span><?php _e('Xem trước nội dung', 'azevent-seo-content'); ?></span></div>
+                            <iframe id="azevent-review-frame" sandbox="" title="<?php esc_attr_e('Bản xem trước nội dung AI', 'azevent-seo-content'); ?>"></iframe>
+                        </div>
+
+                        <label id="azevent-image-option" class="azevent-check-row">
+                            <input type="checkbox" id="azevent-regenerate-image" value="1">
+                            <span><strong><?php _e('Tạo ảnh đại diện bằng AI', 'azevent-seo-content'); ?></strong><small><?php _e('Bỏ chọn để giữ ảnh hiện tại khi viết lại.', 'azevent-seo-content'); ?></small></span>
+                        </label>
+
+                        <div class="azevent-actions azevent-review-actions">
+                            <button type="button" id="azevent-regenerate-content-btn" class="button azevent-secondary-button">
+                                <span class="dashicons dashicons-update" aria-hidden="true"></span>
+                                <?php _e('Tạo lại nội dung', 'azevent-seo-content'); ?>
+                            </button>
+                            <button type="button" id="azevent-approve-btn" class="button button-primary azevent-primary-button">
+                                <?php _e('Duyệt, tạo ảnh và lưu Draft', 'azevent-seo-content'); ?>
+                                <span class="dashicons dashicons-yes-alt" aria-hidden="true"></span>
+                            </button>
+                        </div>
+                    </section>
+
+                    <section id="azevent-complete-view" class="azevent-view azevent-complete-view" hidden>
+                        <span class="dashicons dashicons-yes-alt" aria-hidden="true"></span>
+                        <h3><?php _e('Đã hoàn tất', 'azevent-seo-content'); ?></h3>
+                        <p id="azevent-complete-message"></p>
+                        <div class="azevent-actions">
+                            <button type="button" class="button azevent-secondary-button" data-azevent-close><?php _e('Đóng', 'azevent-seo-content'); ?></button>
+                            <a id="azevent-complete-link" class="button button-primary azevent-primary-button" href="#"><?php _e('Mở bài Draft', 'azevent-seo-content'); ?></a>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </div>
         <?php
     }
 
@@ -126,11 +206,14 @@ class AzEvent_Editor_Integration
             return;
         }
 
+        wp_enqueue_style('azevent-seo-editor', AZEVENT_SEO_URL . 'admin/css/editor.css', array('dashicons'), AZEVENT_SEO_VERSION);
         wp_enqueue_script('azevent-seo-js', AZEVENT_SEO_URL . 'admin/js/editor.js', array('jquery'), AZEVENT_SEO_VERSION, true);
         wp_localize_script('azevent-seo-js', 'azevent_seo', array(
             'ajax_url' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('azevent_seo_nonce'),
             'post_id' => get_the_ID(),
+            'default_language' => get_option('azevent_seo_default_language', 'Vietnamese'),
+            'admin_url' => admin_url(),
         ));
     }
 
