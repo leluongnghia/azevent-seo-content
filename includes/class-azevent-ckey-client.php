@@ -114,7 +114,12 @@ class AzEvent_CKey_Client
             return new WP_Error('azevent_ckey_missing_model', 'Chưa chọn CKey model.');
         }
 
-        $anthropic_format = strpos($model, '/') !== false && stripos($model, 'claude') !== false;
+        $api_format = sanitize_key($options['api_format'] ?? get_option('azevent_seo_ckey_api_format', 'messages'));
+        if (!in_array($api_format, array('messages', 'auto', 'chat'), true)) {
+            $api_format = 'messages';
+        }
+        $anthropic_format = $api_format === 'messages'
+            || ($api_format === 'auto' && strpos($model, '/') !== false && stripos($model, 'claude') !== false);
         $max_tokens = max(1024, absint($options['max_tokens'] ?? 8192));
         $temperature = isset($options['temperature']) ? (float) $options['temperature'] : 0.7;
         $messages = array(array('role' => 'user', 'content' => $prompt));

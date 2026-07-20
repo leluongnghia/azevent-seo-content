@@ -12,6 +12,7 @@ $azevent_image_model = get_option('aprg_seo_default_cliproxy_image_model', 'gpt-
 $azevent_text_model = get_option('aprg_cliproxy_model', 'claude-sonnet-4-6');
 $azevent_text_provider = get_option('azevent_seo_text_provider', 'azevent');
 $azevent_ckey_model = get_option('azevent_seo_ckey_model', 'sypham98/claude-sonnet-5');
+$azevent_ckey_api_format = get_option('azevent_seo_ckey_api_format', 'messages');
 $azevent_step_models = array(
     'intent' => get_option('azevent_seo_intent_model', ''),
     'outline' => get_option('azevent_seo_outline_model', ''),
@@ -473,7 +474,7 @@ $prompt_tokens = array(
                             <div class="azevent-provider-card-header">
                                 <div>
                                     <h3><?php _e('CKEY.VN Text API', 'azevent-seo-content'); ?></h3>
-                                    <p><?php _e('Hỗ trợ model Claude Messages và OpenAI Chat. CKey chỉ xử lý text; ảnh đại diện tiếp tục dùng AzEvent API.', 'azevent-seo-content'); ?></p>
+                                    <p><?php _e('Mặc định gọi Claude Messages. Có thể chuyển sang Auto hoặc OpenAI Chat cho model đặc biệt. CKey chỉ xử lý text.', 'azevent-seo-content'); ?></p>
                                 </div>
                                 <div class="azevent-status <?php echo $azevent_ckey_ready ? 'is-ready' : 'is-pending'; ?>"><span class="azevent-status-dot"></span><?php echo $azevent_ckey_ready ? esc_html__('Đã cấu hình', 'azevent-seo-content') : esc_html__('Chưa cấu hình', 'azevent-seo-content'); ?></div>
                             </div>
@@ -496,6 +497,15 @@ $prompt_tokens = array(
                                         <button type="button" class="azevent-model-add" id="azevent-add-ckey-model"><?php _e('＋ Thêm model', 'azevent-seo-content'); ?></button>
                                     </div>
                                     <div class="azevent-model-list" id="azevent-ckey-model-list"></div>
+                                </div>
+                                <div class="azevent-field">
+                                    <label for="azevent_seo_ckey_api_format"><?php _e('Định dạng gọi CKey API', 'azevent-seo-content'); ?></label>
+                                    <select id="azevent_seo_ckey_api_format" name="azevent_seo_ckey_api_format">
+                                        <option value="messages" <?php selected($azevent_ckey_api_format, 'messages'); ?>>Claude Messages — /v1/messages (Mặc định)</option>
+                                        <option value="auto" <?php selected($azevent_ckey_api_format, 'auto'); ?>>Tự nhận diện theo model</option>
+                                        <option value="chat" <?php selected($azevent_ckey_api_format, 'chat'); ?>>OpenAI Chat — /v1/chat/completions</option>
+                                    </select>
+                                    <p class="azevent-help"><?php _e('Giữ Claude Messages nếu bạn chủ yếu dùng model Claude từ CKey.', 'azevent-seo-content'); ?></p>
                                 </div>
                             </div>
                             <div class="azevent-legacy-actions">
