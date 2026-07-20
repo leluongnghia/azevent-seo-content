@@ -4,12 +4,19 @@ jQuery(function($) {
     const $setupView = $('#azevent-setup-view');
     const $workflowView = $('#azevent-workflow-view');
     const $intentReviewView = $('#azevent-intent-review-view');
+    const $outlineReviewView = $('#azevent-outline-review-view');
+    const $contentReviewView = $('#azevent-content-review-view');
     const $reviewView = $('#azevent-review-view');
     const $completeView = $('#azevent-complete-view');
     const $queueView = $('#azevent-queue-view');
     const $startButton = $('#azevent-start-btn');
     const $continueOutlineButton = $('#azevent-continue-outline-btn');
     const $rerunIntentButton = $('#azevent-rerun-intent-btn');
+    const $outlineResult = $('#azevent-outline-result-text');
+    const $continueContentButton = $('#azevent-continue-content-btn');
+    const $rerunOutlineButton = $('#azevent-rerun-outline-btn');
+    const $continueSeoButton = $('#azevent-continue-seo-btn');
+    const $regenerateSeoButton = $('#azevent-regenerate-seo-btn');
     const $openQueueButton = $('#azevent-open-queue');
     const $approveButton = $('#azevent-approve-btn');
     const $regenerateButton = $('#azevent-regenerate-content-btn');
@@ -22,7 +29,7 @@ jQuery(function($) {
     const $keywords = $('#azevent-keywords');
     const $keywordHelp = $('#azevent-keyword-help');
     const $regenerateImage = $('#azevent-regenerate-image');
-    const $reviewFrame = $('#azevent-review-frame');
+    const $contentReviewFrame = $('#azevent-content-review-frame');
     const $intentResult = $('#azevent-intent-result-text');
     const $resumeCard = $('#azevent-resume-card');
     const $resumeKeyword = $('#azevent-resume-keyword');
@@ -33,7 +40,7 @@ jQuery(function($) {
     const $queueRows = $('#azevent-queue-rows');
     const $queueEmpty = $('#azevent-queue-empty');
     const $queueNotice = $('#azevent-queue-notice');
-    const stepOrder = ['intent', 'outline', 'content', 'seo', 'review', 'finish'];
+    const stepOrder = ['intent', 'outline', 'content', 'seo', 'finish'];
 
     let studioState = 'idle';
     let isProcessing = false;
@@ -93,6 +100,8 @@ jQuery(function($) {
         $setupView.prop('hidden', view !== 'setup');
         $workflowView.prop('hidden', view !== 'workflow');
         $intentReviewView.prop('hidden', view !== 'intent-review');
+        $outlineReviewView.prop('hidden', view !== 'outline-review');
+        $contentReviewView.prop('hidden', view !== 'content-review');
         $reviewView.prop('hidden', view !== 'review');
         $completeView.prop('hidden', view !== 'complete');
         $queueView.prop('hidden', view !== 'queue');
@@ -240,6 +249,10 @@ jQuery(function($) {
         $regenerateButton.prop('disabled', disabled);
         $continueOutlineButton.prop('disabled', disabled);
         $rerunIntentButton.prop('disabled', disabled);
+        $continueContentButton.prop('disabled', disabled);
+        $rerunOutlineButton.prop('disabled', disabled);
+        $continueSeoButton.prop('disabled', disabled);
+        $regenerateSeoButton.prop('disabled', disabled);
     }
 
     function resetStudio() {
@@ -261,6 +274,7 @@ jQuery(function($) {
         stopQueuePolling();
         $log.empty();
         $intentResult.val('');
+        $outlineResult.val('');
         $processingPanel.removeClass('is-error');
         $errorActions.prop('hidden', true);
         $('.azevent-stepper li').removeClass('is-active is-complete');
@@ -290,13 +304,14 @@ jQuery(function($) {
         currentContext = context || {};
         pendingNextStep = nextStep || 'image';
         setControlsDisabled(false);
-        setActiveStep('review');
+        setActiveStep('seo');
         showView('review');
 
         const seo = currentContext.seo || {};
         $('#azevent-review-title').text(seo.title || keywordQueue[keywordIndex]);
         $('#azevent-review-meta').text(seo.meta || '');
-        $reviewFrame.attr('srcdoc', buildPreviewDocument(currentContext.content || ''));
+        $('#azevent-review-slug').text(seo.slug || '');
+        $('#azevent-review-image-prompt').text(seo.image_prompt || '');
 
         const shouldCreateImage = mode === 'create' || pendingNextStep === 'image';
         $regenerateImage.prop('checked', shouldCreateImage);
@@ -313,11 +328,61 @@ jQuery(function($) {
         isProcessing = false;
         currentContext = context || {};
         setControlsDisabled(false);
+        setActiveStep('intent');
         $intentResult.val(currentContext.search_intent || '');
+        $intentResult.prop('readonly', !!currentContext.outline);
+        $continueOutlineButton.html(
+            currentContext.outline
+                ? 'Xem Outline đã tạo <span class="dashicons dashicons-arrow-right-alt2" aria-hidden="true"></span>'
+                : 'Tiếp tục tạo Outline <span class="dashicons dashicons-arrow-right-alt2" aria-hidden="true"></span>'
+        );
         showView('intent-review');
         window.setTimeout(function() {
             $intentResult.trigger('focus');
         }, 20);
+    }
+
+    function showOutlineReview(context) {
+        studioState = 'outline-review';
+        isProcessing = false;
+        currentContext = context || {};
+        setControlsDisabled(false);
+        setActiveStep('outline');
+        $outlineResult.val(currentContext.outline || '');
+        $outlineResult.prop('readonly', !!currentContext.content);
+        $continueContentButton.html(
+            currentContext.content
+                ? 'Xem Content đã tạo <span class="dashicons dashicons-arrow-right-alt2" aria-hidden="true"></span>'
+                : 'Tiếp tục tạo Content <span class="dashicons dashicons-arrow-right-alt2" aria-hidden="true"></span>'
+        );
+        showView('outline-review');
+    }
+
+    function showContentReview(context) {
+        studioState = 'content-review';
+        isProcessing = false;
+        currentContext = context || {};
+        setControlsDisabled(false);
+        setActiveStep('content');
+        $contentReviewFrame.attr('srcdoc', buildPreviewDocument(currentContext.content || ''));
+        $continueSeoButton.html(
+            currentContext.seo
+                ? 'Xem SEO đã tạo <span class="dashicons dashicons-arrow-right-alt2" aria-hidden="true"></span>'
+                : 'Tiếp tục tạo SEO <span class="dashicons dashicons-arrow-right-alt2" aria-hidden="true"></span>'
+        );
+        showView('content-review');
+    }
+
+    function clearContextAfter(step) {
+        const downstream = {
+            intent: ['search_intent', 'outline', 'content', 'seo'],
+            outline: ['outline', 'content', 'seo'],
+            content: ['content', 'seo'],
+            seo: ['seo']
+        };
+        (downstream[step] || []).forEach(function(key) {
+            delete currentContext[key];
+        });
     }
 
     function createRequestId() {
@@ -364,13 +429,19 @@ jQuery(function($) {
         }
 
         updateStatus(response.data.message || 'Đã hoàn tất bước hiện tại.');
-        if (
-            response.data.next_step === 'outline' &&
-            !azevent_seo.auto_advance &&
-            (step === 'start' || step === 'search_intent')
-        ) {
-            showIntentReview(responseContext);
-            return;
+        if (!azevent_seo.auto_advance) {
+            if (response.data.next_step === 'outline') {
+                showIntentReview(responseContext);
+                return;
+            }
+            if (response.data.next_step === 'content') {
+                showOutlineReview(responseContext);
+                return;
+            }
+            if (response.data.next_step === 'seo') {
+                showContentReview(responseContext);
+                return;
+            }
         }
         if (response.data.next_step === 'image' || response.data.next_step === 'finalize') {
             showReview(responseContext, response.data.next_step);
@@ -485,6 +556,14 @@ jQuery(function($) {
         const nextStep = checkpoint.next_step || lastRequestStep;
         if (nextStep === 'outline' && currentContext.search_intent && !azevent_seo.auto_advance) {
             showIntentReview(currentContext);
+            return;
+        }
+        if (nextStep === 'content' && currentContext.outline && !azevent_seo.auto_advance) {
+            showOutlineReview(currentContext);
+            return;
+        }
+        if (nextStep === 'seo' && currentContext.content && !azevent_seo.auto_advance) {
+            showContentReview(currentContext);
             return;
         }
         if (nextStep === 'image' || nextStep === 'finalize') {
@@ -902,22 +981,77 @@ jQuery(function($) {
             showError('Không tìm thấy Outline để tạo lại nội dung.');
             return;
         }
+        clearContextAfter('content');
         runStep('content', currentContext);
     });
 
     $continueOutlineButton.on('click', function() {
+        if (currentContext.outline) {
+            showOutlineReview(currentContext);
+            return;
+        }
         const reviewedIntent = $intentResult.val().trim();
         if (!reviewedIntent) {
             $intentResult.trigger('focus');
             return;
         }
         currentContext.search_intent = reviewedIntent;
+        delete currentContext.outline;
+        delete currentContext.content;
+        delete currentContext.seo;
         runStep('outline', currentContext);
     });
 
     $rerunIntentButton.on('click', function() {
-        currentContext.search_intent = '';
+        clearContextAfter('intent');
         runStep('search_intent', currentContext);
+    });
+
+    $('#azevent-back-to-intent-btn').on('click', function() {
+        showIntentReview(currentContext);
+    });
+
+    $rerunOutlineButton.on('click', function() {
+        clearContextAfter('outline');
+        runStep('outline', currentContext);
+    });
+
+    $continueContentButton.on('click', function() {
+        if (currentContext.content) {
+            showContentReview(currentContext);
+            return;
+        }
+        const reviewedOutline = $outlineResult.val().trim();
+        if (!reviewedOutline) {
+            $outlineResult.trigger('focus');
+            return;
+        }
+        currentContext.outline = reviewedOutline;
+        delete currentContext.content;
+        delete currentContext.seo;
+        runStep('content', currentContext);
+    });
+
+    $('#azevent-back-to-outline-btn').on('click', function() {
+        showOutlineReview(currentContext);
+    });
+
+    $continueSeoButton.on('click', function() {
+        if (currentContext.seo) {
+            showReview(currentContext, pendingNextStep || 'image');
+            return;
+        }
+        delete currentContext.seo;
+        runStep('seo', currentContext);
+    });
+
+    $('#azevent-back-to-content-btn').on('click', function() {
+        showContentReview(currentContext);
+    });
+
+    $regenerateSeoButton.on('click', function() {
+        clearContextAfter('seo');
+        runStep('seo', currentContext);
     });
 
     $regenerateImage.on('change', function() {

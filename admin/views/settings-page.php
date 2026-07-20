@@ -550,7 +550,7 @@ $prompt_tokens = array(
                                 <input id="azevent_seo_browser_auto_advance" type="checkbox" name="azevent_seo_browser_auto_advance" value="1" <?php checked($azevent_browser_auto_advance, 1); ?>>
                                 <span>
                                     <strong><?php _e('Tự động chuyển sang bước tiếp theo', 'azevent-seo-content'); ?></strong>
-                                    <span><?php _e('Mặc định tắt. Khi tắt, plugin sẽ hiển thị kết quả Search Intent và chờ bạn bấm Tiếp tục tạo Outline.', 'azevent-seo-content'); ?></span>
+                                    <span><?php _e('Mặc định tắt. Khi tắt, plugin sẽ dừng để bạn xem Search Intent, Outline, Content và SEO trước khi bấm tiếp tục.', 'azevent-seo-content'); ?></span>
                                 </span>
                             </label>
                         </div>

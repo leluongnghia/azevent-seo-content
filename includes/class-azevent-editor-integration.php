@@ -157,8 +157,7 @@ class AzEvent_Editor_Integration
                             <li data-step="outline"><span>2</span><small>Outline</small></li>
                             <li data-step="content"><span>3</span><small>Content</small></li>
                             <li data-step="seo"><span>4</span><small>SEO</small></li>
-                            <li data-step="review"><span>5</span><small><?php _e('Duyệt bài', 'azevent-seo-content'); ?></small></li>
-                            <li data-step="finish"><span>6</span><small><?php _e('Ảnh & Lưu', 'azevent-seo-content'); ?></small></li>
+                            <li data-step="finish"><span>5</span><small><?php _e('Ảnh & Lưu', 'azevent-seo-content'); ?></small></li>
                         </ol>
 
                         <div id="azevent-processing-panel" class="azevent-processing-panel">
@@ -209,12 +208,72 @@ class AzEvent_Editor_Integration
                         </div>
                     </section>
 
+                    <section id="azevent-outline-review-view" class="azevent-view" hidden>
+                        <div class="azevent-review-header">
+                            <div>
+                                <span class="azevent-step-kicker"><?php _e('Outline hoàn tất', 'azevent-seo-content'); ?></span>
+                                <h3><?php _e('Kiểm tra dàn ý trước khi viết Content', 'azevent-seo-content'); ?></h3>
+                                <p><?php _e('Bạn có thể chỉnh dàn ý khi Content chưa được tạo. Các nút Quay lại chỉ mở kết quả đã lưu, không gọi lại AI.', 'azevent-seo-content'); ?></p>
+                            </div>
+                            <span class="azevent-review-badge"><?php _e('Chờ tiếp tục', 'azevent-seo-content'); ?></span>
+                        </div>
+
+                        <div class="azevent-step-result">
+                            <label for="azevent-outline-result-text"><?php _e('Kết quả Outline', 'azevent-seo-content'); ?></label>
+                            <textarea id="azevent-outline-result-text" rows="22"></textarea>
+                        </div>
+
+                        <div class="azevent-actions azevent-review-actions">
+                            <button type="button" id="azevent-back-to-intent-btn" class="button azevent-secondary-button">
+                                <span class="dashicons dashicons-arrow-left-alt2" aria-hidden="true"></span>
+                                <?php _e('Xem lại Search Intent', 'azevent-seo-content'); ?>
+                            </button>
+                            <div class="azevent-review-action-group">
+                                <button type="button" id="azevent-rerun-outline-btn" class="button azevent-secondary-button"><?php _e('Tạo lại Outline', 'azevent-seo-content'); ?></button>
+                                <button type="button" id="azevent-continue-content-btn" class="button button-primary azevent-primary-button">
+                                    <?php _e('Tiếp tục tạo Content', 'azevent-seo-content'); ?>
+                                    <span class="dashicons dashicons-arrow-right-alt2" aria-hidden="true"></span>
+                                </button>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="azevent-content-review-view" class="azevent-view" hidden>
+                        <div class="azevent-review-header">
+                            <div>
+                                <span class="azevent-step-kicker"><?php _e('Content hoàn tất', 'azevent-seo-content'); ?></span>
+                                <h3><?php _e('Đọc toàn bộ nội dung trước khi tạo SEO', 'azevent-seo-content'); ?></h3>
+                                <p><?php _e('Bước SEO chưa chạy. Bạn có thể quay lại xem Outline hoặc tạo lại Content trước khi tiếp tục.', 'azevent-seo-content'); ?></p>
+                            </div>
+                            <span class="azevent-review-badge"><?php _e('Chờ tiếp tục', 'azevent-seo-content'); ?></span>
+                        </div>
+
+                        <div class="azevent-preview-shell">
+                            <div class="azevent-preview-toolbar"><span><?php _e('Xem trước Content', 'azevent-seo-content'); ?></span></div>
+                            <iframe id="azevent-content-review-frame" sandbox="" title="<?php esc_attr_e('Bản xem trước Content AI', 'azevent-seo-content'); ?>"></iframe>
+                        </div>
+
+                        <div class="azevent-actions azevent-review-actions">
+                            <button type="button" id="azevent-back-to-outline-btn" class="button azevent-secondary-button">
+                                <span class="dashicons dashicons-arrow-left-alt2" aria-hidden="true"></span>
+                                <?php _e('Xem lại Outline', 'azevent-seo-content'); ?>
+                            </button>
+                            <div class="azevent-review-action-group">
+                                <button type="button" id="azevent-regenerate-content-btn" class="button azevent-secondary-button"><?php _e('Tạo lại Content', 'azevent-seo-content'); ?></button>
+                                <button type="button" id="azevent-continue-seo-btn" class="button button-primary azevent-primary-button">
+                                    <?php _e('Tiếp tục tạo SEO', 'azevent-seo-content'); ?>
+                                    <span class="dashicons dashicons-arrow-right-alt2" aria-hidden="true"></span>
+                                </button>
+                            </div>
+                        </div>
+                    </section>
+
                     <section id="azevent-review-view" class="azevent-view" hidden>
                         <div class="azevent-review-header">
                             <div>
-                                <span class="azevent-step-kicker"><?php _e('Bước duyệt nội dung', 'azevent-seo-content'); ?></span>
-                                <h3><?php _e('Kiểm tra trước khi tạo ảnh và lưu', 'azevent-seo-content'); ?></h3>
-                                <p><?php _e('Nội dung AI chưa được ghi vào Draft cho đến khi bạn bấm duyệt.', 'azevent-seo-content'); ?></p>
+                                <span class="azevent-step-kicker"><?php _e('SEO hoàn tất', 'azevent-seo-content'); ?></span>
+                                <h3><?php _e('Kiểm tra dữ liệu SEO trước khi tạo ảnh và lưu', 'azevent-seo-content'); ?></h3>
+                                <p><?php _e('Đây là bước duyệt cuối. Nội dung chưa được ghi vào Draft cho đến khi bạn bấm duyệt.', 'azevent-seo-content'); ?></p>
                             </div>
                             <span class="azevent-review-badge"><?php _e('Chờ duyệt', 'azevent-seo-content'); ?></span>
                         </div>
@@ -222,11 +281,8 @@ class AzEvent_Editor_Integration
                         <div class="azevent-review-meta">
                             <div><span><?php _e('SEO Title', 'azevent-seo-content'); ?></span><strong id="azevent-review-title"></strong></div>
                             <div><span><?php _e('Meta Description', 'azevent-seo-content'); ?></span><p id="azevent-review-meta"></p></div>
-                        </div>
-
-                        <div class="azevent-preview-shell">
-                            <div class="azevent-preview-toolbar"><span><?php _e('Xem trước nội dung', 'azevent-seo-content'); ?></span></div>
-                            <iframe id="azevent-review-frame" sandbox="" title="<?php esc_attr_e('Bản xem trước nội dung AI', 'azevent-seo-content'); ?>"></iframe>
+                            <div><span><?php _e('Slug', 'azevent-seo-content'); ?></span><p id="azevent-review-slug"></p></div>
+                            <div><span><?php _e('Image Prompt', 'azevent-seo-content'); ?></span><p id="azevent-review-image-prompt"></p></div>
                         </div>
 
                         <label id="azevent-image-option" class="azevent-check-row">
@@ -235,14 +291,17 @@ class AzEvent_Editor_Integration
                         </label>
 
                         <div class="azevent-actions azevent-review-actions">
-                            <button type="button" id="azevent-regenerate-content-btn" class="button azevent-secondary-button">
-                                <span class="dashicons dashicons-update" aria-hidden="true"></span>
-                                <?php _e('Tạo lại nội dung', 'azevent-seo-content'); ?>
+                            <button type="button" id="azevent-back-to-content-btn" class="button azevent-secondary-button">
+                                <span class="dashicons dashicons-arrow-left-alt2" aria-hidden="true"></span>
+                                <?php _e('Xem lại Content', 'azevent-seo-content'); ?>
                             </button>
-                            <button type="button" id="azevent-approve-btn" class="button button-primary azevent-primary-button">
-                                <?php _e('Duyệt, tạo ảnh và lưu Draft', 'azevent-seo-content'); ?>
-                                <span class="dashicons dashicons-yes-alt" aria-hidden="true"></span>
-                            </button>
+                            <div class="azevent-review-action-group">
+                                <button type="button" id="azevent-regenerate-seo-btn" class="button azevent-secondary-button"><?php _e('Tạo lại SEO', 'azevent-seo-content'); ?></button>
+                                <button type="button" id="azevent-approve-btn" class="button button-primary azevent-primary-button">
+                                    <?php _e('Duyệt, tạo ảnh và lưu Draft', 'azevent-seo-content'); ?>
+                                    <span class="dashicons dashicons-yes-alt" aria-hidden="true"></span>
+                                </button>
+                            </div>
                         </div>
                     </section>
 
