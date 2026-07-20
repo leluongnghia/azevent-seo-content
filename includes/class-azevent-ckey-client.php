@@ -11,6 +11,7 @@ class AzEvent_CKey_Client
 
     private $api_key;
     private $model;
+    private $last_text_metrics = array();
 
     public function __construct($api_key = '', $model = '')
     {
@@ -21,6 +22,11 @@ class AzEvent_CKey_Client
     public static function is_configured()
     {
         return trim((string) get_option('azevent_seo_ckey_api_key', '')) !== '';
+    }
+
+    public function get_last_text_metrics()
+    {
+        return $this->last_text_metrics;
     }
 
     public static function get_default_models()
@@ -101,6 +107,8 @@ class AzEvent_CKey_Client
 
     public function generate_text($prompt, $system_prompt = '', array $options = array())
     {
+        $started_at = microtime(true);
+        $this->last_text_metrics = array();
         $prompt = trim((string) $prompt);
         if ($prompt === '') {
             return new WP_Error('azevent_ckey_empty_prompt', 'CKey prompt đang trống.');
@@ -148,15 +156,23 @@ class AzEvent_CKey_Client
             : 0;
         $combined_content = '';
         $continuation_count = 0;
+        $request_count = 0;
+        $attempt_count = 0;
+        $usage = array('input_tokens' => 0, 'output_tokens' => 0, 'total_tokens' => 0, 'reported' => false);
 
         while (true) {
             $completion = $this->request_completion($path, $body, $anthropic_format, $model);
             if (is_wp_error($completion)) {
+                $this->finish_text_metrics($started_at, $model, $usage, $request_count, $attempt_count, 'error');
                 return $completion;
             }
+            $request_count++;
+            $attempt_count += max(1, absint($completion['attempts'] ?? 1));
+            $usage = $this->merge_usage($usage, $completion['usage'] ?? array());
 
             $segment = (string) $completion['content'];
             if (trim($segment) === '') {
+                $this->finish_text_metrics($started_at, $model, $usage, $request_count, $attempt_count, 'error');
                 return new WP_Error('azevent_ckey_empty_response', 'CKey API không trả về nội dung.');
             }
             $combined_content = $this->append_text_segment($combined_content, $segment);
@@ -165,9 +181,11 @@ class AzEvent_CKey_Client
                 $truncated = $this->looks_like_incomplete_content($combined_content);
             }
             if (!$truncated) {
+                $this->finish_text_metrics($started_at, $model, $usage, $request_count, $attempt_count, 'success');
                 return trim($combined_content);
             }
             if (!$auto_continue || $continuation_count >= $max_continuations) {
+                $this->finish_text_metrics($started_at, $model, $usage, $request_count, $attempt_count, 'error');
                 return new WP_Error(
                     'azevent_ckey_text_truncated',
                     'CKey AI đã dừng vì hết giới hạn token trước khi hoàn tất nội dung. Hãy chọn model có output dài hơn hoặc rút gọn Outline.'
@@ -206,6 +224,8 @@ class AzEvent_CKey_Client
             return array(
                 'content' => $content,
                 'finish_reason' => sanitize_key((string) ($result['data']['stop_reason'] ?? '')),
+                'usage' => $this->normalize_usage($result['data']['usage'] ?? array()),
+                'attempts' => max(1, absint($result['attempts'] ?? 1)),
             );
         }
 
@@ -215,6 +235,8 @@ class AzEvent_CKey_Client
         return array(
             'content' => $this->normalize_text_content($choice['message']['content'] ?? ''),
             'finish_reason' => sanitize_key((string) ($choice['finish_reason'] ?? $choice['stop_reason'] ?? '')),
+            'usage' => $this->normalize_usage($result['data']['usage'] ?? array()),
+            'attempts' => max(1, absint($result['attempts'] ?? 1)),
         );
     }
 
@@ -259,7 +281,46 @@ class AzEvent_CKey_Client
             'status' => (int) wp_remote_retrieve_response_code($response),
             'data' => is_array($data) ? $data : array(),
             'raw_body' => $raw_body,
+            'attempts' => $attempt + 1,
         );
+    }
+
+    private function normalize_usage($usage)
+    {
+        if (!is_array($usage) || empty($usage)) {
+            return array('input_tokens' => 0, 'output_tokens' => 0, 'total_tokens' => 0, 'reported' => false);
+        }
+        $input = absint($usage['prompt_tokens'] ?? $usage['input_tokens'] ?? 0);
+        $output = absint($usage['completion_tokens'] ?? $usage['output_tokens'] ?? 0);
+        $total = absint($usage['total_tokens'] ?? ($input + $output));
+        return array(
+            'input_tokens' => $input,
+            'output_tokens' => $output,
+            'total_tokens' => $total ?: ($input + $output),
+            'reported' => $input > 0 || $output > 0 || $total > 0,
+        );
+    }
+
+    private function merge_usage(array $total, $usage)
+    {
+        $usage = $this->normalize_usage($usage);
+        $total['input_tokens'] = absint($total['input_tokens'] ?? 0) + $usage['input_tokens'];
+        $total['output_tokens'] = absint($total['output_tokens'] ?? 0) + $usage['output_tokens'];
+        $total['total_tokens'] = absint($total['total_tokens'] ?? 0) + $usage['total_tokens'];
+        $total['reported'] = !empty($total['reported']) || !empty($usage['reported']);
+        return $total;
+    }
+
+    private function finish_text_metrics($started_at, $model, array $usage, $requests, $attempts, $status)
+    {
+        $this->last_text_metrics = array_merge($usage, array(
+            'provider' => 'CKey',
+            'model' => sanitize_text_field($model),
+            'duration_seconds' => round(max(0, microtime(true) - $started_at), 3),
+            'requests' => absint($requests),
+            'attempts' => absint($attempts),
+            'status' => sanitize_key($status),
+        ));
     }
 
     private function extract_error_message($data, $status, $raw_body = '')

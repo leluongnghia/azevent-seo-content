@@ -807,9 +807,11 @@ $lab_prompt_tokens = array(
                                 <div class="azevent-field">
                                     <label for="azevent_lab_serp_fetch_pages"><?php _e('Đọc cấu trúc trang đối thủ', 'azevent-seo-content'); ?></label>
                                     <select id="azevent_lab_serp_fetch_pages" name="azevent_lab_serp_fetch_pages">
-                                        <option value="0" <?php selected(absint(get_option('azevent_lab_serp_fetch_pages', 3)), 0); ?>><?php _e('Không đọc trang — chỉ dùng SERP', 'azevent-seo-content'); ?></option>
-                                        <option value="3" <?php selected(absint(get_option('azevent_lab_serp_fetch_pages', 3)), 3); ?>><?php _e('Đọc 3 trang đầu', 'azevent-seo-content'); ?></option>
-                                        <option value="5" <?php selected(absint(get_option('azevent_lab_serp_fetch_pages', 3)), 5); ?>><?php _e('Đọc 5 trang đầu', 'azevent-seo-content'); ?></option>
+                                        <option value="0" <?php selected(absint(get_option('azevent_lab_serp_fetch_pages', 2)), 0); ?>><?php _e('Không đọc trang — chỉ dùng SERP', 'azevent-seo-content'); ?></option>
+                                        <option value="1" <?php selected(absint(get_option('azevent_lab_serp_fetch_pages', 2)), 1); ?>><?php _e('Đọc 1 trang đầu — nhanh', 'azevent-seo-content'); ?></option>
+                                        <option value="2" <?php selected(absint(get_option('azevent_lab_serp_fetch_pages', 2)), 2); ?>><?php _e('Đọc 2 trang đầu — khuyến nghị', 'azevent-seo-content'); ?></option>
+                                        <option value="3" <?php selected(absint(get_option('azevent_lab_serp_fetch_pages', 2)), 3); ?>><?php _e('Đọc 3 trang đầu', 'azevent-seo-content'); ?></option>
+                                        <option value="5" <?php selected(absint(get_option('azevent_lab_serp_fetch_pages', 2)), 5); ?>><?php _e('Đọc 5 trang đầu — chậm hơn', 'azevent-seo-content'); ?></option>
                                     </select>
                                     <p class="azevent-help"><?php _e('Chỉ lưu title, meta và tối đa 24 heading; không sao chép toàn bộ nội dung.', 'azevent-seo-content'); ?></p>
                                 </div>

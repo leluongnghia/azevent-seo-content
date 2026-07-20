@@ -80,7 +80,7 @@ $recent_query = new WP_Query(array(
 
                 <div id="azlab-processing" class="azlab-processing" hidden>
                     <span class="azlab-spinner"></span>
-                    <div><strong id="azlab-processing-title"><?php _e('AI đang xử lý...', 'azevent-seo-content'); ?></strong><p><?php _e('Checkpoint trước bước hiện tại đã được lưu. Nếu request lỗi, bạn có thể mở lại phiên và chạy lại bước này.', 'azevent-seo-content'); ?></p></div>
+                    <div><strong id="azlab-processing-title"><?php _e('AI đang xử lý...', 'azevent-seo-content'); ?></strong><p><?php _e('Checkpoint trước bước hiện tại đã được lưu. Nếu request lỗi, bạn có thể mở lại phiên và chạy lại bước này.', 'azevent-seo-content'); ?></p><small id="azlab-processing-elapsed"><?php _e('Đã chạy 0 giây', 'azevent-seo-content'); ?></small></div>
                 </div>
 
                 <div id="azlab-review" class="azlab-review" hidden>
@@ -154,6 +154,34 @@ $recent_query = new WP_Query(array(
                         </div>
                     </div>
                 </div>
+
+                <section id="azlab-log-panel" class="azlab-log-panel" hidden>
+                    <div class="azlab-log-heading">
+                        <div><span class="azlab-kicker"><?php _e('Chẩn đoán', 'azevent-seo-content'); ?></span><h3><?php _e('Nhật ký phiên', 'azevent-seo-content'); ?></h3></div>
+                        <button id="azlab-copy-log" type="button" class="button"><span class="dashicons dashicons-clipboard"></span> <?php _e('Sao chép log', 'azevent-seo-content'); ?></button>
+                    </div>
+                    <p><?php _e('Log hiển thị bước, model, provider, thời gian và lỗi API; không chứa API key.', 'azevent-seo-content'); ?></p>
+                    <pre id="azlab-log-output" aria-live="polite"></pre>
+                </section>
+
+                <section id="azlab-metrics-panel" class="azlab-metrics-panel" hidden>
+                    <div class="azlab-log-heading">
+                        <div><span class="azlab-kicker"><?php _e('Usage Report', 'azevent-seo-content'); ?></span><h3><?php _e('Token & thời gian xử lý', 'azevent-seo-content'); ?></h3></div>
+                        <span id="azlab-metrics-note" class="azlab-metrics-note"></span>
+                    </div>
+                    <div class="azlab-metrics-summary">
+                        <div><span><?php _e('Tổng token', 'azevent-seo-content'); ?></span><strong id="azlab-total-tokens">0</strong></div>
+                        <div><span><?php _e('Input token', 'azevent-seo-content'); ?></span><strong id="azlab-input-tokens">0</strong></div>
+                        <div><span><?php _e('Output token', 'azevent-seo-content'); ?></span><strong id="azlab-output-tokens">0</strong></div>
+                        <div><span><?php _e('Tổng thời gian', 'azevent-seo-content'); ?></span><strong id="azlab-total-duration">0 giây</strong></div>
+                    </div>
+                    <div class="azlab-metrics-table-wrap">
+                        <table class="azlab-metrics-table">
+                            <thead><tr><th><?php _e('Bước', 'azevent-seo-content'); ?></th><th><?php _e('Model', 'azevent-seo-content'); ?></th><th><?php _e('Lượt', 'azevent-seo-content'); ?></th><th><?php _e('Input', 'azevent-seo-content'); ?></th><th><?php _e('Output', 'azevent-seo-content'); ?></th><th><?php _e('Tổng token', 'azevent-seo-content'); ?></th><th><?php _e('AI / toàn bước', 'azevent-seo-content'); ?></th></tr></thead>
+                            <tbody id="azlab-metrics-body"></tbody>
+                        </table>
+                    </div>
+                </section>
             </div>
         </section>
 
@@ -165,11 +193,14 @@ $recent_query = new WP_Query(array(
                         <?php foreach ($recent_query->posts as $recent_post) : ?>
                             <?php $session = get_post_meta($recent_post->ID, AzEvent_Workflow_Lab_Pipeline::SESSION_META, true); ?>
                             <?php if (!is_array($session)) { continue; } ?>
-                            <a href="<?php echo esc_url(add_query_arg('azevent_lab_post', $recent_post->ID, admin_url('admin.php?page=azevent-seo-workflow-lab'))); ?>">
-                                <strong><?php echo esc_html($session['input']['keyword'] ?? get_the_title($recent_post)); ?></strong>
-                                <span><?php echo esc_html(($session['status'] ?? 'paused') === 'completed' ? 'Đã hoàn tất' : 'Đã lưu: ' . ($session['last_completed_step'] ?? 'setup')); ?></span>
-                                <small><?php echo esc_html(get_the_modified_date('d/m/Y H:i', $recent_post)); ?></small>
-                            </a>
+                            <article class="azlab-session-item" data-session-id="<?php echo esc_attr($recent_post->ID); ?>">
+                                <a href="<?php echo esc_url(add_query_arg('azevent_lab_post', $recent_post->ID, admin_url('admin.php?page=azevent-seo-workflow-lab'))); ?>">
+                                    <strong><?php echo esc_html($session['input']['keyword'] ?? get_the_title($recent_post)); ?></strong>
+                                    <span><?php echo esc_html(($session['status'] ?? 'paused') === 'completed' ? 'Đã hoàn tất' : 'Đã lưu: ' . ($session['last_completed_step'] ?? 'setup')); ?></span>
+                                    <small><?php echo esc_html(get_the_modified_date('d/m/Y H:i', $recent_post)); ?></small>
+                                </a>
+                                <button type="button" class="azlab-delete-session" data-session-id="<?php echo esc_attr($recent_post->ID); ?>" aria-label="<?php esc_attr_e('Xoá phiên', 'azevent-seo-content'); ?>" title="<?php esc_attr_e('Xoá phiên, giữ nguyên bài Draft', 'azevent-seo-content'); ?>"><span class="dashicons dashicons-trash"></span></button>
+                            </article>
                         <?php endforeach; ?>
                     <?php else : ?>
                         <div class="azlab-empty"><span class="dashicons dashicons-media-document"></span><p><?php _e('Chưa có phiên SEO Workflow Lab.', 'azevent-seo-content'); ?></p></div>

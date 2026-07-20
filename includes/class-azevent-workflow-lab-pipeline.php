@@ -7,6 +7,7 @@ if (!defined('ABSPATH')) {
 class AzEvent_Workflow_Lab_Pipeline
 {
     const SESSION_META = '_azevent_seo_workflow_lab';
+    private $last_ai_metrics = array();
 
     public static function get_default_prompts()
     {
@@ -45,6 +46,14 @@ class AzEvent_Workflow_Lab_Pipeline
                 'generate_image' => !empty($input['generate_image']),
             ),
             'results' => array(),
+            'logs' => array(
+                array(
+                    'timestamp' => time(),
+                    'level' => 'success',
+                    'step' => 'setup',
+                    'message' => 'Đã tạo phiên SEO Workflow Lab bằng plugin v' . AZEVENT_SEO_VERSION . ' và lưu Draft checkpoint.',
+                ),
+            ),
             'created_at' => time(),
             'updated_at' => time(),
         );
@@ -71,7 +80,8 @@ class AzEvent_Workflow_Lab_Pipeline
         $context['current_step'] = $step;
         $context['status'] = 'processing';
         $context['updated_at'] = time();
-        update_post_meta($post_id, self::SESSION_META, $context);
+        $step_started_at = microtime(true);
+        $this->append_log($post_id, $context, 'info', $step, 'Bắt đầu xử lý bước ' . $this->step_label($step) . '.');
 
         $method = 'run_' . $step;
         $result = $this->{$method}($post_id, $context, (bool) $skip_image);
@@ -79,13 +89,29 @@ class AzEvent_Workflow_Lab_Pipeline
             $context['status'] = 'failed';
             $context['error'] = $result->get_error_message();
             $context['updated_at'] = time();
-            update_post_meta($post_id, self::SESSION_META, $context);
+            unset($context['pending_job']);
+            $this->record_step_duration($context, $step, microtime(true) - $step_started_at, 'error');
+            $this->append_log(
+                $post_id,
+                $context,
+                'error',
+                $step,
+                'Bước ' . $this->step_label($step) . ' thất bại sau ' . $this->format_duration(microtime(true) - $step_started_at) . ': ' . $result->get_error_message()
+            );
             $result->add_data(array('context' => $context, 'post_id' => $post_id));
             return $result;
         }
 
         $context = $result['context'];
-        update_post_meta($post_id, self::SESSION_META, $context);
+        unset($context['pending_job']);
+        $this->record_step_duration($context, $step, microtime(true) - $step_started_at, 'success');
+        $this->append_log(
+            $post_id,
+            $context,
+            'success',
+            $step,
+            'Hoàn thành bước ' . $this->step_label($step) . ' trong ' . $this->format_duration(microtime(true) - $step_started_at) . '.'
+        );
 
         return array(
             'post_id' => $post_id,
@@ -97,22 +123,80 @@ class AzEvent_Workflow_Lab_Pipeline
         );
     }
 
-    private function run_research($post_id, array $context)
+    public function queue_step($post_id, $step, array $context, array $edits = array(), $skip_image = false)
+    {
+        $post_id = absint($post_id);
+        $step = sanitize_key($step);
+        $allowed_steps = array('research', 'brief', 'content', 'seo', 'quality', 'finalize');
+        if (!in_array($step, $allowed_steps, true)) {
+            return new WP_Error('azevent_lab_invalid_step', 'Bước SEO Workflow Lab không hợp lệ.');
+        }
+        if (in_array(($context['status'] ?? ''), array('queued', 'processing'), true)) {
+            return new WP_Error('azevent_lab_step_busy', 'Phiên đang có một bước chạy nền. Vui lòng chờ bước đó hoàn tất.');
+        }
+
+        $context = $this->apply_edits($context, $edits);
+        $job_id = wp_generate_uuid4();
+        $context['status'] = 'queued';
+        $context['current_step'] = $step;
+        $context['pending_job'] = array(
+            'id' => $job_id,
+            'step' => $step,
+            'skip_image' => (bool) $skip_image,
+            'queued_at' => time(),
+        );
+        $context['updated_at'] = time();
+        $this->append_log($post_id, $context, 'info', $step, 'Đã đưa bước ' . $this->step_label($step) . ' vào hàng đợi nền. Có thể đóng tab và mở lại phiên để theo dõi.');
+
+        return array(
+            'post_id' => $post_id,
+            'job_id' => $job_id,
+            'context' => $context,
+        );
+    }
+
+    private function run_research($post_id, array &$context)
     {
         $manual_competitor_notes = trim((string) ($context['input']['competitor_notes'] ?? ''));
         if ($manual_competitor_notes === '' && empty($context['serp_snapshot']['organic_results'])) {
+            $serp_started_at = microtime(true);
+            $this->append_log(
+                $post_id,
+                $context,
+                'info',
+                'research',
+                sprintf(
+                    'Đang gọi SerpApi và đọc cấu trúc tối đa %d trang đối thủ.',
+                    min(5, max(0, absint(get_option('azevent_lab_serp_fetch_pages', 2))))
+                )
+            );
             $serp_snapshot = (new AzEvent_SERP_Client())->search($context['input']['keyword']);
             if (is_wp_error($serp_snapshot)) {
                 return $serp_snapshot;
             }
             $context['serp_snapshot'] = $serp_snapshot;
             $context['competitor_source'] = 'automatic_serp';
+            $this->append_log(
+                $post_id,
+                $context,
+                'success',
+                'research',
+                sprintf(
+                    'Đã nhận %d kết quả đối thủ trong %s%s.',
+                    count((array) ($serp_snapshot['organic_results'] ?? array())),
+                    $this->format_duration(microtime(true) - $serp_started_at),
+                    !empty($serp_snapshot['cache_hit']) ? ' (dữ liệu cache)' : ''
+                )
+            );
         } elseif ($manual_competitor_notes !== '') {
             $context['competitor_source'] = 'manual';
+            $this->append_log($post_id, $context, 'info', 'research', 'Đang dùng dữ liệu đối thủ nhập thủ công, không gọi SerpApi.');
         }
         $prompts = $this->build_prompts('research', $context);
 
+        $this->log_ai_request($post_id, $context, 'research', 4096, array(), $prompts);
         $result = $this->call_text('research', $prompts['user'], $prompts['system'], 4096);
+        $this->record_ai_metrics($post_id, $context, 'research', $prompts, $result);
         if (is_wp_error($result)) {
             return $result;
         }
@@ -121,7 +205,7 @@ class AzEvent_Workflow_Lab_Pipeline
         return $this->complete_step($context, 'research', 'brief');
     }
 
-    private function run_brief($post_id, array $context)
+    private function run_brief($post_id, array &$context)
     {
         if (empty($context['results']['research'])) {
             return new WP_Error('azevent_lab_missing_research', 'Chưa có kết quả Research.');
@@ -129,9 +213,12 @@ class AzEvent_Workflow_Lab_Pipeline
 
         $candidates = $this->find_internal_link_candidates($context['input']['keyword'], $post_id);
         $context['internal_link_candidates'] = $candidates;
+        $this->append_log($post_id, $context, 'info', 'brief', sprintf('Đã tìm thấy %d ứng viên internal link từ bài Published.', count($candidates)));
         $prompts = $this->build_prompts('brief', $context, $candidates);
 
+        $this->log_ai_request($post_id, $context, 'brief', 6144, array('auto_continue' => true, 'max_continuations' => 1), $prompts);
         $result = $this->call_text('brief', $prompts['user'], $prompts['system'], 6144, array('auto_continue' => true, 'max_continuations' => 1));
+        $this->record_ai_metrics($post_id, $context, 'brief', $prompts, $result);
         if (is_wp_error($result)) {
             return $result;
         }
@@ -140,7 +227,7 @@ class AzEvent_Workflow_Lab_Pipeline
         return $this->complete_step($context, 'brief', 'content');
     }
 
-    private function run_content($post_id, array $context)
+    private function run_content($post_id, array &$context)
     {
         if (empty($context['results']['brief'])) {
             return new WP_Error('azevent_lab_missing_brief', 'Chưa có Content Brief & Outline.');
@@ -148,11 +235,14 @@ class AzEvent_Workflow_Lab_Pipeline
 
         $prompts = $this->build_prompts('content', $context);
 
-        $result = $this->call_text('content', $prompts['user'], $prompts['system'], 8192, array(
+        $generation_options = array(
             'auto_continue' => true,
             'max_continuations' => 2,
             'detect_incomplete_ending' => true,
-        ));
+        );
+        $this->log_ai_request($post_id, $context, 'content', 8192, $generation_options, $prompts);
+        $result = $this->call_text('content', $prompts['user'], $prompts['system'], 8192, $generation_options);
+        $this->record_ai_metrics($post_id, $context, 'content', $prompts, $result);
         if (is_wp_error($result)) {
             return $result;
         }
@@ -165,7 +255,7 @@ class AzEvent_Workflow_Lab_Pipeline
         return $this->complete_step($context, 'content', 'seo');
     }
 
-    private function run_seo($post_id, array $context)
+    private function run_seo($post_id, array &$context)
     {
         if (empty($context['results']['content'])) {
             return new WP_Error('azevent_lab_missing_content', 'Chưa có nội dung để tạo SEO metadata.');
@@ -173,7 +263,9 @@ class AzEvent_Workflow_Lab_Pipeline
 
         $prompts = $this->build_prompts('seo', $context);
 
+        $this->log_ai_request($post_id, $context, 'seo', 3072, array(), $prompts);
         $result = $this->call_text('seo', $prompts['user'], $prompts['system'], 3072);
+        $this->record_ai_metrics($post_id, $context, 'seo', $prompts, $result);
         if (is_wp_error($result)) {
             return $result;
         }
@@ -186,7 +278,7 @@ class AzEvent_Workflow_Lab_Pipeline
         return $this->complete_step($context, 'seo', 'quality');
     }
 
-    private function run_quality($post_id, array $context)
+    private function run_quality($post_id, array &$context)
     {
         if (empty($context['results']['content']) || empty($context['results']['seo'])) {
             return new WP_Error('azevent_lab_missing_quality_input', 'Thiếu Content hoặc SEO metadata để kiểm tra chất lượng.');
@@ -198,7 +290,9 @@ class AzEvent_Workflow_Lab_Pipeline
         $original_content = $context['results']['content'];
         $prompts = $this->build_prompts('quality', $context, $candidates);
 
+        $this->log_ai_request($post_id, $context, 'quality', 4096, array(), $prompts);
         $result = $this->call_text('quality', $prompts['user'], $prompts['system'], 4096);
+        $this->record_ai_metrics($post_id, $context, 'quality', $prompts, $result);
         if (is_wp_error($result)) {
             return $result;
         }
@@ -233,7 +327,7 @@ class AzEvent_Workflow_Lab_Pipeline
         return $this->complete_step($context, 'quality', 'finalize');
     }
 
-    private function run_finalize($post_id, array $context, $skip_image)
+    private function run_finalize($post_id, array &$context, $skip_image)
     {
         if (empty($context['results']['quality']) || empty($context['results']['content']) || empty($context['results']['seo'])) {
             return new WP_Error('azevent_lab_missing_final_data', 'Chưa hoàn thành Quality Gate.');
@@ -246,6 +340,7 @@ class AzEvent_Workflow_Lab_Pipeline
                 return new WP_Error('azevent_lab_image_api_missing', 'Chưa cấu hình AzEvent API tạo ảnh. Bạn có thể chọn “Lưu Draft không ảnh”.');
             }
             $prompt = $seo['image_prompt'] . ' Professional event photography, realistic lighting, high resolution, no text, no logo, no watermark.';
+            $this->append_log($post_id, $context, 'info', 'finalize', 'Đang gọi AzEvent API để tạo ảnh đại diện.');
             $image_result = (new AzEvent_AI_Service())->generate_image($prompt, '', '1:1');
             if (is_wp_error($image_result)) {
                 return $image_result;
@@ -256,6 +351,9 @@ class AzEvent_Workflow_Lab_Pipeline
             }
             set_post_thumbnail($post_id, $attachment_id);
             $image_status = 'created';
+            $this->append_log($post_id, $context, 'success', 'finalize', 'Đã tạo, tải lên và gắn ảnh đại diện.');
+        } else {
+            $this->append_log($post_id, $context, 'info', 'finalize', 'Bỏ qua tạo ảnh đại diện theo lựa chọn hiện tại.');
         }
 
         $updated = wp_update_post(array(
@@ -366,6 +464,22 @@ class AzEvent_Workflow_Lab_Pipeline
 
     private function call_text($step, $user_prompt, $system_prompt, $max_tokens, array $options = array())
     {
+        $request = $this->resolve_text_request($step);
+        $started_at = microtime(true);
+        $service = new AzEvent_AI_Service();
+        $result = $service->call_anthropic($user_prompt, $system_prompt, $request['model'], $max_tokens, $options);
+        $this->last_ai_metrics = $service->get_last_text_metrics();
+        if (empty($this->last_ai_metrics['duration_seconds'])) {
+            $this->last_ai_metrics['duration_seconds'] = round(max(0, microtime(true) - $started_at), 3);
+        }
+        $this->last_ai_metrics['provider'] = $this->last_ai_metrics['provider'] ?? $request['provider'];
+        $this->last_ai_metrics['model'] = $this->last_ai_metrics['model'] ?? $request['model'];
+
+        return $result;
+    }
+
+    private function resolve_text_request($step)
+    {
         $model_map = array(
             'research' => 'intent',
             'brief' => 'outline',
@@ -387,7 +501,165 @@ class AzEvent_Workflow_Lab_Pipeline
             $model = $fallback_model;
         }
 
-        return (new AzEvent_AI_Service())->call_anthropic($user_prompt, $system_prompt, $model, $max_tokens, $options);
+        if (AzEvent_CKey_Client::is_model_reference($model)) {
+            $effective_provider = 'CKey';
+        } elseif (AzEvent_API_Client::is_configured()) {
+            $effective_provider = 'AzEvent API';
+        } else {
+            $effective_provider = 'Anthropic trực tiếp';
+            if ($model === '') {
+                $model = sanitize_text_field(get_option('azevent_seo_anthropic_model', 'claude-3-5-sonnet-20240620'));
+            }
+        }
+
+        return array(
+            'provider' => $effective_provider,
+            'model' => $model,
+        );
+    }
+
+    private function log_ai_request($post_id, array &$context, $step, $max_tokens, array $options = array(), array $prompts = array())
+    {
+        $request = $this->resolve_text_request($step);
+        $continuations = !empty($options['auto_continue'])
+            ? min(3, max(1, absint($options['max_continuations'] ?? 2)))
+            : 0;
+        $prompt_text = (string) ($prompts['system'] ?? '') . (string) ($prompts['user'] ?? '');
+        $prompt_length = function_exists('mb_strlen') ? mb_strlen($prompt_text) : strlen($prompt_text);
+        $message = sprintf(
+            'Đang gọi %s · model %s · input %s ký tự · giới hạn %s output token',
+            $request['provider'],
+            $request['model'] !== '' ? $request['model'] : '(model mặc định của API)',
+            number_format_i18n($prompt_length),
+            number_format_i18n(absint($max_tokens))
+        );
+        if ($request['provider'] === 'AzEvent API') {
+            $message .= ' · endpoint ' . AzEvent_API_Client::get_base_url();
+        }
+        if ($continuations > 0) {
+            $message .= sprintf(' · có thể gọi tiếp tối đa %d lần nếu nội dung bị cắt', $continuations);
+        }
+        $this->append_log($post_id, $context, 'info', $step, $message . '.');
+    }
+
+    private function record_ai_metrics($post_id, array &$context, $step, array $prompts, $result)
+    {
+        $metrics = is_array($this->last_ai_metrics) ? $this->last_ai_metrics : array();
+        $reported = !empty($metrics['reported']);
+        $prompt_text = (string) ($prompts['system'] ?? '') . (string) ($prompts['user'] ?? '');
+        $result_text = is_wp_error($result) ? '' : (string) $result;
+        $input_tokens = absint($metrics['input_tokens'] ?? 0);
+        $output_tokens = absint($metrics['output_tokens'] ?? 0);
+        if (!$reported) {
+            $input_tokens = $this->estimate_tokens($prompt_text);
+            $output_tokens = $this->estimate_tokens($result_text);
+        }
+        $total_tokens = absint($metrics['total_tokens'] ?? 0);
+        if (!$reported || $total_tokens <= 0) {
+            $total_tokens = $input_tokens + $output_tokens;
+        }
+
+        if (!isset($context['metrics']) || !is_array($context['metrics'])) {
+            $context['metrics'] = array('steps' => array());
+        }
+        if (!isset($context['metrics']['steps']) || !is_array($context['metrics']['steps'])) {
+            $context['metrics']['steps'] = array();
+        }
+        $current = isset($context['metrics']['steps'][$step]) && is_array($context['metrics']['steps'][$step])
+            ? $context['metrics']['steps'][$step]
+            : array();
+        $current['runs'] = absint($current['runs'] ?? 0) + 1;
+        $current['input_tokens'] = absint($current['input_tokens'] ?? 0) + $input_tokens;
+        $current['output_tokens'] = absint($current['output_tokens'] ?? 0) + $output_tokens;
+        $current['total_tokens'] = absint($current['total_tokens'] ?? 0) + $total_tokens;
+        $current['ai_duration_seconds'] = round((float) ($current['ai_duration_seconds'] ?? 0) + (float) ($metrics['duration_seconds'] ?? 0), 3);
+        $current['requests'] = absint($current['requests'] ?? 0) + max(1, absint($metrics['requests'] ?? 1));
+        $current['attempts'] = absint($current['attempts'] ?? 0) + max(1, absint($metrics['attempts'] ?? 1));
+        $current['estimated_runs'] = absint($current['estimated_runs'] ?? 0) + ($reported ? 0 : 1);
+        $current['provider'] = sanitize_text_field($metrics['provider'] ?? '');
+        $current['model'] = sanitize_text_field($metrics['model'] ?? '');
+        $current['last_status'] = is_wp_error($result) ? 'error' : 'success';
+        $context['metrics']['steps'][$step] = $current;
+
+        $this->append_log(
+            $post_id,
+            $context,
+            is_wp_error($result) ? 'error' : 'success',
+            $step,
+            sprintf(
+                'AI %s sau %s · input %s token + output %s token = %s token%s · %d request/%d lần thử.',
+                is_wp_error($result) ? 'trả lỗi' : 'hoàn tất',
+                $this->format_duration((float) ($metrics['duration_seconds'] ?? 0)),
+                number_format_i18n($input_tokens),
+                number_format_i18n($output_tokens),
+                number_format_i18n($total_tokens),
+                $reported ? '' : ' (ước tính)',
+                max(1, absint($metrics['requests'] ?? 1)),
+                max(1, absint($metrics['attempts'] ?? 1))
+            )
+        );
+    }
+
+    private function record_step_duration(array &$context, $step, $seconds, $status)
+    {
+        if (!isset($context['metrics']) || !is_array($context['metrics'])) {
+            $context['metrics'] = array('steps' => array());
+        }
+        if (!isset($context['metrics']['steps']) || !is_array($context['metrics']['steps'])) {
+            $context['metrics']['steps'] = array();
+        }
+        $current = isset($context['metrics']['steps'][$step]) && is_array($context['metrics']['steps'][$step])
+            ? $context['metrics']['steps'][$step]
+            : array();
+        $current['step_duration_seconds'] = round((float) ($current['step_duration_seconds'] ?? 0) + max(0, (float) $seconds), 3);
+        $current['last_status'] = sanitize_key($status);
+        $context['metrics']['steps'][$step] = $current;
+    }
+
+    private function estimate_tokens($text)
+    {
+        $length = function_exists('mb_strlen') ? mb_strlen((string) $text) : strlen((string) $text);
+        return $length > 0 ? max(1, (int) ceil($length / 3.5)) : 0;
+    }
+
+    private function append_log($post_id, array &$context, $level, $step, $message)
+    {
+        if (!isset($context['logs']) || !is_array($context['logs'])) {
+            $context['logs'] = array();
+        }
+        $context['logs'][] = array(
+            'timestamp' => time(),
+            'level' => in_array($level, array('info', 'success', 'error'), true) ? $level : 'info',
+            'step' => sanitize_key($step),
+            'message' => sanitize_text_field($message),
+        );
+        $context['logs'] = array_slice($context['logs'], -200);
+        $context['updated_at'] = time();
+        update_post_meta(absint($post_id), self::SESSION_META, $context);
+    }
+
+    private function step_label($step)
+    {
+        $labels = array(
+            'research' => 'Research',
+            'brief' => 'Content Brief & Outline',
+            'content' => 'Content',
+            'seo' => 'SEO Metadata',
+            'quality' => 'Links & Quality Gate',
+            'finalize' => 'Ảnh & Draft',
+        );
+        return $labels[$step] ?? sanitize_text_field($step);
+    }
+
+    private function format_duration($seconds)
+    {
+        $seconds = max(0, (float) $seconds);
+        if ($seconds < 60) {
+            return number_format_i18n($seconds, 1) . ' giây';
+        }
+        $minutes = floor($seconds / 60);
+        $remaining = round($seconds - ($minutes * 60));
+        return $minutes . ' phút ' . $remaining . ' giây';
     }
 
     private function find_internal_link_candidates($keyword, $exclude_post_id)

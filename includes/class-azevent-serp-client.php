@@ -28,7 +28,7 @@ class AzEvent_SERP_Client
         $country = strtolower(sanitize_key(get_option('azevent_lab_serp_country', 'vn')));
         $language = strtolower(sanitize_key(get_option('azevent_lab_serp_language', 'vi')));
         $result_count = min(10, max(3, absint(get_option('azevent_lab_serp_result_count', 10))));
-        $fetch_pages = min(5, max(0, absint(get_option('azevent_lab_serp_fetch_pages', 3))));
+        $fetch_pages = min(5, max(0, absint(get_option('azevent_lab_serp_fetch_pages', 2))));
         $cache_key = 'azevent_serp_' . md5(wp_json_encode(array($query, $location, $country, $language, $result_count, $fetch_pages)));
         $cached = get_transient($cache_key);
         if (is_array($cached) && !empty($cached['organic_results'])) {

@@ -3,7 +3,7 @@
  * Plugin Name: AzEvent SEO Content Creator
  * Plugin URI:  https://azevent.vn/
  * Description: Tự động hóa việc tạo nội dung chuẩn SEO từ từ khóa sử dụng AI (Claude/GPT) và tạo ảnh đại diện bằng DALL-E. Tích hợp trực tiếp vào Classic Editor.
- * Version:     1.6.0
+ * Version:     1.7.0
  * Author:      AzEvent Team
  * Author URI:  https://azevent.vn/
  * License:     GPL2
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define constants
-define('AZEVENT_SEO_VERSION', '1.6.0');
+define('AZEVENT_SEO_VERSION', '1.7.0');
 define('AZEVENT_SEO_PATH', plugin_dir_path(__FILE__));
 define('AZEVENT_SEO_URL', plugin_dir_url(__FILE__));
 
@@ -143,12 +143,12 @@ class AzEvent_SEO_Content
         require_once AZEVENT_SEO_PATH . 'includes/class-azevent-editor-integration.php';
         require_once AZEVENT_SEO_PATH . 'includes/class-azevent-background-queue.php';
         require_once AZEVENT_SEO_PATH . 'includes/class-azevent-github-updater.php';
+        require_once AZEVENT_SEO_PATH . 'admin/class-azevent-workflow-lab.php';
 
         new AzEvent_Background_Queue();
         new AzEvent_GitHub_Updater(__FILE__, 'leluongnghia', 'azevent-seo-content');
 
         if (is_admin()) {
-            require_once AZEVENT_SEO_PATH . 'admin/class-azevent-workflow-lab.php';
             require_once AZEVENT_SEO_PATH . 'admin/class-azevent-admin.php';
         }
     }
@@ -178,6 +178,7 @@ class AzEvent_SEO_Content
     public static function deactivate()
     {
         wp_clear_scheduled_hook(AzEvent_Background_Queue::CRON_HOOK);
+        wp_clear_scheduled_hook(AzEvent_SEO_Workflow_Lab::CRON_HOOK);
         delete_option(AzEvent_Background_Queue::LOCK_OPTION);
     }
 }

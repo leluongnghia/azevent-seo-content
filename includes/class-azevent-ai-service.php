@@ -16,6 +16,7 @@ class AzEvent_AI_Service
     private $anthropic_model;
     private $azevent_api;
     private $ckey_api;
+    private $last_text_metrics = array();
 
     public function __construct()
     {
@@ -27,16 +28,25 @@ class AzEvent_AI_Service
         $this->ckey_api = new AzEvent_CKey_Client();
     }
 
+    public function get_last_text_metrics()
+    {
+        return $this->last_text_metrics;
+    }
+
     /**
      * Call Anthropic API (Claude).
      */
     public function call_anthropic($user_prompt, $system_prompt = '', $model = '', $max_tokens = 8192, array $generation_options = array())
     {
+        $started_at = microtime(true);
+        $this->last_text_metrics = array();
         if (AzEvent_CKey_Client::is_model_reference($model)) {
-            return $this->ckey_api->generate_text($user_prompt, $system_prompt, array_merge($generation_options, array(
+            $result = $this->ckey_api->generate_text($user_prompt, $system_prompt, array_merge($generation_options, array(
                 'model' => AzEvent_CKey_Client::strip_model_prefix($model),
                 'max_tokens' => max(1024, absint($max_tokens)),
             )));
+            $this->last_text_metrics = $this->ckey_api->get_last_text_metrics();
+            return $result;
         }
 
         if (AzEvent_API_Client::is_configured()) {
@@ -46,7 +56,9 @@ class AzEvent_AI_Service
             if ($model !== '') {
                 $options['model'] = sanitize_text_field($model);
             }
-            return $this->azevent_api->generate_text($user_prompt, $system_prompt, $options);
+            $result = $this->azevent_api->generate_text($user_prompt, $system_prompt, $options);
+            $this->last_text_metrics = $this->azevent_api->get_last_text_metrics();
+            return $result;
         }
 
         if (!$this->anthropic_key) {
@@ -57,7 +69,7 @@ class AzEvent_AI_Service
 
         $body = array(
             'model' => $model,
-            'max_tokens' => 4000,
+            'max_tokens' => max(1024, absint($max_tokens)),
             'messages' => array(
                 array('role' => 'user', 'content' => $user_prompt),
             ),
@@ -78,10 +90,32 @@ class AzEvent_AI_Service
         ));
 
         if (is_wp_error($response)) {
+            $this->last_text_metrics = array(
+                'provider' => 'Anthropic trực tiếp',
+                'model' => $model,
+                'duration_seconds' => round(max(0, microtime(true) - $started_at), 3),
+                'status' => 'error',
+                'reported' => false,
+            );
             return $response;
         }
 
         $body = json_decode(wp_remote_retrieve_body($response), true);
+        $usage = is_array($body['usage'] ?? null) ? $body['usage'] : array();
+        $input_tokens = absint($usage['input_tokens'] ?? 0);
+        $output_tokens = absint($usage['output_tokens'] ?? 0);
+        $this->last_text_metrics = array(
+            'provider' => 'Anthropic trực tiếp',
+            'model' => $model,
+            'input_tokens' => $input_tokens,
+            'output_tokens' => $output_tokens,
+            'total_tokens' => $input_tokens + $output_tokens,
+            'duration_seconds' => round(max(0, microtime(true) - $started_at), 3),
+            'requests' => 1,
+            'attempts' => 1,
+            'status' => isset($body['content'][0]['text']) ? 'success' : 'error',
+            'reported' => $input_tokens > 0 || $output_tokens > 0,
+        );
         if (isset($body['content'][0]['text'])) {
             return $body['content'][0]['text'];
         }

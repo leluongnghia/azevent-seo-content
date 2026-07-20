@@ -15,6 +15,7 @@ class AzEvent_API_Client
     private $api_key;
     private $base_url;
     private $model;
+    private $last_text_metrics = array();
 
     public function __construct($api_key = '', $base_url = '', $model = '')
     {
@@ -47,8 +48,15 @@ class AzEvent_API_Client
         return (string) get_option('aprg_cliproxy_api_key', '') !== '';
     }
 
+    public function get_last_text_metrics()
+    {
+        return $this->last_text_metrics;
+    }
+
     public function generate_text($prompt, $system_prompt = '', array $options = array())
     {
+        $started_at = microtime(true);
+        $this->last_text_metrics = array();
         if (trim((string) $prompt) === '') {
             return new WP_Error('azevent_empty_prompt', 'AzEvent API prompt đang trống.');
         }
@@ -95,6 +103,7 @@ class AzEvent_API_Client
             : $this->base_url === self::REMOTE_BASE_URL;
         if ($use_stream) {
             $body['stream'] = true;
+            $body['stream_options'] = array('include_usage' => true);
         }
 
         $auto_continue = !empty($options['auto_continue']);
@@ -104,15 +113,23 @@ class AzEvent_API_Client
             : 0;
         $combined_content = '';
         $continuation_count = 0;
+        $request_count = 0;
+        $attempt_count = 0;
+        $usage = array('input_tokens' => 0, 'output_tokens' => 0, 'total_tokens' => 0, 'reported' => false);
 
         while (true) {
             $completion = $this->request_text_completion($body, $use_stream, $model);
             if (is_wp_error($completion)) {
+                $this->finish_text_metrics($started_at, $model, $usage, $request_count, $attempt_count, 'error');
                 return $completion;
             }
+            $request_count++;
+            $attempt_count += max(1, absint($completion['attempts'] ?? 1));
+            $usage = $this->merge_usage($usage, $completion['usage'] ?? array());
 
             $segment = (string) $completion['content'];
             if (trim($segment) === '') {
+                $this->finish_text_metrics($started_at, $model, $usage, $request_count, $attempt_count, 'error');
                 return new WP_Error('azevent_empty_text_response', 'AzEvent API không trả về nội dung.');
             }
             $combined_content = $this->append_text_segment($combined_content, $segment);
@@ -122,10 +139,12 @@ class AzEvent_API_Client
                 $truncated = $this->looks_like_incomplete_content($combined_content);
             }
             if (!$truncated) {
+                $this->finish_text_metrics($started_at, $model, $usage, $request_count, $attempt_count, 'success');
                 return trim($combined_content);
             }
 
             if (!$auto_continue || $continuation_count >= $max_continuations) {
+                $this->finish_text_metrics($started_at, $model, $usage, $request_count, $attempt_count, 'error');
                 return new WP_Error(
                     'azevent_text_truncated',
                     'AI đã dừng vì hết giới hạn token trước khi hoàn tất nội dung. Plugin không chuyển sang bước SEO để tránh lưu bài bị cắt. Hãy thử lại bằng model có output dài hơn hoặc rút gọn Outline.'
@@ -284,13 +303,16 @@ class AzEvent_API_Client
             return $result;
         }
 
+        $attempts = max(1, absint($result['attempts'] ?? 1));
         if ($use_stream && $this->is_stream_unsupported_error($result)) {
             unset($body['stream']);
+            unset($body['stream_options']);
             $use_stream = false;
             $result = $this->request('/chat/completions', $body, 1200);
             if (is_wp_error($result)) {
                 return $result;
             }
+            $attempts += max(1, absint($result['attempts'] ?? 1));
         }
 
         if ($result['status'] < 200 || $result['status'] >= 300) {
@@ -299,7 +321,7 @@ class AzEvent_API_Client
 
         $completion = $use_stream
             ? $this->parse_streamed_text($result['raw_body'])
-            : array('content' => '', 'finish_reason' => '');
+            : array('content' => '', 'finish_reason' => '', 'usage' => $this->normalize_usage($result['data']['usage'] ?? array()));
         if (trim((string) $completion['content']) === '') {
             $choice = isset($result['data']['choices'][0]) && is_array($result['data']['choices'][0])
                 ? $result['data']['choices'][0]
@@ -310,6 +332,8 @@ class AzEvent_API_Client
             $completion['finish_reason'] = $this->extract_finish_reason($choice);
         }
 
+        $completion['attempts'] = $attempts;
+
         return $completion;
     }
 
@@ -317,6 +341,7 @@ class AzEvent_API_Client
     {
         $parts = array();
         $finish_reason = '';
+        $usage = array();
         $lines = preg_split('/\r\n|\r|\n/', (string) $raw_body);
 
         foreach ($lines as $line) {
@@ -331,7 +356,13 @@ class AzEvent_API_Client
             }
 
             $chunk = json_decode($payload, true);
-            if (!is_array($chunk) || empty($chunk['choices'][0])) {
+            if (!is_array($chunk)) {
+                continue;
+            }
+            if (!empty($chunk['usage']) && is_array($chunk['usage'])) {
+                $usage = $this->normalize_usage($chunk['usage']);
+            }
+            if (empty($chunk['choices'][0])) {
                 continue;
             }
 
@@ -352,7 +383,46 @@ class AzEvent_API_Client
         return array(
             'content' => implode('', $parts),
             'finish_reason' => $finish_reason,
+            'usage' => $usage,
         );
+    }
+
+    private function normalize_usage($usage)
+    {
+        if (!is_array($usage) || empty($usage)) {
+            return array('input_tokens' => 0, 'output_tokens' => 0, 'total_tokens' => 0, 'reported' => false);
+        }
+        $input = absint($usage['prompt_tokens'] ?? $usage['input_tokens'] ?? 0);
+        $output = absint($usage['completion_tokens'] ?? $usage['output_tokens'] ?? 0);
+        $total = absint($usage['total_tokens'] ?? ($input + $output));
+        return array(
+            'input_tokens' => $input,
+            'output_tokens' => $output,
+            'total_tokens' => $total ?: ($input + $output),
+            'reported' => $input > 0 || $output > 0 || $total > 0,
+        );
+    }
+
+    private function merge_usage(array $total, $usage)
+    {
+        $usage = $this->normalize_usage($usage);
+        $total['input_tokens'] = absint($total['input_tokens'] ?? 0) + $usage['input_tokens'];
+        $total['output_tokens'] = absint($total['output_tokens'] ?? 0) + $usage['output_tokens'];
+        $total['total_tokens'] = absint($total['total_tokens'] ?? 0) + $usage['total_tokens'];
+        $total['reported'] = !empty($total['reported']) || !empty($usage['reported']);
+        return $total;
+    }
+
+    private function finish_text_metrics($started_at, $model, array $usage, $requests, $attempts, $status)
+    {
+        $this->last_text_metrics = array_merge($usage, array(
+            'provider' => 'AzEvent API',
+            'model' => sanitize_text_field($model),
+            'duration_seconds' => round(max(0, microtime(true) - $started_at), 3),
+            'requests' => absint($requests),
+            'attempts' => absint($attempts),
+            'status' => sanitize_key($status),
+        ));
     }
 
     private function extract_finish_reason(array $choice)

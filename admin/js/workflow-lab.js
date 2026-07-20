@@ -24,6 +24,11 @@
     let context = null;
     let viewStep = '';
     let busy = false;
+    let logPollTimer = null;
+    let elapsedTimer = null;
+    let processingStartedAt = 0;
+    let activeStep = '';
+    let awaitingQueueConfirmation = false;
 
     const elements = {
         notice: document.getElementById('azlab-notice'),
@@ -37,6 +42,7 @@
         generateImage: document.getElementById('azlab-generate-image'),
         processing: document.getElementById('azlab-processing'),
         processingTitle: document.getElementById('azlab-processing-title'),
+        processingElapsed: document.getElementById('azlab-processing-elapsed'),
         review: document.getElementById('azlab-review'),
         kicker: document.getElementById('azlab-step-kicker'),
         title: document.getElementById('azlab-step-title'),
@@ -73,7 +79,17 @@
         next: document.getElementById('azlab-next'),
         backQuality: document.getElementById('azlab-back-quality'),
         saveNoImage: document.getElementById('azlab-save-no-image'),
-        finalize: document.getElementById('azlab-finalize')
+        finalize: document.getElementById('azlab-finalize'),
+        logPanel: document.getElementById('azlab-log-panel'),
+        logOutput: document.getElementById('azlab-log-output'),
+        copyLog: document.getElementById('azlab-copy-log'),
+        metricsPanel: document.getElementById('azlab-metrics-panel'),
+        metricsNote: document.getElementById('azlab-metrics-note'),
+        totalTokens: document.getElementById('azlab-total-tokens'),
+        inputTokens: document.getElementById('azlab-input-tokens'),
+        outputTokens: document.getElementById('azlab-output-tokens'),
+        totalDuration: document.getElementById('azlab-total-duration'),
+        metricsBody: document.getElementById('azlab-metrics-body')
     };
 
     function request(action, data) {
@@ -112,7 +128,213 @@
         elements.review.hidden = value;
         if (value) {
             elements.processingTitle.textContent = processingCopy[step] || 'AI đang xử lý...';
+            updateStepper(step);
+            startElapsedTimer();
+            startLogPolling();
+        } else {
+            stopElapsedTimer();
+            stopLogPolling();
         }
+    }
+
+    function startElapsedTimer() {
+        stopElapsedTimer();
+        const queuedAt = context && context.pending_job ? parseInt(context.pending_job.queued_at, 10) || 0 : 0;
+        processingStartedAt = queuedAt > 0 ? queuedAt * 1000 : Date.now();
+        updateElapsed();
+        elapsedTimer = window.setInterval(updateElapsed, 1000);
+    }
+
+    function stopElapsedTimer() {
+        if (elapsedTimer) {
+            window.clearInterval(elapsedTimer);
+            elapsedTimer = null;
+        }
+    }
+
+    function updateElapsed() {
+        if (!elements.processingElapsed || !processingStartedAt) {
+            return;
+        }
+        const seconds = Math.max(0, Math.floor((Date.now() - processingStartedAt) / 1000));
+        const minutes = Math.floor(seconds / 60);
+        const remainder = seconds % 60;
+        elements.processingElapsed.textContent = minutes > 0
+            ? 'Đã chạy ' + minutes + ' phút ' + remainder + ' giây'
+            : 'Đã chạy ' + seconds + ' giây';
+    }
+
+    function startLogPolling() {
+        stopLogPolling();
+        if (!postId) {
+            return;
+        }
+        refreshLogs();
+        logPollTimer = window.setInterval(refreshLogs, 5000);
+    }
+
+    function stopLogPolling() {
+        if (logPollTimer) {
+            window.clearInterval(logPollTimer);
+            logPollTimer = null;
+        }
+    }
+
+    function refreshLogs() {
+        if (!postId) {
+            return;
+        }
+        request('azevent_lab_get_session', { post_id: postId }).then(function (data) {
+            if (!data.context) {
+                return;
+            }
+            renderLogs(data.context.logs || []);
+            renderMetrics(data.context.metrics || {});
+            if (!busy || awaitingQueueConfirmation || !activeStep) {
+                return;
+            }
+            if (data.context.status === 'queued' || data.context.status === 'processing') {
+                context = data.context;
+                return;
+            }
+
+            context = data.context;
+            setBusy(false, activeStep);
+            const finishedStep = activeStep;
+            activeStep = '';
+            if (context.status === 'completed') {
+                renderReview('finalize');
+                setNotice('SEO Workflow Lab đã lưu Draft thành công.', true);
+                return;
+            }
+            if (context.status === 'failed') {
+                const fallbackStep = context.last_completed_step && context.last_completed_step !== 'setup'
+                    ? context.last_completed_step
+                    : finishedStep;
+                renderReview(fallbackStep);
+                setNotice(context.error || 'Job nền không thể hoàn tất.', false);
+                return;
+            }
+            renderReview(context.last_completed_step || finishedStep);
+            setNotice('Đã hoàn thành bước ' + (stepCopy[finishedStep] ? stepCopy[finishedStep][1] : finishedStep) + '. Hãy kiểm tra kết quả trước khi tiếp tục.', true);
+        }).catch(function () {});
+    }
+
+    function renderLogs(logs) {
+        const entries = Array.isArray(logs) ? logs : [];
+        elements.logPanel.hidden = !postId;
+        elements.logOutput.textContent = entries.length ? entries.map(function (entry) {
+            const timestamp = parseInt(entry.timestamp, 10) || 0;
+            const time = timestamp ? new Date(timestamp * 1000).toLocaleString() : 'Không rõ thời gian';
+            const step = String(entry.step || 'system').toUpperCase();
+            const level = String(entry.level || 'info').toUpperCase();
+            return '[' + time + '] [' + step + '] [' + level + '] ' + String(entry.message || '');
+        }).join('\n') : 'Chưa có log cho phiên này.';
+        elements.logOutput.scrollTop = elements.logOutput.scrollHeight;
+    }
+
+    function renderMetrics(metrics) {
+        const steps = metrics && metrics.steps ? metrics.steps : {};
+        const names = {
+            research: 'Research',
+            brief: 'Brief & Outline',
+            content: 'Content',
+            seo: 'SEO',
+            quality: 'Links & QA',
+            finalize: 'Ảnh & Draft'
+        };
+        let input = 0;
+        let output = 0;
+        let total = 0;
+        let duration = 0;
+        let hasEstimated = false;
+        elements.metricsBody.innerHTML = '';
+
+        stepOrder.forEach(function (step) {
+            const item = steps[step];
+            if (!item) {
+                return;
+            }
+            input += parseInt(item.input_tokens, 10) || 0;
+            output += parseInt(item.output_tokens, 10) || 0;
+            total += parseInt(item.total_tokens, 10) || 0;
+            duration += parseFloat(item.step_duration_seconds) || 0;
+            hasEstimated = hasEstimated || (parseInt(item.estimated_runs, 10) || 0) > 0;
+
+            const row = document.createElement('tr');
+            [
+                names[step] || step,
+                item.model || (step === 'finalize' ? 'Không dùng model text' : '—'),
+                formatNumber(item.runs || 0),
+                formatNumber(item.input_tokens || 0),
+                formatNumber(item.output_tokens || 0),
+                formatNumber(item.total_tokens || 0) + ((parseInt(item.estimated_runs, 10) || 0) > 0 ? ' *' : ''),
+                formatDuration(item.ai_duration_seconds || 0) + ' / ' + formatDuration(item.step_duration_seconds || 0)
+            ].forEach(function (value) {
+                const cell = document.createElement('td');
+                cell.textContent = value;
+                row.appendChild(cell);
+            });
+            elements.metricsBody.appendChild(row);
+        });
+
+        elements.metricsPanel.hidden = !postId;
+        elements.inputTokens.textContent = formatNumber(input);
+        elements.outputTokens.textContent = formatNumber(output);
+        elements.totalTokens.textContent = formatNumber(total) + (hasEstimated ? ' *' : '');
+        elements.totalDuration.textContent = formatDuration(duration);
+        elements.metricsNote.textContent = hasEstimated
+            ? '* Có token ước tính do API không trả usage; số liệu cộng dồn cả các lần chạy lại.'
+            : 'Token do API báo cáo; số liệu cộng dồn cả các lần chạy lại.';
+    }
+
+    function formatNumber(value) {
+        return (parseInt(value, 10) || 0).toLocaleString();
+    }
+
+    function formatDuration(value) {
+        const seconds = Math.max(0, Math.round(parseFloat(value) || 0));
+        const minutes = Math.floor(seconds / 60);
+        const remainder = seconds % 60;
+        return minutes > 0 ? minutes + 'p ' + remainder + 's' : seconds + 's';
+    }
+
+    function copyLogs() {
+        const value = buildMetricsText() + '\n\n' + (elements.logOutput.textContent || '');
+        const copied = function () {
+            setNotice('Đã sao chép log phiên. Bạn có thể dán trực tiếp để gửi kiểm tra.', true);
+        };
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(value).then(copied).catch(function () {
+                fallbackCopy(value, copied);
+            });
+            return;
+        }
+        fallbackCopy(value, copied);
+    }
+
+    function buildMetricsText() {
+        return [
+            'TOKEN & TIME REPORT',
+            'Total: ' + elements.totalTokens.textContent,
+            'Input: ' + elements.inputTokens.textContent,
+            'Output: ' + elements.outputTokens.textContent,
+            'Duration: ' + elements.totalDuration.textContent,
+            elements.metricsNote.textContent || ''
+        ].join('\n');
+    }
+
+    function fallbackCopy(value, callback) {
+        const textarea = document.createElement('textarea');
+        textarea.value = value;
+        textarea.setAttribute('readonly', 'readonly');
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        callback();
     }
 
     function buildPreviewDocument(content) {
@@ -230,6 +452,8 @@
         elements.title.textContent = copy[1];
         elements.description.textContent = copy[2];
         updateStepper(step);
+        renderLogs(context.logs || []);
+        renderMetrics(context.metrics || {});
 
         if (step === 'research' || step === 'brief') {
             elements.textEditor.hidden = false;
@@ -302,6 +526,8 @@
             return;
         }
         setNotice('', false);
+        activeStep = step;
+        awaitingQueueConfirmation = true;
         setBusy(true, step);
         request('azevent_lab_process_step', {
             post_id: postId,
@@ -310,18 +536,20 @@
             skip_image: skipImage ? '1' : '0'
         }).then(function (data) {
             context = data.context;
-            setBusy(false, step);
-            if (context.status === 'completed') {
-                renderReview('finalize');
-                setNotice('SEO Workflow Lab đã lưu Draft thành công.', true);
-            } else {
-                renderReview(step);
-            }
+            awaitingQueueConfirmation = false;
+            renderLogs(context.logs || []);
+            renderMetrics(context.metrics || {});
+            setNotice('Đã đưa bước vào job nền. Bạn có thể đóng tab và mở lại phiên sau.', true);
+            refreshLogs();
         }).catch(function (error) {
+            awaitingQueueConfirmation = false;
+            activeStep = '';
             if (error.payload && error.payload.context) {
                 context = error.payload.context;
             }
             setBusy(false, step);
+            renderLogs(context && context.logs ? context.logs : []);
+            renderMetrics(context && context.metrics ? context.metrics : {});
             const fallbackStep = context && context.last_completed_step && context.last_completed_step !== 'setup'
                 ? context.last_completed_step
                 : step;
@@ -353,6 +581,8 @@
         }).then(function (data) {
             postId = parseInt(data.post_id, 10) || 0;
             context = data.context;
+            renderLogs(context.logs || []);
+            renderMetrics(context.metrics || {});
             elements.setup.hidden = true;
             elements.workflow.hidden = false;
             if (window.history && window.history.replaceState) {
@@ -373,9 +603,19 @@
         }
         elements.setup.hidden = true;
         elements.workflow.hidden = false;
+        awaitingQueueConfirmation = true;
         setBusy(true, 'research');
         request('azevent_lab_get_session', { post_id: postId }).then(function (data) {
             context = data.context;
+            awaitingQueueConfirmation = false;
+            renderLogs(context.logs || []);
+            renderMetrics(context.metrics || {});
+            if (context.status === 'queued' || context.status === 'processing') {
+                activeStep = context.current_step || (context.pending_job && context.pending_job.step) || 'research';
+                setBusy(true, activeStep);
+                setNotice('Job nền vẫn đang chạy. Bạn có thể đóng tab; checkpoint và log vẫn được lưu.', true);
+                return;
+            }
             setBusy(false, context.current_step || 'research');
             if (context.status === 'completed') {
                 renderReview('finalize');
@@ -383,17 +623,22 @@
             }
             const completed = context.last_completed_step || 'setup';
             if (completed === 'setup') {
+                if (context.status === 'failed') {
+                    renderReview(context.current_step || 'research');
+                    setNotice(context.error || 'Research chưa hoàn thành. Bạn có thể chạy lại bước này.', false);
+                    return;
+                }
                 setNotice('Phiên đã tạo nhưng chưa có Research. Bắt đầu chạy lại bước Research.', false);
                 processStep('research', false);
                 return;
             }
             renderReview(completed);
-            if (context.status === 'processing') {
-                setNotice('Request trước có thể đã bị ngắt. Checkpoint trước bước đang chạy vẫn còn; hãy bấm chạy lại khi chắc chắn request cũ đã dừng.', false);
-            } else if (context.status === 'failed' && context.error) {
+            if (context.status === 'failed' && context.error) {
                 setNotice(context.error, false);
             }
         }).catch(function (error) {
+            awaitingQueueConfirmation = false;
+            activeStep = '';
             setBusy(false, 'research');
             setNotice(error.message, false);
             elements.setup.hidden = false;
@@ -436,6 +681,36 @@
     });
     elements.finalize.addEventListener('click', function () {
         processStep('finalize', false);
+    });
+    elements.copyLog.addEventListener('click', copyLogs);
+    document.querySelectorAll('.azlab-delete-session').forEach(function (button) {
+        button.addEventListener('click', function () {
+            const sessionId = parseInt(button.dataset.sessionId, 10) || 0;
+            if (!sessionId || !window.confirm('Xoá dữ liệu phiên Workflow Lab này? Bài Draft liên quan vẫn được giữ trong Posts.')) {
+                return;
+            }
+            button.disabled = true;
+            request('azevent_lab_delete_session', { post_id: sessionId }).then(function (data) {
+                if (sessionId === postId) {
+                    const url = new URL(window.location.href);
+                    url.searchParams.delete('azevent_lab_post');
+                    window.location.assign(url.toString());
+                    return;
+                }
+                const item = button.closest('.azlab-session-item');
+                if (item) {
+                    item.remove();
+                }
+                const sessionList = document.querySelector('.azlab-session-list');
+                if (sessionList && !sessionList.querySelector('.azlab-session-item')) {
+                    sessionList.innerHTML = '<div class="azlab-empty"><span class="dashicons dashicons-media-document"></span><p>Chưa có phiên SEO Workflow Lab.</p></div>';
+                }
+                setNotice(data.message || 'Đã xoá phiên.', true);
+            }).catch(function (error) {
+                button.disabled = false;
+                setNotice(error.message, false);
+            });
+        });
     });
     document.querySelectorAll('[data-content-tab]').forEach(function (button) {
         button.addEventListener('click', function () {
