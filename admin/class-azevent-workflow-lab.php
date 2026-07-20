@@ -21,7 +21,16 @@ class AzEvent_SEO_Workflow_Lab
         add_action(self::CRON_HOOK, array($this, 'process_background_step'), 10, 2);
 
         if ((string) get_option(self::WORKER_TOKEN_OPTION, '') === '') {
-            update_option(self::WORKER_TOKEN_OPTION, wp_generate_password(48, false, false), false);
+            update_option(self::WORKER_TOKEN_OPTION, $this->generate_worker_token(), false);
+        }
+    }
+
+    private function generate_worker_token()
+    {
+        try {
+            return bin2hex(random_bytes(24));
+        } catch (Exception $exception) {
+            return hash('sha256', wp_generate_uuid4() . microtime(true));
         }
     }
 
