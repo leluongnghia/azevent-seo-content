@@ -16,7 +16,7 @@ $azevent_step_models = array(
     'content' => get_option('azevent_seo_content_model', ''),
     'seo' => get_option('azevent_seo_seo_model', ''),
 );
-$azevent_brand_defaults = AzEvent_SEO_Content::get_default_brand_profile();
+$azevent_brand_profile = AzEvent_SEO_Content::get_brand_profile();
 $azevent_custom_models = json_decode(get_option('aprg_cliproxy_custom_models', '[]'), true);
 $azevent_custom_models = is_array($azevent_custom_models) ? array_values(array_filter(array_map('sanitize_text_field', $azevent_custom_models))) : array();
 $azevent_legacy_openai_models = json_decode(get_option('azevent_seo_legacy_openai_models', '[]'), true);
@@ -509,16 +509,16 @@ $prompt_tokens = array(
                         </div>
                         <div class="azevent-field">
                             <label for="azevent_seo_brand_name"><?php _e('Tên thương hiệu', 'azevent-seo-content'); ?></label>
-                            <input id="azevent_seo_brand_name" type="text" name="azevent_seo_brand_name" value="<?php echo esc_attr(get_option('azevent_seo_brand_name', $azevent_brand_defaults['azevent_seo_brand_name'])); ?>">
+                            <input id="azevent_seo_brand_name" type="text" name="azevent_seo_brand_name" value="<?php echo esc_attr($azevent_brand_profile['azevent_seo_brand_name']); ?>">
                         </div>
                         <div class="azevent-field">
                             <label for="azevent_seo_brand_info"><?php _e('Thông tin thương hiệu', 'azevent-seo-content'); ?></label>
-                            <textarea id="azevent_seo_brand_info" name="azevent_seo_brand_info" rows="7"><?php echo esc_textarea(get_option('azevent_seo_brand_info', $azevent_brand_defaults['azevent_seo_brand_info'])); ?></textarea>
+                            <textarea id="azevent_seo_brand_info" name="azevent_seo_brand_info" rows="7"><?php echo esc_textarea($azevent_brand_profile['azevent_seo_brand_info']); ?></textarea>
                             <p class="azevent-help"><?php _e('Ví dụ: năng lực, kinh nghiệm, khu vực phục vụ, khách hàng tiêu biểu.', 'azevent-seo-content'); ?></p>
                         </div>
                         <div class="azevent-field">
                             <label for="azevent_seo_brand_solution"><?php _e('Giải pháp / dịch vụ cung cấp', 'azevent-seo-content'); ?></label>
-                            <textarea id="azevent_seo_brand_solution" name="azevent_seo_brand_solution" rows="8"><?php echo esc_textarea(get_option('azevent_seo_brand_solution', $azevent_brand_defaults['azevent_seo_brand_solution'])); ?></textarea>
+                            <textarea id="azevent_seo_brand_solution" name="azevent_seo_brand_solution" rows="8"><?php echo esc_textarea($azevent_brand_profile['azevent_seo_brand_solution']); ?></textarea>
                             <p class="azevent-help"><?php _e('Mô tả dịch vụ, quy trình, điểm khác biệt và lời kêu gọi hành động.', 'azevent-seo-content'); ?></p>
                         </div>
                     </div>

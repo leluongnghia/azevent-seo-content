@@ -3,7 +3,7 @@
  * Plugin Name: AzEvent SEO Content Creator
  * Plugin URI:  https://azevent.vn/
  * Description: Tự động hóa việc tạo nội dung chuẩn SEO từ từ khóa sử dụng AI (Claude/GPT) và tạo ảnh đại diện bằng DALL-E. Tích hợp trực tiếp vào Classic Editor.
- * Version:     1.1.14
+ * Version:     1.1.15
  * Author:      AzEvent Team
  * Author URI:  https://azevent.vn/
  * License:     GPL2
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define constants
-define('AZEVENT_SEO_VERSION', '1.1.14');
+define('AZEVENT_SEO_VERSION', '1.1.15');
 define('AZEVENT_SEO_PATH', plugin_dir_path(__FILE__));
 define('AZEVENT_SEO_URL', plugin_dir_url(__FILE__));
 
@@ -50,12 +50,20 @@ class AzEvent_SEO_Content
         );
     }
 
-    private function maybe_seed_brand_profile()
+    public static function get_brand_profile()
     {
-        if ((string) get_option('azevent_seo_brand_profile_version', '') === 'website-v1') {
-            return;
+        $profile = self::get_default_brand_profile();
+
+        foreach ($profile as $option => $default_value) {
+            $saved_value = get_option($option, '');
+            $profile[$option] = trim((string) $saved_value) === '' ? $default_value : $saved_value;
         }
 
+        return $profile;
+    }
+
+    private function maybe_seed_brand_profile()
+    {
         foreach (self::get_default_brand_profile() as $option => $default_value) {
             $current_value = get_option($option, null);
             if ($current_value === null || trim((string) $current_value) === '') {
@@ -63,7 +71,9 @@ class AzEvent_SEO_Content
             }
         }
 
-        update_option('azevent_seo_brand_profile_version', 'website-v1', false);
+        if ((string) get_option('azevent_seo_brand_profile_version', '') !== 'website-v1') {
+            update_option('azevent_seo_brand_profile_version', 'website-v1', false);
+        }
     }
 
     private function maybe_upgrade_prompt_templates()

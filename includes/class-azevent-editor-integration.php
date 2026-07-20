@@ -586,9 +586,10 @@ class AzEvent_Editor_Integration
         }
 
         $ai = new AzEvent_AI_Service();
-        $brand_name = get_option('azevent_seo_brand_name');
-        $brand_info = get_option('azevent_seo_brand_info');
-        $brand_solution = get_option('azevent_seo_brand_solution');
+        $brand_profile = AzEvent_SEO_Content::get_brand_profile();
+        $brand_name = $brand_profile['azevent_seo_brand_name'];
+        $brand_info = $brand_profile['azevent_seo_brand_info'];
+        $brand_solution = $brand_profile['azevent_seo_brand_solution'];
 
         // Helper to replace placeholders
         $replace_placeholders = function ($text, $ctx) use ($keyword, $language, $brand_name, $brand_info, $brand_solution) {

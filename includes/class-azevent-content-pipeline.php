@@ -71,10 +71,10 @@ class AzEvent_Content_Pipeline
         }
 
         $ai = new AzEvent_AI_Service();
-        $brand_defaults = AzEvent_SEO_Content::get_default_brand_profile();
-        $brand_name = get_option('azevent_seo_brand_name', $brand_defaults['azevent_seo_brand_name']);
-        $brand_info = get_option('azevent_seo_brand_info', $brand_defaults['azevent_seo_brand_info']);
-        $brand_solution = get_option('azevent_seo_brand_solution', $brand_defaults['azevent_seo_brand_solution']);
+        $brand_profile = AzEvent_SEO_Content::get_brand_profile();
+        $brand_name = $brand_profile['azevent_seo_brand_name'];
+        $brand_info = $brand_profile['azevent_seo_brand_info'];
+        $brand_solution = $brand_profile['azevent_seo_brand_solution'];
 
         $replace_placeholders = function ($text, $replacement_context) use ($keyword, $language, $brand_name, $brand_info, $brand_solution, $mode) {
             $placeholders = array(
