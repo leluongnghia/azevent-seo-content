@@ -3,7 +3,7 @@
  * Plugin Name: AzEvent SEO Content Creator
  * Plugin URI:  https://azevent.vn/
  * Description: Tự động hóa việc tạo nội dung chuẩn SEO từ từ khóa sử dụng AI (Claude/GPT) và tạo ảnh đại diện bằng DALL-E. Tích hợp trực tiếp vào Classic Editor.
- * Version:     1.0.15
+ * Version:     1.1.0
  * Author:      AzEvent Team
  * Author URI:  https://azevent.vn/
  * License:     GPL2
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define constants
-define('AZEVENT_SEO_VERSION', '1.0.15');
+define('AZEVENT_SEO_VERSION', '1.1.0');
 define('AZEVENT_SEO_PATH', plugin_dir_path(__FILE__));
 define('AZEVENT_SEO_URL', plugin_dir_url(__FILE__));
 
@@ -100,9 +100,12 @@ class AzEvent_SEO_Content
     {
         require_once AZEVENT_SEO_PATH . 'includes/class-azevent-api-client.php';
         require_once AZEVENT_SEO_PATH . 'includes/class-azevent-ai-service.php';
+        require_once AZEVENT_SEO_PATH . 'includes/class-azevent-content-pipeline.php';
         require_once AZEVENT_SEO_PATH . 'includes/class-azevent-editor-integration.php';
+        require_once AZEVENT_SEO_PATH . 'includes/class-azevent-background-queue.php';
         require_once AZEVENT_SEO_PATH . 'includes/class-azevent-github-updater.php';
 
+        new AzEvent_Background_Queue();
         new AzEvent_GitHub_Updater(__FILE__, 'leluongnghia', 'azevent-seo-content');
 
         if (is_admin()) {
@@ -125,7 +128,22 @@ class AzEvent_SEO_Content
     {
         // Initialize services or integration here if needed
     }
+
+    public static function activate()
+    {
+        require_once plugin_dir_path(__FILE__) . 'includes/class-azevent-background-queue.php';
+        AzEvent_Background_Queue::install();
+    }
+
+    public static function deactivate()
+    {
+        wp_clear_scheduled_hook(AzEvent_Background_Queue::CRON_HOOK);
+        delete_option(AzEvent_Background_Queue::LOCK_OPTION);
+    }
 }
+
+register_activation_hook(__FILE__, array('AzEvent_SEO_Content', 'activate'));
+register_deactivation_hook(__FILE__, array('AzEvent_SEO_Content', 'deactivate'));
 
 // Start the plugin
 AzEvent_SEO_Content::get_instance();

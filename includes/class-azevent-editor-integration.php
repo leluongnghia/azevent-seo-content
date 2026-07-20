@@ -57,10 +57,16 @@ class AzEvent_Editor_Integration
             <span class="azevent-launch-eyebrow"><?php _e('AzEvent Content Studio', 'azevent-seo-content'); ?></span>
             <strong><?php _e('Tạo bài SEO theo quy trình AI', 'azevent-seo-content'); ?></strong>
             <p><?php _e('Chọn chế độ và từ khóa trong cửa sổ làm việc tập trung.', 'azevent-seo-content'); ?></p>
-            <button type="button" id="azevent-open-studio" class="button azevent-launch-button">
-                <span class="dashicons dashicons-edit-page" aria-hidden="true"></span>
-                <?php _e('Mở Content Studio', 'azevent-seo-content'); ?>
-            </button>
+            <div class="azevent-launch-actions">
+                <button type="button" id="azevent-open-studio" class="button azevent-launch-button">
+                    <span class="dashicons dashicons-edit-page" aria-hidden="true"></span>
+                    <?php _e('Mở Content Studio', 'azevent-seo-content'); ?>
+                </button>
+                <button type="button" id="azevent-open-queue" class="button azevent-queue-button">
+                    <span class="dashicons dashicons-list-view" aria-hidden="true"></span>
+                    <?php _e('Xem Background Queue', 'azevent-seo-content'); ?>
+                </button>
+            </div>
         </div>
 
         <div id="azevent-studio-modal" class="azevent-modal" aria-hidden="true">
@@ -95,6 +101,11 @@ class AzEvent_Editor_Integration
                                 <input type="radio" name="azevent_mode" value="rewrite" <?php checked($default_mode, 'rewrite'); ?> <?php disabled(!$is_existing_post); ?>>
                                 <span class="dashicons dashicons-update" aria-hidden="true"></span>
                                 <span><strong><?php _e('Viết lại bài hiện tại', 'azevent-seo-content'); ?></strong><small><?php _e('Đọc bài đang mở và cải thiện nội dung.', 'azevent-seo-content'); ?></small></span>
+                            </label>
+                            <label class="azevent-mode-card">
+                                <input type="radio" name="azevent_mode" value="background">
+                                <span class="dashicons dashicons-controls-repeat" aria-hidden="true"></span>
+                                <span><strong><?php _e('Background Queue', 'azevent-seo-content'); ?></strong><small><?php _e('Nhiều từ khóa, chạy tuần tự khi đóng tab.', 'azevent-seo-content'); ?></small></span>
                             </label>
                         </fieldset>
 
@@ -191,6 +202,56 @@ class AzEvent_Editor_Integration
                             <a id="azevent-complete-link" class="button button-primary azevent-primary-button" href="#"><?php _e('Mở bài Draft', 'azevent-seo-content'); ?></a>
                         </div>
                     </section>
+
+                    <section id="azevent-queue-view" class="azevent-view" hidden>
+                        <div class="azevent-queue-header">
+                            <div>
+                                <span class="azevent-step-kicker"><?php _e('Background Queue', 'azevent-seo-content'); ?></span>
+                                <h3><?php _e('Hàng đợi tạo bài tự động', 'azevent-seo-content'); ?></h3>
+                                <p><?php _e('Mỗi Job xử lý trọn quy trình theo từng từ khóa và tự lưu thành Draft.', 'azevent-seo-content'); ?></p>
+                            </div>
+                            <button type="button" id="azevent-refresh-queue" class="button azevent-secondary-button">
+                                <span class="dashicons dashicons-update" aria-hidden="true"></span>
+                                <?php _e('Làm mới', 'azevent-seo-content'); ?>
+                            </button>
+                        </div>
+
+                        <div class="azevent-queue-stats">
+                            <div><span id="azevent-count-pending">0</span><small><?php _e('Đang chờ', 'azevent-seo-content'); ?></small></div>
+                            <div><span id="azevent-count-processing">0</span><small><?php _e('Đang chạy', 'azevent-seo-content'); ?></small></div>
+                            <div><span id="azevent-count-completed">0</span><small><?php _e('Hoàn tất', 'azevent-seo-content'); ?></small></div>
+                            <div><span id="azevent-count-failed">0</span><small><?php _e('Lỗi', 'azevent-seo-content'); ?></small></div>
+                        </div>
+
+                        <div id="azevent-queue-notice" class="azevent-queue-notice" hidden></div>
+                        <div class="azevent-queue-table-wrap">
+                            <table class="widefat striped azevent-queue-table">
+                                <thead>
+                                    <tr>
+                                        <th><?php _e('Từ khóa', 'azevent-seo-content'); ?></th>
+                                        <th><?php _e('Trạng thái', 'azevent-seo-content'); ?></th>
+                                        <th><?php _e('Bước hiện tại', 'azevent-seo-content'); ?></th>
+                                        <th><?php _e('Thời gian', 'azevent-seo-content'); ?></th>
+                                        <th><?php _e('Thao tác', 'azevent-seo-content'); ?></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="azevent-queue-rows"></tbody>
+                            </table>
+                            <div id="azevent-queue-empty" class="azevent-queue-empty" hidden>
+                                <span class="dashicons dashicons-list-view" aria-hidden="true"></span>
+                                <strong><?php _e('Hàng đợi đang trống', 'azevent-seo-content'); ?></strong>
+                                <p><?php _e('Chọn Background Queue và nhập danh sách từ khóa để bắt đầu.', 'azevent-seo-content'); ?></p>
+                            </div>
+                        </div>
+
+                        <div class="azevent-actions azevent-review-actions">
+                            <button type="button" id="azevent-add-queue-jobs" class="button azevent-secondary-button">
+                                <span class="dashicons dashicons-plus-alt2" aria-hidden="true"></span>
+                                <?php _e('Thêm từ khóa', 'azevent-seo-content'); ?>
+                            </button>
+                            <p class="azevent-queue-footnote"><?php _e('Có thể đóng tab sau khi Job được thêm vào hàng đợi.', 'azevent-seo-content'); ?></p>
+                        </div>
+                    </section>
                 </div>
             </div>
         </div>
@@ -227,6 +288,36 @@ class AzEvent_Editor_Integration
         if (!current_user_can('edit_posts')) {
             wp_send_json_error(array('message' => 'Quyền truy cập bị từ chối.'));
         }
+
+        $pipeline_arguments = array(
+            'keyword' => sanitize_text_field(wp_unslash($_POST['keyword'] ?? '')),
+            'language' => sanitize_text_field(wp_unslash($_POST['language'] ?? 'Vietnamese')),
+            'post_id' => absint($_POST['post_id'] ?? 0),
+            'step' => sanitize_key(wp_unslash($_POST['step'] ?? 'start')),
+            'mode' => sanitize_key(wp_unslash($_POST['mode'] ?? 'create')),
+            'regenerate_image' => sanitize_text_field(wp_unslash($_POST['regenerate_image'] ?? '0')) === '1',
+            'context' => json_decode(wp_unslash($_POST['context'] ?? '{}'), true),
+            'author_id' => get_current_user_id(),
+        );
+        $pipeline_arguments['context'] = is_array($pipeline_arguments['context']) ? $pipeline_arguments['context'] : array();
+
+        if ($pipeline_arguments['mode'] === 'rewrite' && $pipeline_arguments['post_id'] > 0 && !current_user_can('edit_post', $pipeline_arguments['post_id'])) {
+            wp_send_json_error(array('message' => 'Bạn không có quyền chỉnh sửa bài viết này.'));
+        }
+
+        $pipeline = new AzEvent_Content_Pipeline();
+        $pipeline_result = $pipeline->process_step($pipeline_arguments);
+        if (is_wp_error($pipeline_result)) {
+            $error_data = $pipeline_result->get_error_data();
+            wp_send_json_error(array(
+                'message' => $pipeline_result->get_error_message(),
+                'post_id' => isset($error_data['post_id']) ? absint($error_data['post_id']) : 0,
+                'context' => isset($error_data['context']) && is_array($error_data['context']) ? $error_data['context'] : array(),
+            ));
+        }
+
+        wp_send_json_success($pipeline_result);
+        return;
 
         $keyword = sanitize_text_field(wp_unslash($_POST['keyword'] ?? ''));
         $language = sanitize_text_field(wp_unslash($_POST['language'] ?? 'Vietnamese'));

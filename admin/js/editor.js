@@ -5,7 +5,9 @@ jQuery(function($) {
     const $workflowView = $('#azevent-workflow-view');
     const $reviewView = $('#azevent-review-view');
     const $completeView = $('#azevent-complete-view');
+    const $queueView = $('#azevent-queue-view');
     const $startButton = $('#azevent-start-btn');
+    const $openQueueButton = $('#azevent-open-queue');
     const $approveButton = $('#azevent-approve-btn');
     const $regenerateButton = $('#azevent-regenerate-content-btn');
     const $restartButton = $('#azevent-restart-btn');
@@ -18,6 +20,9 @@ jQuery(function($) {
     const $keywordHelp = $('#azevent-keyword-help');
     const $regenerateImage = $('#azevent-regenerate-image');
     const $reviewFrame = $('#azevent-review-frame');
+    const $queueRows = $('#azevent-queue-rows');
+    const $queueEmpty = $('#azevent-queue-empty');
+    const $queueNotice = $('#azevent-queue-notice');
     const stepOrder = ['intent', 'outline', 'content', 'seo', 'review', 'finish'];
 
     let studioState = 'idle';
@@ -33,6 +38,8 @@ jQuery(function($) {
     let results = [];
     let lastRequestStep = '';
     let lastRequestContext = {};
+    let queuePollTimer = null;
+    let queueLoading = false;
 
     function getMode() {
         return $('input[name="azevent_mode"]:checked').val() || 'create';
@@ -57,6 +64,7 @@ jQuery(function($) {
         $workflowView.prop('hidden', view !== 'workflow');
         $reviewView.prop('hidden', view !== 'review');
         $completeView.prop('hidden', view !== 'complete');
+        $queueView.prop('hidden', view !== 'queue');
     }
 
     function openModal() {
@@ -78,6 +86,7 @@ jQuery(function($) {
         }
         $modal.attr('aria-hidden', 'true');
         $('body').removeClass('azevent-modal-open');
+        stopQueuePolling();
         if (returnFocus) {
             $(returnFocus).trigger('focus');
         }
@@ -85,14 +94,21 @@ jQuery(function($) {
 
     function syncModeHelp() {
         const selectedMode = getMode();
+        if (selectedMode === 'background') {
+            $keywordHelp.text('Background Queue: mỗi dòng là một Job, tối đa 100 từ khóa mỗi lần.');
+            $startButton.html('Thêm vào Background Queue <span class="dashicons dashicons-arrow-right-alt2" aria-hidden="true"></span>');
+            return;
+        }
         if (selectedMode === 'rewrite') {
             $keywordHelp.text('Viết lại: chỉ dùng một từ khóa cho bài hiện tại.');
+            $startButton.html('Bắt đầu phân tích <span class="dashicons dashicons-arrow-right-alt2" aria-hidden="true"></span>');
             if (!$keywords.val().trim() && $('#title').val()) {
                 $keywords.val($('#title').val());
             }
             return;
         }
         $keywordHelp.text('Tạo mới: mỗi dòng sẽ tạo một Draft riêng.');
+        $startButton.html('Bắt đầu phân tích <span class="dashicons dashicons-arrow-right-alt2" aria-hidden="true"></span>');
     }
 
     function updateStatus(text, addToLog) {
@@ -140,6 +156,7 @@ jQuery(function($) {
         results = [];
         lastRequestStep = '';
         lastRequestContext = {};
+        stopQueuePolling();
         $log.empty();
         $processingPanel.removeClass('is-error');
         $errorActions.prop('hidden', true);
@@ -160,7 +177,7 @@ jQuery(function($) {
 
     function buildPreviewDocument(content) {
         return '<!doctype html><html><head><meta charset="utf-8">' +
-            '<style>body{font:15px/1.7 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#1e293b;padding:24px;margin:0}h2,h3,h4{color:#0f172a;line-height:1.35}h2{font-size:24px;margin-top:28px}h3{font-size:19px;margin-top:22px}p{margin:0 0 14px}table{border-collapse:collapse;width:100%;margin:18px 0}th,td{border:1px solid #dbe4f3;padding:8px;text-align:left}img{max-width:100%;height:auto}a{color:#4f46e5}</style>' +
+            '<style>body{box-sizing:border-box;max-width:960px;margin:0 auto;padding:38px 48px;font:16px/1.75 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#1e293b}h2,h3,h4{color:#0f172a;line-height:1.35}h2{font-size:26px;margin-top:32px}h3{font-size:20px;margin-top:24px}p{margin:0 0 16px}table{border-collapse:collapse;width:100%;margin:20px 0}th,td{border:1px solid #dbe4f3;padding:9px;text-align:left}img{max-width:100%;height:auto}a{color:#4f46e5}@media(max-width:700px){body{padding:24px 20px;font-size:15px}}</style>' +
             '</head><body>' + (content || '') + '</body></html>';
     }
 
@@ -283,6 +300,13 @@ jQuery(function($) {
             }
         }).done(function(response) {
             if (!response.success) {
+                const errorPostId = parseInt(response.data && response.data.post_id ? response.data.post_id : 0, 10) || 0;
+                if (errorPostId > 0) {
+                    currentPostId = errorPostId;
+                }
+                if (response.data && response.data.context) {
+                    lastRequestContext = response.data.context;
+                }
                 showError(response.data && response.data.message ? response.data.message : 'Không thể xử lý từ khóa.');
                 return;
             }
@@ -313,7 +337,171 @@ jQuery(function($) {
         });
     }
 
+    function stopQueuePolling() {
+        if (queuePollTimer) {
+            window.clearInterval(queuePollTimer);
+            queuePollTimer = null;
+        }
+    }
+
+    function startQueuePolling() {
+        stopQueuePolling();
+        queuePollTimer = window.setInterval(function() {
+            if ($modal.attr('aria-hidden') === 'false' && !$queueView.prop('hidden')) {
+                loadQueue(true);
+            }
+        }, 5000);
+    }
+
+    function showQueueNotice(message, isError) {
+        if (!message) {
+            $queueNotice.prop('hidden', true).removeClass('is-error').text('');
+            return;
+        }
+        $queueNotice.prop('hidden', false).toggleClass('is-error', !!isError).text(message);
+    }
+
+    function renderQueue(data) {
+        const jobs = data.jobs || [];
+        const counts = data.counts || {};
+        const statusLabels = {
+            pending: 'Đang chờ',
+            processing: 'Đang chạy',
+            completed: 'Hoàn tất',
+            failed: 'Lỗi'
+        };
+        const stepLabels = {
+            start: 'Search Intent',
+            outline: 'Outline',
+            content: 'Content',
+            seo: 'SEO Metadata',
+            image: 'Tạo ảnh',
+            finalize: 'Lưu Draft',
+            completed: 'Đã hoàn tất'
+        };
+
+        $('#azevent-count-pending').text(counts.pending || 0);
+        $('#azevent-count-processing').text(counts.processing || 0);
+        $('#azevent-count-completed').text(counts.completed || 0);
+        $('#azevent-count-failed').text(counts.failed || 0);
+        $queueRows.empty();
+        $queueEmpty.prop('hidden', jobs.length > 0);
+
+        jobs.forEach(function(job) {
+            const $row = $('<tr>');
+            const $keywordCell = $('<td>');
+            $('<span class="azevent-queue-keyword">').text(job.keyword).appendTo($keywordCell);
+            if (job.error) {
+                $('<span class="azevent-job-error">').text(job.error).appendTo($keywordCell);
+            }
+
+            const $status = $('<span class="azevent-status-pill">')
+                .addClass('is-' + job.status)
+                .text(statusLabels[job.status] || job.status);
+            const $actionCell = $('<td>');
+
+            if (job.status === 'completed' && job.post_url) {
+                $('<a class="button azevent-job-action">')
+                    .attr('href', job.post_url)
+                    .text('Mở Draft')
+                    .appendTo($actionCell);
+            } else if (job.status === 'failed') {
+                $('<button type="button" class="button azevent-job-action azevent-retry-job">')
+                    .attr('data-job-id', job.id)
+                    .text('Thử lại')
+                    .appendTo($actionCell);
+            } else {
+                $('<span>').text('—').appendTo($actionCell);
+            }
+
+            $row.append(
+                $keywordCell,
+                $('<td>').append($status),
+                $('<td>').text(stepLabels[job.step] || job.step),
+                $('<td>').text(job.updated_at || job.created_at || ''),
+                $actionCell
+            );
+            $queueRows.append($row);
+        });
+    }
+
+    function loadQueue(silent) {
+        if (queueLoading) {
+            return;
+        }
+        queueLoading = true;
+
+        $.ajax({
+            url: azevent_seo.ajax_url,
+            type: 'POST',
+            data: {
+                action: 'azevent_get_background_jobs',
+                nonce: azevent_seo.nonce
+            }
+        }).done(function(response) {
+            if (!response.success) {
+                showQueueNotice(response.data && response.data.message ? response.data.message : 'Không thể tải hàng đợi.', true);
+                return;
+            }
+            renderQueue(response.data || {});
+            if (!silent) {
+                showQueueNotice('', false);
+            }
+        }).fail(function() {
+            if (!silent) {
+                showQueueNotice('Không thể kết nối để tải trạng thái hàng đợi.', true);
+            }
+        }).always(function() {
+            queueLoading = false;
+        });
+    }
+
+    function showQueue(message) {
+        studioState = 'queue';
+        isProcessing = false;
+        showView('queue');
+        showQueueNotice(message || '', false);
+        loadQueue(!!message);
+        startQueuePolling();
+    }
+
+    function enqueueBackgroundJobs() {
+        isProcessing = true;
+        setControlsDisabled(true);
+        $startButton.text('Đang thêm vào hàng đợi...');
+
+        $.ajax({
+            url: azevent_seo.ajax_url,
+            type: 'POST',
+            data: {
+                action: 'azevent_enqueue_background_jobs',
+                nonce: azevent_seo.nonce,
+                keywords: keywordQueue
+            }
+        }).done(function(response) {
+            isProcessing = false;
+            setControlsDisabled(false);
+            syncModeHelp();
+            if (!response.success) {
+                $keywordHelp.text(response.data && response.data.message ? response.data.message : 'Không thể thêm Job.').css('color', '#b91c1c');
+                return;
+            }
+            $keywords.val('');
+            showQueue(response.data.message || 'Đã thêm Job vào hàng đợi.');
+        }).fail(function() {
+            isProcessing = false;
+            setControlsDisabled(false);
+            syncModeHelp();
+            $keywordHelp.text('Mất kết nối khi thêm Job vào hàng đợi.').css('color', '#b91c1c');
+        });
+    }
+
     $openButton.on('click', openModal);
+
+    $openQueueButton.on('click', function() {
+        openModal();
+        showQueue();
+    });
 
     $('[data-azevent-close]').on('click', closeModal);
 
@@ -340,6 +528,12 @@ jQuery(function($) {
         if (mode === 'rewrite' && keywordQueue.length > 1) {
             $keywords.trigger('focus');
             $keywordHelp.text('Chế độ viết lại chỉ nhận một từ khóa.').css('color', '#b91c1c');
+            return;
+        }
+
+        if (mode === 'background') {
+            $keywordHelp.css('color', '');
+            enqueueBackgroundJobs();
             return;
         }
 
@@ -394,5 +588,45 @@ jQuery(function($) {
             return;
         }
         runStep(lastRequestStep, lastRequestContext);
+    });
+
+    $('#azevent-refresh-queue').on('click', function() {
+        loadQueue(false);
+    });
+
+    $('#azevent-add-queue-jobs').on('click', function() {
+        stopQueuePolling();
+        $('input[name="azevent_mode"][value="background"]').prop('checked', true).trigger('change');
+        showView('setup');
+        $keywords.trigger('focus');
+    });
+
+    $queueRows.on('click', '.azevent-retry-job', function() {
+        const $button = $(this);
+        const jobId = parseInt($button.attr('data-job-id'), 10) || 0;
+        if (!jobId) {
+            return;
+        }
+
+        $button.prop('disabled', true).text('Đang thử lại...');
+        $.ajax({
+            url: azevent_seo.ajax_url,
+            type: 'POST',
+            data: {
+                action: 'azevent_retry_background_job',
+                nonce: azevent_seo.nonce,
+                job_id: jobId
+            }
+        }).done(function(response) {
+            showQueueNotice(
+                response.data && response.data.message ? response.data.message : 'Đã cập nhật Job.',
+                !response.success
+            );
+            loadQueue(true);
+        }).fail(function() {
+            showQueueNotice('Không thể thử lại Job.', true);
+        }).always(function() {
+            $button.prop('disabled', false).text('Thử lại');
+        });
     });
 });

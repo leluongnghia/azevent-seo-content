@@ -50,16 +50,38 @@
     line-height: 1.55;
 }
 
-.azevent-launch-card .azevent-launch-button {
+.azevent-launch-actions {
+    display: grid;
+    gap: 8px;
+}
+
+.azevent-launch-card .azevent-launch-button,
+.azevent-launch-card .azevent-queue-button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     width: 100%;
     min-height: 42px;
+    font-weight: 700;
+}
+
+.azevent-launch-card .azevent-launch-button {
     border-color: #fff;
     background: #fff;
     color: #26348f;
-    font-weight: 700;
+}
+
+.azevent-launch-card .azevent-queue-button {
+    border-color: rgba(255, 255, 255, .28);
+    background: rgba(255, 255, 255, .1);
+    color: #fff;
+}
+
+.azevent-launch-card .azevent-queue-button:hover,
+.azevent-launch-card .azevent-queue-button:focus {
+    border-color: rgba(255, 255, 255, .55);
+    background: rgba(255, 255, 255, .18);
+    color: #fff;
 }
 
 .azevent-launch-button .dashicons,
@@ -88,7 +110,7 @@ body.azevent-modal-open {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 24px;
+    padding: 12px;
 }
 
 .azevent-modal-backdrop {
@@ -102,8 +124,8 @@ body.azevent-modal-open {
     position: relative;
     display: flex;
     flex-direction: column;
-    width: min(1020px, 100%);
-    max-height: calc(100vh - 48px);
+    width: min(1540px, calc(100vw - 24px));
+    max-height: calc(100vh - 24px);
     overflow: hidden;
     border: 1px solid #dbe4f3;
     border-radius: 18px;
@@ -192,7 +214,7 @@ body.azevent-modal-open {
 
 .azevent-mode-picker {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 14px;
     margin: 0 0 20px;
     padding: 0;
@@ -582,7 +604,7 @@ body.azevent-modal-open {
 #azevent-review-frame {
     display: block;
     width: 100%;
-    height: 360px;
+    height: min(68vh, 780px);
     border: 0;
     background: #fff;
 }
@@ -656,6 +678,196 @@ body.azevent-modal-open {
     line-height: 1.6;
 }
 
+.azevent-queue-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+    margin-bottom: 18px;
+}
+
+.azevent-queue-header h3 {
+    margin: 0;
+    color: #0f172a;
+    font-size: 22px;
+}
+
+.azevent-queue-header p {
+    margin: 7px 0 0;
+    color: #64748b;
+}
+
+.azevent-queue-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.azevent-queue-stats > div {
+    padding: 15px 16px;
+    border: 1px solid #dbe4f3;
+    border-radius: 11px;
+    background: #fff;
+}
+
+.azevent-queue-stats span,
+.azevent-queue-stats small {
+    display: block;
+}
+
+.azevent-queue-stats span {
+    color: #172033;
+    font-size: 24px;
+    font-weight: 750;
+    line-height: 1;
+}
+
+.azevent-queue-stats small {
+    margin-top: 7px;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.azevent-queue-notice {
+    margin-bottom: 14px;
+    padding: 11px 13px;
+    border: 1px solid #bbf7d0;
+    border-radius: 9px;
+    background: #f0fdf4;
+    color: #166534;
+}
+
+.azevent-queue-notice.is-error {
+    border-color: #fecaca;
+    background: #fef2f2;
+    color: #991b1b;
+}
+
+.azevent-queue-table-wrap {
+    position: relative;
+    min-height: 250px;
+    overflow: auto;
+    border: 1px solid #dbe4f3;
+    border-radius: 12px;
+    background: #fff;
+}
+
+.azevent-queue-table {
+    border: 0;
+    box-shadow: none;
+}
+
+.azevent-queue-table th {
+    position: sticky;
+    z-index: 1;
+    top: 0;
+    padding: 12px;
+    background: #f8fafc;
+    color: #475569;
+    font-size: 11px;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+.azevent-queue-table td {
+    padding: 12px;
+    vertical-align: middle;
+}
+
+.azevent-queue-keyword {
+    display: block;
+    max-width: 480px;
+    color: #172033;
+    font-weight: 650;
+}
+
+.azevent-status-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 9px;
+    border-radius: 999px;
+    background: #f1f5f9;
+    color: #475569;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.azevent-status-pill.is-pending {
+    background: #fff7ed;
+    color: #9a3412;
+}
+
+.azevent-status-pill.is-processing {
+    background: #eef2ff;
+    color: #4338ca;
+}
+
+.azevent-status-pill.is-completed {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.azevent-status-pill.is-failed {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.azevent-job-error {
+    display: block;
+    max-width: 380px;
+    margin-top: 5px;
+    color: #b91c1c;
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+.azevent-job-action {
+    min-height: 32px !important;
+    border-radius: 7px !important;
+}
+
+.azevent-queue-empty {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    padding: 28px;
+    color: #64748b;
+    text-align: center;
+}
+
+.azevent-queue-empty[hidden] {
+    display: none;
+}
+
+.azevent-queue-empty .dashicons {
+    width: 42px;
+    height: 42px;
+    margin-bottom: 10px;
+    color: #818cf8;
+    font-size: 42px;
+}
+
+.azevent-queue-empty strong {
+    color: #1e293b;
+    font-size: 15px;
+}
+
+.azevent-queue-empty p,
+.azevent-queue-footnote {
+    margin: 6px 0 0;
+    color: #64748b;
+}
+
+.azevent-queue-footnote {
+    margin-left: auto;
+    font-size: 12px;
+}
+
 @keyframes azevent-spin {
     to { transform: rotate(360deg); }
 }
@@ -691,9 +903,14 @@ body.azevent-modal-open {
 
     .azevent-language-summary,
     .azevent-review-header,
-    .azevent-review-actions {
+    .azevent-review-actions,
+    .azevent-queue-header {
         align-items: stretch;
         flex-direction: column;
+    }
+
+    .azevent-queue-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .azevent-language-summary span:nth-child(2) {
@@ -706,7 +923,15 @@ body.azevent-modal-open {
     }
 
     #azevent-review-frame {
-        height: 300px;
+        height: 62vh;
+    }
+
+    .azevent-queue-table-wrap {
+        overflow-x: auto;
+    }
+
+    .azevent-queue-table {
+        min-width: 760px;
     }
 }
 
