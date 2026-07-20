@@ -28,12 +28,12 @@ class AzEvent_AI_Service
     /**
      * Call Anthropic API (Claude).
      */
-    public function call_anthropic($user_prompt, $system_prompt = '', $model = '', $max_tokens = 8192)
+    public function call_anthropic($user_prompt, $system_prompt = '', $model = '', $max_tokens = 8192, array $generation_options = array())
     {
         if (AzEvent_API_Client::is_configured()) {
-            $options = array(
+            $options = array_merge($generation_options, array(
                 'max_tokens' => max(1024, absint($max_tokens)),
-            );
+            ));
             if ($model !== '') {
                 $options['model'] = sanitize_text_field($model);
             }

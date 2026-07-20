@@ -163,7 +163,11 @@ class AzEvent_Content_Pipeline
                     $replace_placeholders($user_prompt, $context),
                     $replace_placeholders($system_prompt, $context),
                     $step_models['outline'],
-                    6144
+                    6144,
+                    array(
+                        'auto_continue' => true,
+                        'max_continuations' => 2,
+                    )
                 );
                 if (is_wp_error($result)) {
                     return $this->attach_error_context($result, $post_id, $context);
@@ -187,7 +191,12 @@ class AzEvent_Content_Pipeline
                     $replace_placeholders($user_prompt, $context),
                     $replace_placeholders($system_prompt, $context),
                     $step_models['content'],
-                    8192
+                    8192,
+                    array(
+                        'auto_continue' => true,
+                        'max_continuations' => 2,
+                        'detect_incomplete_ending' => true,
+                    )
                 );
                 if (is_wp_error($result)) {
                     return $this->attach_error_context($result, $post_id, $context);

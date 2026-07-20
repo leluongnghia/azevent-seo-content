@@ -97,37 +97,48 @@ class AzEvent_API_Client
             $body['stream'] = true;
         }
 
-        $result = $this->request('/chat/completions', $body, 1200);
-        if (is_wp_error($result)) {
-            return $result;
-        }
+        $auto_continue = !empty($options['auto_continue']);
+        $detect_incomplete_ending = !empty($options['detect_incomplete_ending']);
+        $max_continuations = $auto_continue
+            ? min(3, max(1, absint($options['max_continuations'] ?? 2)))
+            : 0;
+        $combined_content = '';
+        $continuation_count = 0;
 
-        if ($use_stream && $this->is_stream_unsupported_error($result)) {
-            unset($body['stream']);
-            $use_stream = false;
-            $result = $this->request('/chat/completions', $body, 1200);
-            if (is_wp_error($result)) {
-                return $result;
+        while (true) {
+            $completion = $this->request_text_completion($body, $use_stream, $model);
+            if (is_wp_error($completion)) {
+                return $completion;
             }
-        }
 
-        if ($result['status'] < 200 || $result['status'] >= 300) {
-            return $this->api_error('AzEvent API Text', $result, $model);
-        }
+            $segment = (string) $completion['content'];
+            if (trim($segment) === '') {
+                return new WP_Error('azevent_empty_text_response', 'AzEvent API không trả về nội dung.');
+            }
+            $combined_content = $this->append_text_segment($combined_content, $segment);
 
-        $content = $use_stream ? $this->parse_streamed_text($result['raw_body']) : '';
-        if ($content === '') {
-            $content = isset($result['data']['choices'][0]['message']['content'])
-                ? $this->normalize_text_content($result['data']['choices'][0]['message']['content'])
-                : '';
-        }
+            $truncated = $this->is_truncated_finish_reason($completion['finish_reason']);
+            if (!$truncated && $detect_incomplete_ending) {
+                $truncated = $this->looks_like_incomplete_content($combined_content);
+            }
+            if (!$truncated) {
+                return trim($combined_content);
+            }
 
-        $content = trim((string) $content);
-        if ($content === '') {
-            return new WP_Error('azevent_empty_text_response', 'AzEvent API không trả về nội dung.');
-        }
+            if (!$auto_continue || $continuation_count >= $max_continuations) {
+                return new WP_Error(
+                    'azevent_text_truncated',
+                    'AI đã dừng vì hết giới hạn token trước khi hoàn tất nội dung. Plugin không chuyển sang bước SEO để tránh lưu bài bị cắt. Hãy thử lại bằng model có output dài hơn hoặc rút gọn Outline.'
+                );
+            }
 
-        return $content;
+            $continuation_count++;
+            $body['messages'][] = array('role' => 'assistant', 'content' => $segment);
+            $body['messages'][] = array(
+                'role' => 'user',
+                'content' => 'Tiếp tục chính xác từ vị trí vừa dừng. Không lặp lại nội dung đã viết, không mở đầu lại và không giải thích. Hãy hoàn tất toàn bộ các mục còn lại theo yêu cầu ban đầu. Chỉ trả về phần nội dung nối tiếp.',
+            );
+        }
     }
 
     public function generate_image($prompt, $model = '', $aspect_ratio = '1:1')
@@ -266,9 +277,46 @@ class AzEvent_API_Client
         );
     }
 
+    private function request_text_completion(array &$body, &$use_stream, $model)
+    {
+        $result = $this->request('/chat/completions', $body, 1200);
+        if (is_wp_error($result)) {
+            return $result;
+        }
+
+        if ($use_stream && $this->is_stream_unsupported_error($result)) {
+            unset($body['stream']);
+            $use_stream = false;
+            $result = $this->request('/chat/completions', $body, 1200);
+            if (is_wp_error($result)) {
+                return $result;
+            }
+        }
+
+        if ($result['status'] < 200 || $result['status'] >= 300) {
+            return $this->api_error('AzEvent API Text', $result, $model);
+        }
+
+        $completion = $use_stream
+            ? $this->parse_streamed_text($result['raw_body'])
+            : array('content' => '', 'finish_reason' => '');
+        if (trim((string) $completion['content']) === '') {
+            $choice = isset($result['data']['choices'][0]) && is_array($result['data']['choices'][0])
+                ? $result['data']['choices'][0]
+                : array();
+            $completion['content'] = isset($choice['message']['content'])
+                ? $this->normalize_text_content($choice['message']['content'])
+                : '';
+            $completion['finish_reason'] = $this->extract_finish_reason($choice);
+        }
+
+        return $completion;
+    }
+
     private function parse_streamed_text($raw_body)
     {
         $parts = array();
+        $finish_reason = '';
         $lines = preg_split('/\r\n|\r|\n/', (string) $raw_body);
 
         foreach ($lines as $line) {
@@ -288,6 +336,10 @@ class AzEvent_API_Client
             }
 
             $choice = $chunk['choices'][0];
+            $chunk_finish_reason = $this->extract_finish_reason($choice);
+            if ($chunk_finish_reason !== '') {
+                $finish_reason = $chunk_finish_reason;
+            }
             if (isset($choice['delta']['content'])) {
                 $parts[] = $this->normalize_text_content($choice['delta']['content']);
             } elseif (isset($choice['message']['content'])) {
@@ -297,7 +349,55 @@ class AzEvent_API_Client
             }
         }
 
-        return trim(implode('', $parts));
+        return array(
+            'content' => implode('', $parts),
+            'finish_reason' => $finish_reason,
+        );
+    }
+
+    private function extract_finish_reason(array $choice)
+    {
+        foreach (array('finish_reason', 'stop_reason', 'finishReason') as $key) {
+            if (isset($choice[$key]) && $choice[$key] !== null) {
+                return sanitize_key((string) $choice[$key]);
+            }
+        }
+        return '';
+    }
+
+    private function is_truncated_finish_reason($finish_reason)
+    {
+        return in_array((string) $finish_reason, array('length', 'max_tokens', 'max_token', 'token_limit'), true);
+    }
+
+    private function looks_like_incomplete_content($content)
+    {
+        $content = trim((string) $content);
+        if ($content === '') {
+            return true;
+        }
+        if (preg_match('/<\/h[1-6]>\s*$/i', $content)) {
+            return true;
+        }
+        if (preg_match('/(?:^|\n)#{1,6}\s+[^\n]+$/u', $content)) {
+            return true;
+        }
+        return substr_count($content, '<') > substr_count($content, '>');
+    }
+
+    private function append_text_segment($content, $segment)
+    {
+        if ($content === '') {
+            return $segment;
+        }
+
+        $max_overlap = min(1000, strlen($content), strlen($segment));
+        for ($length = $max_overlap; $length >= 20; $length--) {
+            if (substr($content, -$length) === substr($segment, 0, $length)) {
+                return $content . substr($segment, $length);
+            }
+        }
+        return $content . $segment;
     }
 
     private function normalize_text_content($content)
