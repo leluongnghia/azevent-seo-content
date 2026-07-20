@@ -90,27 +90,36 @@ class AzEvent_API_Client
             $body['response_format'] = $options['response_format'];
         }
 
+        $use_stream = array_key_exists('stream', $options)
+            ? (bool) $options['stream']
+            : $this->base_url === self::REMOTE_BASE_URL;
+        if ($use_stream) {
+            $body['stream'] = true;
+        }
+
         $result = $this->request('/chat/completions', $body, 1200);
         if (is_wp_error($result)) {
             return $result;
+        }
+
+        if ($use_stream && $this->is_stream_unsupported_error($result)) {
+            unset($body['stream']);
+            $use_stream = false;
+            $result = $this->request('/chat/completions', $body, 1200);
+            if (is_wp_error($result)) {
+                return $result;
+            }
         }
 
         if ($result['status'] < 200 || $result['status'] >= 300) {
             return $this->api_error('AzEvent API Text', $result, $model);
         }
 
-        $content = isset($result['data']['choices'][0]['message']['content'])
-            ? $result['data']['choices'][0]['message']['content']
-            : '';
-
-        if (is_array($content)) {
-            $parts = array();
-            foreach ($content as $part) {
-                if (is_array($part) && isset($part['text'])) {
-                    $parts[] = $part['text'];
-                }
-            }
-            $content = implode("\n", $parts);
+        $content = $use_stream ? $this->parse_streamed_text($result['raw_body']) : '';
+        if ($content === '') {
+            $content = isset($result['data']['choices'][0]['message']['content'])
+                ? $this->normalize_text_content($result['data']['choices'][0]['message']['content'])
+                : '';
         }
 
         $content = trim((string) $content);
@@ -227,7 +236,7 @@ class AzEvent_API_Client
 
             $status = (int) wp_remote_retrieve_response_code($response);
             $rate_limited = $status === 429;
-            $temporary_error = in_array($status, array(500, 502, 503, 504, 520, 521, 522, 523, 524), true);
+            $temporary_error = in_array($status, array(500, 502, 503, 504, 520, 521, 522, 523), true);
             $max_retries = $rate_limited ? 3 : ($temporary_error ? 1 : 0);
             if ($attempt >= $max_retries) {
                 break;
@@ -252,7 +261,74 @@ class AzEvent_API_Client
         return array(
             'status' => (int) wp_remote_retrieve_response_code($response),
             'data' => $data,
+            'raw_body' => (string) $raw_body,
             'attempts' => $attempt + 1,
+        );
+    }
+
+    private function parse_streamed_text($raw_body)
+    {
+        $parts = array();
+        $lines = preg_split('/\r\n|\r|\n/', (string) $raw_body);
+
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if (strpos($line, 'data:') !== 0) {
+                continue;
+            }
+
+            $payload = trim(substr($line, 5));
+            if ($payload === '' || $payload === '[DONE]') {
+                continue;
+            }
+
+            $chunk = json_decode($payload, true);
+            if (!is_array($chunk) || empty($chunk['choices'][0])) {
+                continue;
+            }
+
+            $choice = $chunk['choices'][0];
+            if (isset($choice['delta']['content'])) {
+                $parts[] = $this->normalize_text_content($choice['delta']['content']);
+            } elseif (isset($choice['message']['content'])) {
+                $parts[] = $this->normalize_text_content($choice['message']['content']);
+            } elseif (isset($choice['text'])) {
+                $parts[] = (string) $choice['text'];
+            }
+        }
+
+        return trim(implode('', $parts));
+    }
+
+    private function normalize_text_content($content)
+    {
+        if (!is_array($content)) {
+            return (string) $content;
+        }
+
+        $parts = array();
+        foreach ($content as $part) {
+            if (is_array($part) && isset($part['text'])) {
+                $parts[] = (string) $part['text'];
+            } elseif (is_string($part)) {
+                $parts[] = $part;
+            }
+        }
+        return implode("\n", $parts);
+    }
+
+    private function is_stream_unsupported_error(array $result)
+    {
+        if (!in_array((int) $result['status'], array(400, 404, 422), true)) {
+            return false;
+        }
+
+        $message = strtolower($this->extract_error_message($result['data'], $result['status']));
+        return strpos($message, 'stream') !== false && (
+            strpos($message, 'not support') !== false
+            || strpos($message, 'unsupported') !== false
+            || strpos($message, 'invalid') !== false
+            || strpos($message, 'unknown') !== false
         );
     }
 
@@ -393,11 +469,8 @@ class AzEvent_API_Client
     {
         $message = $this->extract_error_message($result['data'], $result['status']);
         if ((int) $result['status'] === 524) {
-            $message = 'HTTP 524 — Cloudflare đã chờ 120 giây nhưng model chưa trả xong.';
-            if (absint($result['attempts'] ?? 1) > 1) {
-                $message .= ' Plugin đã tự thử lại một lần.';
-            }
-            $message .= ' Hãy chọn model nhanh hơn cho bước này hoặc dùng endpoint API không qua proxy Cloudflare.';
+            $message = 'HTTP 524 — Cloudflare đã chờ 120 giây nhưng model chưa gửi dữ liệu.';
+            $message .= ' Plugin không lặp lại cùng request để tránh chờ thêm 120 giây. Hãy mở Job trong Background Queue để tiếp tục bằng model nhanh hơn hoặc dùng endpoint API không qua proxy Cloudflare.';
         }
         $suffix = $model !== '' ? ' (' . $model . ')' : '';
         return new WP_Error(
