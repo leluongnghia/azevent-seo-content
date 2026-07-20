@@ -19,6 +19,7 @@ $azevent_step_models = array(
     'content' => get_option('azevent_seo_content_model', ''),
     'seo' => get_option('azevent_seo_seo_model', ''),
 );
+$azevent_brand_defaults = AzEvent_SEO_Content::get_default_brand_profile();
 $azevent_brand_profile = AzEvent_SEO_Content::get_brand_profile();
 $azevent_custom_models = json_decode(get_option('aprg_cliproxy_custom_models', '[]'), true);
 $azevent_custom_models = is_array($azevent_custom_models) ? array_values(array_filter(array_map('sanitize_text_field', $azevent_custom_models))) : array();
@@ -265,6 +266,9 @@ $prompt_tokens = array(
         .azevent-card h2 { margin: 0 0 5px; color: #0f172a; font-size: 18px; letter-spacing: -.02em; }
         .azevent-card h3 { margin: 0; color: #1e293b; font-size: 14px; }
         .azevent-card-description { margin: 0; color: #64748b; font-size: 12px; line-height: 1.6; }
+        .azevent-brand-reset-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+        .azevent-brand-reset-status { color: #64748b; font-size: 11px; }
+        .azevent-brand-reset-status.is-ready { color: #047857; }
         .azevent-status {
             display: inline-flex;
             align-items: center;
@@ -594,6 +598,10 @@ $prompt_tokens = array(
                                 <p class="azevent-card-description"><?php _e('Dữ liệu này được đưa vào prompt để nội dung nhất quán với dịch vụ tổ chức sự kiện.', 'azevent-seo-content'); ?></p>
                                 </div>
                             </div>
+                            <div class="azevent-brand-reset-actions">
+                                <button type="button" class="azevent-legacy-refresh" id="azevent-reset-brand-defaults"><?php _e('↺ Khôi phục mặc định AzEvent', 'azevent-seo-content'); ?></button>
+                                <span class="azevent-brand-reset-status" id="azevent-brand-reset-status" aria-live="polite"></span>
+                            </div>
                         </div>
                         <div class="azevent-field">
                             <label for="azevent_seo_brand_name"><?php _e('Tên thương hiệu', 'azevent-seo-content'); ?></label>
@@ -609,6 +617,7 @@ $prompt_tokens = array(
                             <textarea id="azevent_seo_brand_solution" name="azevent_seo_brand_solution" rows="8"><?php echo esc_textarea($azevent_brand_profile['azevent_seo_brand_solution']); ?></textarea>
                             <p class="azevent-help"><?php _e('Mô tả dịch vụ, quy trình, điểm khác biệt và lời kêu gọi hành động.', 'azevent-seo-content'); ?></p>
                         </div>
+                        <p class="azevent-note"><?php _e('Plugin luôn ưu tiên nội dung bạn tự nhập. Nút khôi phục chỉ điền lại hồ sơ AzEvent mặc định và chỉ có hiệu lực sau khi bấm Lưu cấu hình.', 'azevent-seo-content'); ?></p>
                     </div>
                 </section>
 
@@ -994,6 +1003,29 @@ $prompt_tokens = array(
                 }
             });
             syncCustomModels();
+
+            var brandResetButton = document.getElementById('azevent-reset-brand-defaults');
+            var brandResetStatus = document.getElementById('azevent-brand-reset-status');
+            var brandDefaultValues = <?php echo wp_json_encode($azevent_brand_defaults); ?>;
+
+            if (brandResetButton) {
+                brandResetButton.addEventListener('click', function () {
+                    if (!window.confirm('<?php echo esc_js(__('Thay nội dung hiện tại bằng hồ sơ AzEvent mặc định? Thay đổi chỉ được lưu khi bạn bấm Lưu cấu hình.', 'azevent-seo-content')); ?>')) {
+                        return;
+                    }
+                    Object.keys(brandDefaultValues).forEach(function (fieldName) {
+                        var field = document.getElementById(fieldName);
+                        if (!field) {
+                            return;
+                        }
+                        field.value = brandDefaultValues[fieldName];
+                        field.dispatchEvent(new Event('input', { bubbles: true }));
+                        field.dispatchEvent(new Event('change', { bubbles: true }));
+                    });
+                    brandResetStatus.className = 'azevent-brand-reset-status is-ready';
+                    brandResetStatus.textContent = '<?php echo esc_js(__('Đã nạp mặc định. Hãy bấm Lưu cấu hình.', 'azevent-seo-content')); ?>';
+                });
+            }
 
             var activePromptField = null;
             document.querySelectorAll('.azevent-prompt textarea').forEach(function (field) {
