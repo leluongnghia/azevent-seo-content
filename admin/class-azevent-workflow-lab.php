@@ -213,13 +213,22 @@ class AzEvent_SEO_Workflow_Lab
             }
 
             $pipeline = new AzEvent_Workflow_Lab_Pipeline();
-            $pipeline->process_step(
+            $result = $pipeline->process_step(
                 $post_id,
                 sanitize_key($pending['step'] ?? ''),
                 $context,
                 array(),
                 !empty($pending['skip_image'])
             );
+            if (!is_wp_error($result) && ($result['status'] ?? '') === 'queued') {
+                $next_context = isset($result['context']) && is_array($result['context']) ? $result['context'] : array();
+                $next_job = isset($next_context['pending_job']) && is_array($next_context['pending_job'])
+                    ? $next_context['pending_job']
+                    : array();
+                if (!empty($next_job['id'])) {
+                    $this->dispatch_background_step($post_id, $next_job['id']);
+                }
+            }
         } finally {
             wp_clear_scheduled_hook(self::CRON_HOOK, array($post_id, $job_id));
             $this->release_job_lock($job_id);

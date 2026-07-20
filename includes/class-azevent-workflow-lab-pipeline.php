@@ -103,6 +103,37 @@ class AzEvent_Workflow_Lab_Pipeline
         }
 
         $context = $result['context'];
+        if (!empty($result['continue_step'])) {
+            $this->record_step_duration($context, $step, microtime(true) - $step_started_at, 'partial');
+            $next_job_id = wp_generate_uuid4();
+            $context['status'] = 'queued';
+            $context['current_step'] = $step;
+            $context['pending_job'] = array(
+                'id' => $next_job_id,
+                'step' => $step,
+                'skip_image' => (bool) $skip_image,
+                'queued_at' => time(),
+            );
+            $context['updated_at'] = time();
+            unset($context['error']);
+            $this->append_log(
+                $post_id,
+                $context,
+                'success',
+                $step,
+                (string) ($result['progress_message'] ?? 'Đã lưu checkpoint phần hiện tại và đưa phần tiếp theo vào hàng đợi nền.')
+            );
+
+            return array(
+                'post_id' => $post_id,
+                'step' => $step,
+                'next_step' => $context['next_step'],
+                'status' => $context['status'],
+                'context' => $context,
+                'job_id' => $next_job_id,
+                'edit_url' => get_edit_post_link($post_id, 'raw'),
+            );
+        }
         unset($context['pending_job']);
         $this->record_step_duration($context, $step, microtime(true) - $step_started_at, 'success');
         $this->append_log(
@@ -233,6 +264,121 @@ class AzEvent_Workflow_Lab_Pipeline
             return new WP_Error('azevent_lab_missing_brief', 'Chưa có Content Brief & Outline.');
         }
 
+        $split_state = isset($context['content_split']) && is_array($context['content_split'])
+            ? $context['content_split']
+            : array();
+        $split_in_progress = !empty($split_state['enabled']) && empty($split_state['completed']) && !empty($split_state['sections']);
+        $split_enabled = $split_in_progress || absint(get_option('azevent_lab_split_content_by_outline', 0)) === 1;
+
+        if ($split_enabled) {
+            if (!$split_in_progress) {
+                $sections = $this->extract_outline_sections($context['results']['brief']);
+                if (count($sections) >= 2) {
+                    $split_state = array(
+                        'enabled' => true,
+                        'completed' => false,
+                        'current_index' => 0,
+                        'sections' => array_slice($sections, 0, 20),
+                        'parts' => array(),
+                        'started_at' => time(),
+                    );
+                    $context['content_split'] = $split_state;
+                    $this->append_log(
+                        $post_id,
+                        $context,
+                        'info',
+                        'content',
+                        sprintf('Đã tách Outline thành %d phần H2. Mỗi phần sẽ chạy thành một background job riêng.', count($split_state['sections']))
+                    );
+                } else {
+                    unset($context['content_split']);
+                    $split_enabled = false;
+                    $this->append_log($post_id, $context, 'info', 'content', 'Không nhận diện được ít nhất 2 mục H2 trong Outline; chuyển về chế độ viết toàn bài trong một request.');
+                }
+            }
+        } else {
+            unset($context['content_split']);
+        }
+
+        if ($split_enabled && !empty($split_state['sections'])) {
+            $section_index = max(0, absint($split_state['current_index'] ?? 0));
+            $sections = array_values($split_state['sections']);
+            if (!isset($sections[$section_index])) {
+                unset($context['content_split']);
+                return new WP_Error('azevent_lab_invalid_content_checkpoint', 'Checkpoint viết theo H2 không hợp lệ. Hãy chạy lại bước Content.');
+            }
+
+            $prompts = $this->build_content_section_prompts($context, $split_state, $section_index);
+            $generation_options = array(
+                'auto_continue' => true,
+                'max_continuations' => 1,
+                'detect_incomplete_ending' => true,
+            );
+            $this->append_log(
+                $post_id,
+                $context,
+                'info',
+                'content',
+                sprintf(
+                    'Đang viết phần H2 %d/%d: %s.',
+                    $section_index + 1,
+                    count($sections),
+                    sanitize_text_field($sections[$section_index]['title'] ?? '')
+                )
+            );
+            $this->log_ai_request($post_id, $context, 'content', 4096, $generation_options, $prompts);
+            $result = $this->call_text('content', $prompts['user'], $prompts['system'], 4096, $generation_options);
+            $this->record_ai_metrics($post_id, $context, 'content', $prompts, $result);
+            if (is_wp_error($result)) {
+                return $result;
+            }
+
+            $section_content = $this->clean_html($result);
+            if ($section_content === '') {
+                return new WP_Error('azevent_lab_empty_content_section', 'AI không trả về HTML hợp lệ cho phần H2 hiện tại.');
+            }
+
+            if (!isset($split_state['parts']) || !is_array($split_state['parts'])) {
+                $split_state['parts'] = array();
+            }
+            $split_state['parts'][$section_index] = $section_content;
+            $split_state['current_index'] = $section_index + 1;
+            $split_state['updated_at'] = time();
+            $context['content_split'] = $split_state;
+
+            if ($split_state['current_index'] < count($sections)) {
+                return array(
+                    'context' => $context,
+                    'continue_step' => true,
+                    'progress_message' => sprintf(
+                        'Đã lưu phần H2 %d/%d. Plugin sẽ tự chạy phần H2 tiếp theo từ checkpoint này.',
+                        $split_state['current_index'],
+                        count($sections)
+                    ),
+                );
+            }
+
+            ksort($split_state['parts']);
+            $content = $this->clean_html(implode("\n\n", $split_state['parts']));
+            if ($content === '') {
+                return new WP_Error('azevent_lab_empty_split_content', 'Không thể ghép các phần H2 thành nội dung hoàn chỉnh.');
+            }
+            $context['results']['content'] = $content;
+            $context['content_split'] = array(
+                'enabled' => true,
+                'completed' => true,
+                'total_sections' => count($sections),
+                'completed_sections' => count($sections),
+                'section_titles' => array_values(array_map(function ($section) {
+                    return sanitize_text_field($section['title'] ?? '');
+                }, $sections)),
+                'started_at' => absint($split_state['started_at'] ?? time()),
+                'completed_at' => time(),
+            );
+            $this->append_log($post_id, $context, 'success', 'content', sprintf('Đã ghép đủ %d phần H2 thành nội dung HTML hoàn chỉnh.', count($sections)));
+            return $this->complete_step($context, 'content', 'seo');
+        }
+
         $prompts = $this->build_prompts('content', $context);
 
         $generation_options = array(
@@ -253,6 +399,181 @@ class AzEvent_Workflow_Lab_Pipeline
         }
         $context['results']['content'] = $content;
         return $this->complete_step($context, 'content', 'seo');
+    }
+
+    private function build_content_section_prompts(array $context, array $split_state, $section_index)
+    {
+        $defaults = self::get_default_prompts();
+        $system = (string) get_option('azevent_lab_content_system', '');
+        $user = (string) get_option('azevent_lab_content_user', '');
+        $system = trim($system) === '' ? $defaults['content']['system'] : $system;
+        $user = trim($user) === '' ? $defaults['content']['user'] : $user;
+        $input = isset($context['input']) && is_array($context['input']) ? $context['input'] : array();
+        $sections = array_values($split_state['sections'] ?? array());
+        $section = isset($sections[$section_index]) && is_array($sections[$section_index]) ? $sections[$section_index] : array();
+        $parts = isset($split_state['parts']) && is_array($split_state['parts']) ? $split_state['parts'] : array();
+        ksort($parts);
+        $previous_excerpt = $this->tail_text(wp_strip_all_tags(implode("\n", $parts)), 5000);
+        $brand = AzEvent_SEO_Content::get_brand_profile();
+        $outline_plan = array();
+        foreach ($sections as $index => $outline_section) {
+            $outline_plan[] = sprintf('%d. %s', $index + 1, sanitize_text_field($outline_section['title'] ?? ''));
+        }
+        $completed_titles = array_slice($outline_plan, 0, $section_index);
+        $replacements = array(
+            '{language}' => sanitize_text_field($context['language'] ?? 'Vietnamese'),
+            '{keyword}' => sanitize_text_field($input['keyword'] ?? ''),
+            '{secondary_keywords}' => implode(', ', (array) ($input['secondary_keywords'] ?? array())),
+            '{audience}' => sanitize_textarea_field($input['audience'] ?? ''),
+            '{research}' => 'Research đã được tổng hợp vào Content Brief. Chỉ dùng dữ kiện trong Brief và bối cảnh thương hiệu; không tự tạo claim mới.',
+            '{brief}' => trim((string) ($section['outline'] ?? $section['title'] ?? '')),
+            '{brand_name}' => $brand['azevent_seo_brand_name'],
+            '{brand_info}' => $brand['azevent_seo_brand_info'],
+            '{brand_solution}' => $brand['azevent_seo_brand_solution'],
+            '{content}' => $previous_excerpt,
+            '{seo_json}' => '{}',
+            '{internal_link_candidates}' => '[]',
+            '{competitor_notes}' => 'Đã tổng hợp trong Content Brief.',
+            '{serp_snapshot}' => '{}',
+        );
+        $system = str_replace(array_keys($replacements), array_values($replacements), $system);
+        $user = str_replace(array_keys($replacements), array_values($replacements), $user);
+
+        $position_instruction = $section_index === 0
+            ? 'Đây là phần đầu: viết mở bài ngắn trước H2 hiện tại, sau đó viết đầy đủ H2 này.'
+            : 'Bắt đầu bằng H2 hiện tại và tạo chuyển tiếp tự nhiên từ phần trước; không viết lại mở bài.';
+        if ($section_index === count($sections) - 1) {
+            $position_instruction .= ' Đây là phần cuối: hoàn tất CTA hoặc đoạn kết nếu Content Brief yêu cầu, nhưng không tự tạo heading “Kết luận” nếu Outline không có.';
+        }
+
+        $user .= "\n\n## Chế độ bắt buộc: chỉ viết một phần H2\n";
+        $user .= sprintf("- Phần hiện tại: %d/%d — %s\n", $section_index + 1, count($sections), sanitize_text_field($section['title'] ?? ''));
+        $user .= "- Toàn bộ thứ tự H2:\n" . implode("\n", $outline_plan) . "\n";
+        $user .= "- H2 đã hoàn thành:\n" . ($completed_titles ? implode("\n", $completed_titles) : 'Chưa có.') . "\n";
+        $user .= "- Đoạn cuối của nội dung đã viết để nối mạch và tránh lặp:\n" . ($previous_excerpt !== '' ? $previous_excerpt : 'Chưa có nội dung trước.') . "\n";
+        $user .= "- Chỉ dẫn vị trí: " . $position_instruction . "\n";
+        $user .= "- Chỉ xuất HTML của phần hiện tại. Không viết các H2 khác, không nhắc lại nội dung đã hoàn thành và không giải thích quy trình.";
+
+        return array('system' => $system, 'user' => $user);
+    }
+
+    private function extract_outline_sections($brief)
+    {
+        $lines = preg_split('/\r\n|\r|\n/', (string) $brief);
+        $sections = array();
+        $current = null;
+        $in_outline = false;
+        $section_level = 0;
+
+        foreach ($lines as $line) {
+            $trimmed = trim((string) $line);
+            $plain = $this->clean_outline_heading($trimmed);
+            if (!$in_outline) {
+                if (preg_match('/(?:outline|dàn\s*ý)/ui', $plain)) {
+                    $in_outline = true;
+                }
+                continue;
+            }
+
+            if ($sections && preg_match('/^(?:5|6|7|8|9)[\.\)]\s|^(?:chỉ dẫn mở bài|khối hỗ trợ|cta|kế hoạch internal link|cảnh báo)/ui', $plain)) {
+                break;
+            }
+
+            if (preg_match('/(?:^|[\s*\-])H1\s*[:\.\-–]\s*(.+)$/ui', $trimmed)) {
+                continue;
+            }
+
+            if (preg_match('/(?:^|[\s*\-])H2\s*[:\.\-–]\s*(.+)$/ui', $trimmed, $match)) {
+                if (is_array($current)) {
+                    $current['outline'] = trim(implode("\n", $current['lines']));
+                    unset($current['lines']);
+                    $sections[] = $current;
+                }
+                if (preg_match('/^(#{2,6})\s+/u', $trimmed, $heading_match)) {
+                    $section_level = strlen($heading_match[1]);
+                } elseif ($section_level === 0) {
+                    $section_level = 2;
+                }
+                $current = array(
+                    'title' => $this->clean_outline_heading($match[1]),
+                    'lines' => array($trimmed),
+                );
+                continue;
+            }
+
+            if (preg_match('/(?:^|[\s*\-])H3\s*[:\.\-–]\s*(.+)$/ui', $trimmed)) {
+                if (is_array($current)) {
+                    $current['lines'][] = $trimmed;
+                }
+                continue;
+            }
+
+            if (preg_match('/^(#{2,6})\s+(.+)$/u', $trimmed, $match)) {
+                $level = strlen($match[1]);
+                $heading = $this->clean_outline_heading($match[2]);
+                if (preg_match('/(?:outline|dàn\s*ý).*h2/ui', $heading)) {
+                    continue;
+                }
+                if ($section_level === 0) {
+                    $section_level = $level;
+                }
+                if ($level < $section_level && $sections) {
+                    break;
+                }
+                if ($level === $section_level) {
+                    if (is_array($current)) {
+                        $current['outline'] = trim(implode("\n", $current['lines']));
+                        unset($current['lines']);
+                        $sections[] = $current;
+                    }
+                    $current = array('title' => $heading, 'lines' => array($trimmed));
+                    continue;
+                }
+            }
+
+            if (is_array($current) && $trimmed !== '') {
+                $current['lines'][] = $trimmed;
+            }
+        }
+
+        if (is_array($current)) {
+            $current['outline'] = trim(implode("\n", $current['lines']));
+            unset($current['lines']);
+            $sections[] = $current;
+        }
+
+        $unique = array();
+        $filtered = array();
+        foreach ($sections as $section) {
+            $title = sanitize_text_field($section['title'] ?? '');
+            $key = function_exists('mb_strtolower') ? mb_strtolower($title) : strtolower($title);
+            if ($title === '' || isset($unique[$key])) {
+                continue;
+            }
+            $unique[$key] = true;
+            $section['title'] = $title;
+            $filtered[] = $section;
+        }
+        return $filtered;
+    }
+
+    private function clean_outline_heading($value)
+    {
+        $value = wp_strip_all_tags((string) $value);
+        $value = preg_replace('/^[#\s>*+\-]+/u', '', $value);
+        $value = preg_replace('/\*\*|__|`/u', '', $value);
+        $value = preg_replace('/^(?:\d+(?:\.\d+)*[\.\)]?\s*)?(?:\[?H[23]\]?\s*[:\.\-–]?\s*)?/ui', '', $value);
+        return trim((string) $value);
+    }
+
+    private function tail_text($value, $length)
+    {
+        $value = trim((string) $value);
+        $length = max(1, absint($length));
+        if (function_exists('mb_strlen') && function_exists('mb_substr')) {
+            return mb_strlen($value) > $length ? mb_substr($value, -$length) : $value;
+        }
+        return strlen($value) > $length ? substr($value, -$length) : $value;
     }
 
     private function run_seo($post_id, array &$context)
@@ -404,7 +725,11 @@ class AzEvent_Workflow_Lab_Pipeline
             $context['results']['research'] = wp_kses_post((string) $edits['research']);
         }
         if (isset($edits['brief'])) {
-            $context['results']['brief'] = wp_kses_post((string) $edits['brief']);
+            $brief = wp_kses_post((string) $edits['brief']);
+            if ((string) ($context['results']['brief'] ?? '') !== $brief) {
+                unset($context['content_split'], $context['results']['content']);
+            }
+            $context['results']['brief'] = $brief;
         }
         if (isset($edits['content'])) {
             $context['results']['content'] = $this->clean_html(wp_kses_post((string) $edits['content']));
@@ -456,10 +781,15 @@ class AzEvent_Workflow_Lab_Pipeline
             '{internal_link_candidates}' => wp_json_encode($internal_link_candidates, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
         );
 
-        return array(
-            'system' => str_replace(array_keys($replacements), array_values($replacements), $system),
-            'user' => str_replace(array_keys($replacements), array_values($replacements), $user),
-        );
+        $system = str_replace(array_keys($replacements), array_values($replacements), $system);
+        $user = str_replace(array_keys($replacements), array_values($replacements), $user);
+        if ($step === 'quality' && !empty($context['content_split']['enabled']) && !empty($context['content_split']['completed'])) {
+            $user .= "\n\n## Kiểm tra bổ sung cho bài được ghép từ nhiều H2\n";
+            $user .= "- Phát hiện và sửa câu chuyển đoạn gượng, ý lặp giữa các H2, phần mở đầu nhỏ bị lặp, CTA lặp và thay đổi giọng văn.\n";
+            $user .= "- Bảo đảm toàn bài đọc như một tác giả viết liền mạch; chỉ dùng replacements ngắn, chính xác, không trả lại toàn bộ bài.";
+        }
+
+        return array('system' => $system, 'user' => $user);
     }
 
     private function call_text($step, $user_prompt, $system_prompt, $max_tokens, array $options = array())

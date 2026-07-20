@@ -23,6 +23,7 @@ $azevent_lab_step_models = array();
 foreach (array('research', 'brief', 'content', 'seo', 'quality') as $lab_step) {
     $azevent_lab_step_models[$lab_step] = get_option("azevent_lab_{$lab_step}_model", '');
 }
+$azevent_lab_split_content = absint(get_option('azevent_lab_split_content_by_outline', 0));
 $azevent_brand_defaults = AzEvent_SEO_Content::get_default_brand_profile();
 $azevent_brand_profile = AzEvent_SEO_Content::get_brand_profile();
 $azevent_custom_models = json_decode(get_option('aprg_cliproxy_custom_models', '[]'), true);
@@ -816,6 +817,18 @@ $lab_prompt_tokens = array(
                                     <p class="azevent-help"><?php _e('Chỉ lưu title, meta và tối đa 24 heading; không sao chép toàn bộ nội dung.', 'azevent-seo-content'); ?></p>
                                 </div>
                             </div>
+                        </div>
+                        <div class="azevent-serp-box">
+                            <h3><?php _e('Cách viết nội dung từ Outline', 'azevent-seo-content'); ?></h3>
+                            <input type="hidden" name="azevent_lab_split_content_by_outline" value="0">
+                            <label class="azevent-workflow-option" for="azevent_lab_split_content_by_outline">
+                                <input id="azevent_lab_split_content_by_outline" type="checkbox" name="azevent_lab_split_content_by_outline" value="1" <?php checked($azevent_lab_split_content, 1); ?>>
+                                <span>
+                                    <strong><?php _e('Tách Content và viết lần lượt theo từng H2', 'azevent-seo-content'); ?></strong>
+                                    <span><?php _e('Khi bật, mỗi H2 chạy thành một background job riêng và lưu checkpoint sau từng phần. Khi tắt, plugin vẫn viết toàn bài trong một request như hiện tại.', 'azevent-seo-content'); ?></span>
+                                </span>
+                            </label>
+                            <p class="azevent-help"><?php _e('Chế độ tách giúp giảm timeout và cho phép tiếp tục từ H2 bị lỗi. Sau khi ghép, bước Links & Quality Gate vẫn kiểm tra toàn bộ bài để giảm lặp ý và giữ giọng văn nhất quán.', 'azevent-seo-content'); ?></p>
                         </div>
                         <p class="azevent-note"><?php _e('Bộ mặc định ưu tiên people-first content, intent, information gain, bằng chứng thương hiệu, internal link thật và kiểm soát spam. Không prompt nào có thể đảm bảo thứ hạng; kết quả còn phụ thuộc website, cạnh tranh, kỹ thuật, backlink và dữ liệu thực tế.', 'azevent-seo-content'); ?></p>
                         <div class="azevent-lab-reset-row">

@@ -164,6 +164,20 @@
             : 'Đã chạy ' + seconds + ' giây';
     }
 
+    function updateContentSplitProgress(sessionContext) {
+        if (!elements.processingTitle || !sessionContext || sessionContext.current_step !== 'content') {
+            return;
+        }
+        const split = sessionContext.content_split || {};
+        const sections = Array.isArray(split.sections) ? split.sections : [];
+        const index = parseInt(split.current_index, 10) || 0;
+        if (!split.enabled || split.completed || !sections.length || !sections[index]) {
+            return;
+        }
+        const title = sections[index].title ? ': ' + sections[index].title : '';
+        elements.processingTitle.textContent = 'Đang viết H2 ' + (index + 1) + '/' + sections.length + title;
+    }
+
     function startLogPolling() {
         stopLogPolling();
         if (!postId) {
@@ -195,6 +209,7 @@
             }
             if (data.context.status === 'queued' || data.context.status === 'processing') {
                 context = data.context;
+                updateContentSplitProgress(context);
                 return;
             }
 
@@ -613,6 +628,7 @@
             if (context.status === 'queued' || context.status === 'processing') {
                 activeStep = context.current_step || (context.pending_job && context.pending_job.step) || 'research';
                 setBusy(true, activeStep);
+                updateContentSplitProgress(context);
                 setNotice('Job nền vẫn đang chạy. Bạn có thể đóng tab; checkpoint và log vẫn được lưu.', true);
                 return;
             }

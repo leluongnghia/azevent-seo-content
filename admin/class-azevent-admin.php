@@ -132,6 +132,9 @@ class AzEvent_Admin
         register_setting('azevent_seo_settings_group', 'azevent_lab_serp_fetch_pages', array(
             'sanitize_callback' => 'absint',
         ));
+        register_setting('azevent_seo_settings_group', 'azevent_lab_split_content_by_outline', array(
+            'sanitize_callback' => 'absint',
+        ));
 
         // Prompts
         $prompts = array('intent', 'outline', 'content', 'seo');
