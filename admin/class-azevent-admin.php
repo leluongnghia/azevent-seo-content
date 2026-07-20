@@ -44,6 +44,15 @@ class AzEvent_Admin
 
         add_submenu_page(
             'azevent-seo-settings',
+            __('SEO Workflow Lab', 'azevent-seo-content'),
+            __('SEO Workflow Lab', 'azevent-seo-content'),
+            'edit_posts',
+            'azevent-seo-workflow-lab',
+            array($this, 'render_workflow_lab_page')
+        );
+
+        add_submenu_page(
+            'azevent-seo-settings',
             __('Background Queue', 'azevent-seo-content'),
             __('Background Queue', 'azevent-seo-content'),
             'edit_posts',
@@ -130,6 +139,11 @@ class AzEvent_Admin
     public function render_content_studio_page()
     {
         AzEvent_Editor_Integration::render_standalone_page();
+    }
+
+    public function render_workflow_lab_page()
+    {
+        AzEvent_SEO_Workflow_Lab::render_page();
     }
 
     public function sanitize_custom_models($value)
