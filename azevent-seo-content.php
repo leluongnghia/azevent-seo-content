@@ -3,7 +3,7 @@
  * Plugin Name: AzEvent SEO Content Creator
  * Plugin URI:  https://azevent.vn/
  * Description: Tự động hóa việc tạo nội dung chuẩn SEO từ từ khóa sử dụng AI (Claude/GPT) và tạo ảnh đại diện bằng DALL-E. Tích hợp trực tiếp vào Classic Editor.
- * Version:     1.1.9
+ * Version:     1.1.10
  * Author:      AzEvent Team
  * Author URI:  https://azevent.vn/
  * License:     GPL2
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define constants
-define('AZEVENT_SEO_VERSION', '1.1.9');
+define('AZEVENT_SEO_VERSION', '1.1.10');
 define('AZEVENT_SEO_PATH', plugin_dir_path(__FILE__));
 define('AZEVENT_SEO_URL', plugin_dir_url(__FILE__));
 
@@ -36,8 +36,34 @@ class AzEvent_SEO_Content
     public function __construct()
     {
         $this->includes();
+        $this->maybe_seed_brand_profile();
         $this->maybe_upgrade_prompt_templates();
         $this->init_hooks();
+    }
+
+    public static function get_default_brand_profile()
+    {
+        return array(
+            'azevent_seo_brand_name' => 'AzEvent',
+            'azevent_seo_brand_info' => 'AzEvent là công ty tổ chức sự kiện chuyên nghiệp tại Hà Nội, phục vụ khách hàng doanh nghiệp tại Hà Nội và TP. Hồ Chí Minh. Thương hiệu đồng hành từ tư vấn chiến lược, phát triển ý tưởng, thiết kế và sản xuất đến thi công, vận hành hiện trường, nghiệm thu và đánh giá sau sự kiện. Định hướng triển khai là mục tiêu rõ ràng, thông điệp phù hợp, quy trình đồng bộ, kiểm soát ngân sách và tiến độ, đồng thời tối ưu trải nghiệm khách mời và hình ảnh thương hiệu. Phong cách nội dung: chuyên nghiệp, thực tế, rõ ràng, đáng tin cậy, không phô trương hoặc đưa ra cam kết tuyệt đối. Trụ sở: LK 17-19(245) Khu đô thị mới Văn Khê, phường La Khê, quận Hà Đông, Hà Nội. Hotline: 09123.86.968. Email: info@azevent.vn. Website: https://azevent.vn/.',
+            'azevent_seo_brand_solution' => 'AzEvent cung cấp giải pháp tổ chức sự kiện trọn gói cho hội nghị, hội thảo, hội nghị khách hàng, khai trương, khởi công và động thổ, lễ kỷ niệm, ra mắt sản phẩm, Year End Party; đồng thời thiết kế và thi công sân khấu, gian hàng triển lãm và hội chợ. Quy trình gồm: tiếp nhận brief và xác định mục tiêu; tư vấn chiến lược, concept và ý tưởng; lập kế hoạch, timeline, checklist và báo giá; thiết kế 2D/3D, sản xuất, thi công, chuẩn bị thiết bị và nhân sự; tổng duyệt và vận hành onsite; nghiệm thu, bàn giao tư liệu và đánh giá sau sự kiện. Khi viết nội dung, ưu tiên giải pháp phù hợp với quy mô, ngân sách, địa điểm và mục tiêu của khách hàng. Không tự bịa báo giá, số năm kinh nghiệm, số lượng dự án, khách hàng hoặc thành tích chưa có dữ liệu xác minh. CTA mềm: mời khách hàng gửi brief để AzEvent tư vấn concept, timeline, checklist hạng mục và báo giá phù hợp.',
+        );
+    }
+
+    private function maybe_seed_brand_profile()
+    {
+        if ((string) get_option('azevent_seo_brand_profile_version', '') === 'website-v1') {
+            return;
+        }
+
+        foreach (self::get_default_brand_profile() as $option => $default_value) {
+            $current_value = get_option($option, null);
+            if ($current_value === null || trim((string) $current_value) === '') {
+                update_option($option, $default_value);
+            }
+        }
+
+        update_option('azevent_seo_brand_profile_version', 'website-v1', false);
     }
 
     private function maybe_upgrade_prompt_templates()
