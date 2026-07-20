@@ -35,6 +35,15 @@ class AzEvent_Admin
 
         add_submenu_page(
             'azevent-seo-settings',
+            __('Content Studio', 'azevent-seo-content'),
+            __('Content Studio', 'azevent-seo-content'),
+            'edit_posts',
+            'azevent-seo-content-studio',
+            array($this, 'render_content_studio_page')
+        );
+
+        add_submenu_page(
+            'azevent-seo-settings',
             __('Background Queue', 'azevent-seo-content'),
             __('Background Queue', 'azevent-seo-content'),
             'edit_posts',
@@ -116,6 +125,11 @@ class AzEvent_Admin
     public function render_background_queue_page()
     {
         require_once AZEVENT_SEO_PATH . 'admin/views/background-queue-page.php';
+    }
+
+    public function render_content_studio_page()
+    {
+        AzEvent_Editor_Integration::render_standalone_page();
     }
 
     public function sanitize_custom_models($value)

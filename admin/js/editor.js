@@ -1157,7 +1157,9 @@ jQuery(function($) {
         });
     });
 
-    if (requestedResumeJobId > 0) {
+    if (azevent_seo.standalone) {
+        openModal();
+    } else if (requestedResumeJobId > 0) {
         openModal();
     }
 });

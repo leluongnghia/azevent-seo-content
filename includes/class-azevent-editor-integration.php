@@ -33,7 +33,7 @@ class AzEvent_Editor_Integration
         add_meta_box(
             'azevent_seo_meta_box',
             __('AzEvent AI SEO Content', 'azevent-seo-content'),
-            array($this, 'render_meta_box'),
+            array(__CLASS__, 'render_meta_box'),
             'post',
             'side',
             'high'
@@ -43,9 +43,9 @@ class AzEvent_Editor_Integration
     /**
      * Render Meta Box content.
      */
-    public function render_meta_box($post)
+    public static function render_meta_box($post, $standalone = false)
     {
-        $is_existing_post = $post->ID > 0 && $post->post_status !== 'auto-draft';
+        $is_existing_post = !$standalone && $post->ID > 0 && $post->post_status !== 'auto-draft';
         $default_mode = $is_existing_post ? 'rewrite' : 'create';
         $default_language = get_option('azevent_seo_default_language', 'Vietnamese');
         $language_labels = array(
@@ -118,11 +118,13 @@ class AzEvent_Editor_Integration
                                 <span class="dashicons dashicons-welcome-write-blog" aria-hidden="true"></span>
                                 <span><strong><?php _e('Tạo nội dung mới', 'azevent-seo-content'); ?></strong><small><?php _e('Mỗi dòng tạo một Draft riêng.', 'azevent-seo-content'); ?></small></span>
                             </label>
-                            <label class="azevent-mode-card">
-                                <input type="radio" name="azevent_mode" value="rewrite" <?php checked($default_mode, 'rewrite'); ?>>
-                                <span class="dashicons dashicons-update" aria-hidden="true"></span>
-                                <span><strong><?php _e('Viết lại bài hiện tại', 'azevent-seo-content'); ?></strong><small><?php _e('Đọc bài đang mở và cải thiện nội dung.', 'azevent-seo-content'); ?></small></span>
-                            </label>
+                            <?php if (!$standalone) : ?>
+                                <label class="azevent-mode-card">
+                                    <input type="radio" name="azevent_mode" value="rewrite" <?php checked($default_mode, 'rewrite'); ?>>
+                                    <span class="dashicons dashicons-update" aria-hidden="true"></span>
+                                    <span><strong><?php _e('Viết lại bài hiện tại', 'azevent-seo-content'); ?></strong><small><?php _e('Đọc bài đang mở và cải thiện nội dung.', 'azevent-seo-content'); ?></small></span>
+                                </label>
+                            <?php endif; ?>
                             <label class="azevent-mode-card">
                                 <input type="radio" name="azevent_mode" value="background">
                                 <span class="dashicons dashicons-controls-repeat" aria-hidden="true"></span>
@@ -371,12 +373,34 @@ class AzEvent_Editor_Integration
         <?php
     }
 
+    public static function render_standalone_page()
+    {
+        if (!current_user_can('edit_posts')) {
+            wp_die(esc_html__('Bạn không có quyền sử dụng Content Studio.', 'azevent-seo-content'));
+        }
+
+        $post = (object) array(
+            'ID' => 0,
+            'post_status' => 'auto-draft',
+            'post_title' => '',
+        );
+        ?>
+        <div class="wrap azevent-studio-admin-page">
+            <h1><?php _e('AzEvent Content Studio', 'azevent-seo-content'); ?></h1>
+            <p class="description"><?php _e('Tạo bài SEO mới, chạy quy trình duyệt từng bước hoặc thêm nhiều từ khóa vào Background Queue.', 'azevent-seo-content'); ?></p>
+            <?php self::render_meta_box($post, true); ?>
+        </div>
+        <?php
+    }
+
     /**
      * Enqueue JS/CSS.
      */
     public function enqueue_assets($hook)
     {
-        if ('post-new.php' !== $hook && 'post.php' !== $hook) {
+        $is_studio_page = isset($_GET['page'])
+            && sanitize_key(wp_unslash($_GET['page'])) === 'azevent-seo-content-studio';
+        if ('post-new.php' !== $hook && 'post.php' !== $hook && !$is_studio_page) {
             return;
         }
 
@@ -385,11 +409,12 @@ class AzEvent_Editor_Integration
         wp_localize_script('azevent-seo-js', 'azevent_seo', array(
             'ajax_url' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('azevent_seo_nonce'),
-            'post_id' => get_the_ID(),
+            'post_id' => $is_studio_page ? 0 : get_the_ID(),
             'default_language' => get_option('azevent_seo_default_language', 'Vietnamese'),
             'auto_advance' => (bool) get_option('azevent_seo_browser_auto_advance', false),
             'resume_job_id' => absint($_GET['azevent_resume_job'] ?? 0),
             'admin_url' => admin_url(),
+            'standalone' => $is_studio_page,
         ));
     }
 
