@@ -49,20 +49,25 @@ class AzEvent_Content_Pipeline
                 return new WP_Error('azevent_missing_rewrite_post', 'Không tìm thấy bài viết cần viết lại.');
             }
 
-            if ($step === 'start' || empty($context['existing_post'])) {
-                $existing_content = (string) $existing_post->post_content;
-                $existing_content = function_exists('mb_substr')
-                    ? mb_substr($existing_content, 0, 30000)
-                    : substr($existing_content, 0, 30000);
+            $browser_post = isset($context['existing_post']) && is_array($context['existing_post'])
+                ? $context['existing_post']
+                : array();
+            $existing_content = !empty($browser_post['content'])
+                ? (string) $browser_post['content']
+                : (string) $existing_post->post_content;
+            $existing_content = function_exists('mb_substr')
+                ? mb_substr($existing_content, 0, 30000)
+                : substr($existing_content, 0, 30000);
 
-                $context['existing_post'] = array(
-                    'title' => (string) $existing_post->post_title,
-                    'content' => $existing_content,
-                    'excerpt' => (string) $existing_post->post_excerpt,
-                    'slug' => (string) $existing_post->post_name,
-                    'has_thumbnail' => has_post_thumbnail($post_id),
-                );
-            }
+            $context['existing_post'] = array(
+                'title' => !empty($browser_post['title'])
+                    ? sanitize_text_field($browser_post['title'])
+                    : (string) $existing_post->post_title,
+                'content' => $existing_content,
+                'excerpt' => (string) $existing_post->post_excerpt,
+                'slug' => (string) $existing_post->post_name,
+                'has_thumbnail' => has_post_thumbnail($post_id),
+            );
         }
 
         $ai = new AzEvent_AI_Service();

@@ -59,6 +59,18 @@ jQuery(function($) {
         });
     }
 
+    function getEditorContent() {
+        if (typeof tinyMCE !== 'undefined' && tinyMCE.get('content')) {
+            return tinyMCE.get('content').getContent() || '';
+        }
+        return $('#content').val() || '';
+    }
+
+    function hasReadableContent(content) {
+        const parsed = new DOMParser().parseFromString(content || '', 'text/html');
+        return (parsed.body.textContent || '').trim() !== '';
+    }
+
     function showView(view) {
         $setupView.prop('hidden', view !== 'setup');
         $workflowView.prop('hidden', view !== 'workflow');
@@ -543,13 +555,27 @@ jQuery(function($) {
             return;
         }
 
+        const initialContext = {};
+        if (mode === 'rewrite') {
+            const editorContent = getEditorContent();
+            if (!hasReadableContent(editorContent)) {
+                $keywords.trigger('focus');
+                $keywordHelp.text('Bài đang mở chưa có nội dung. Hãy nhập hoặc dán nội dung vào Editor trước khi viết lại.').css('color', '#b91c1c');
+                return;
+            }
+            initialContext.existing_post = {
+                title: ($('#title').val() || keywordQueue[0]).trim(),
+                content: editorContent
+            };
+        }
+
         $keywordHelp.css('color', '');
         keywordIndex = 0;
         results = [];
         currentPostId = mode === 'rewrite' ? (parseInt(azevent_seo.post_id, 10) || 0) : 0;
-        currentContext = {};
+        currentContext = initialContext;
         $log.empty();
-        runStep('start', {});
+        runStep('start', initialContext);
     });
 
     $regenerateButton.on('click', function() {

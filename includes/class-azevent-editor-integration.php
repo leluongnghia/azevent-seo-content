@@ -97,8 +97,8 @@ class AzEvent_Editor_Integration
                                 <span class="dashicons dashicons-welcome-write-blog" aria-hidden="true"></span>
                                 <span><strong><?php _e('Tạo nội dung mới', 'azevent-seo-content'); ?></strong><small><?php _e('Mỗi dòng tạo một Draft riêng.', 'azevent-seo-content'); ?></small></span>
                             </label>
-                            <label class="azevent-mode-card<?php echo $is_existing_post ? '' : ' is-disabled'; ?>">
-                                <input type="radio" name="azevent_mode" value="rewrite" <?php checked($default_mode, 'rewrite'); ?> <?php disabled(!$is_existing_post); ?>>
+                            <label class="azevent-mode-card">
+                                <input type="radio" name="azevent_mode" value="rewrite" <?php checked($default_mode, 'rewrite'); ?>>
                                 <span class="dashicons dashicons-update" aria-hidden="true"></span>
                                 <span><strong><?php _e('Viết lại bài hiện tại', 'azevent-seo-content'); ?></strong><small><?php _e('Đọc bài đang mở và cải thiện nội dung.', 'azevent-seo-content'); ?></small></span>
                             </label>

@@ -255,12 +255,6 @@ body.azevent-modal-open {
     box-shadow: 0 0 0 3px rgba(89, 101, 216, .12);
 }
 
-.azevent-mode-card.is-disabled {
-    opacity: .52;
-    cursor: not-allowed;
-    transform: none;
-}
-
 .azevent-mode-card input {
     position: absolute;
     opacity: 0;
