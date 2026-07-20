@@ -57,6 +57,7 @@ jQuery(function($) {
     let savedCheckpoint = null;
     let checkpointLoading = false;
     let checkpointEstablished = false;
+    let requestedResumeJobId = parseInt(azevent_seo.resume_job_id, 10) || 0;
 
     function getMode() {
         return $('input[name="azevent_mode"]:checked').val() || 'create';
@@ -144,11 +145,17 @@ jQuery(function($) {
             timeout: 20000,
             data: {
                 action: 'azevent_get_browser_checkpoint',
-                nonce: azevent_seo.nonce
+                nonce: azevent_seo.nonce,
+                job_id: requestedResumeJobId
             }
         }).done(function(response) {
             if (response.success) {
-                renderBrowserCheckpoint(response.data ? response.data.checkpoint : null);
+                const checkpoint = response.data ? response.data.checkpoint : null;
+                renderBrowserCheckpoint(checkpoint);
+                if (checkpoint && requestedResumeJobId > 0) {
+                    requestedResumeJobId = 0;
+                    resumeBrowserCheckpoint();
+                }
             }
         }).always(function() {
             checkpointLoading = false;
@@ -668,6 +675,7 @@ jQuery(function($) {
         const statusLabels = {
             pending: 'Đang chờ',
             processing: 'Đang chạy',
+            paused: 'Chờ tiếp tục',
             completed: 'Hoàn tất',
             failed: 'Lỗi'
         };
@@ -683,6 +691,7 @@ jQuery(function($) {
 
         $('#azevent-count-pending').text(counts.pending || 0);
         $('#azevent-count-processing').text(counts.processing || 0);
+        $('#azevent-count-paused').text(counts.paused || 0);
         $('#azevent-count-completed').text(counts.completed || 0);
         $('#azevent-count-failed').text(counts.failed || 0);
         $queueRows.empty();
@@ -692,6 +701,9 @@ jQuery(function($) {
             const $row = $('<tr>');
             const $keywordCell = $('<td>');
             $('<span class="azevent-queue-keyword">').text(job.keyword).appendTo($keywordCell);
+            $('<span class="azevent-job-type">')
+                .text(job.workflow_type === 'browser' ? 'Content Studio' : 'Tự động')
+                .appendTo($keywordCell);
             if (job.error) {
                 $('<span class="azevent-job-error">').text(job.error).appendTo($keywordCell);
             }
@@ -701,7 +713,12 @@ jQuery(function($) {
                 .text(statusLabels[job.status] || job.status);
             const $actionCell = $('<td>');
 
-            if (job.status === 'completed' && job.post_url) {
+            if (job.workflow_type === 'browser' && job.resume_url && job.status !== 'completed') {
+                $('<a class="button button-primary azevent-job-action">')
+                    .attr('href', job.resume_url)
+                    .text(job.status === 'processing' ? 'Mở tiến trình' : 'Tiếp tục')
+                    .appendTo($actionCell);
+            } else if (job.status === 'completed' && job.post_url) {
                 $('<a class="button azevent-job-action">')
                     .attr('href', job.post_url)
                     .text('Mở Draft')
@@ -713,6 +730,12 @@ jQuery(function($) {
                     .appendTo($actionCell);
             } else {
                 $('<span>').text('—').appendTo($actionCell);
+            }
+            if (job.status !== 'processing') {
+                $('<button type="button" class="button azevent-job-action azevent-delete-job">')
+                    .attr('data-job-id', job.id)
+                    .text('Xóa')
+                    .appendTo($actionCell);
             }
 
             $row.append(
@@ -967,4 +990,32 @@ jQuery(function($) {
             $button.prop('disabled', false).text('Thử lại');
         });
     });
+
+    $queueRows.on('click', '.azevent-delete-job', function() {
+        const $button = $(this);
+        const jobId = parseInt($button.attr('data-job-id'), 10) || 0;
+        if (!jobId || !window.confirm('Xóa Job này khỏi Background Queue?')) {
+            return;
+        }
+        $button.prop('disabled', true).text('Đang xóa...');
+        $.ajax({
+            url: azevent_seo.ajax_url,
+            type: 'POST',
+            data: {
+                action: 'azevent_delete_background_job',
+                nonce: azevent_seo.nonce,
+                job_id: jobId
+            }
+        }).done(function(response) {
+            showQueueNotice(response.data && response.data.message ? response.data.message : 'Đã cập nhật Job.', !response.success);
+            loadQueue(true);
+        }).fail(function() {
+            showQueueNotice('Không thể xóa Job.', true);
+            $button.prop('disabled', false).text('Xóa');
+        });
+    });
+
+    if (requestedResumeJobId > 0) {
+        openModal();
+    }
 });

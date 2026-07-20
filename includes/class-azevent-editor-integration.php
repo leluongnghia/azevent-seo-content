@@ -272,6 +272,7 @@ class AzEvent_Editor_Integration
                         <div class="azevent-queue-stats">
                             <div><span id="azevent-count-pending">0</span><small><?php _e('Đang chờ', 'azevent-seo-content'); ?></small></div>
                             <div><span id="azevent-count-processing">0</span><small><?php _e('Đang chạy', 'azevent-seo-content'); ?></small></div>
+                            <div><span id="azevent-count-paused">0</span><small><?php _e('Chờ tiếp tục', 'azevent-seo-content'); ?></small></div>
                             <div><span id="azevent-count-completed">0</span><small><?php _e('Hoàn tất', 'azevent-seo-content'); ?></small></div>
                             <div><span id="azevent-count-failed">0</span><small><?php _e('Lỗi', 'azevent-seo-content'); ?></small></div>
                         </div>
@@ -328,6 +329,7 @@ class AzEvent_Editor_Integration
             'post_id' => get_the_ID(),
             'default_language' => get_option('azevent_seo_default_language', 'Vietnamese'),
             'auto_advance' => (bool) get_option('azevent_seo_browser_auto_advance', false),
+            'resume_job_id' => absint($_GET['azevent_resume_job'] ?? 0),
             'admin_url' => admin_url(),
         ));
     }
@@ -432,7 +434,7 @@ class AzEvent_Editor_Integration
 
         if ($session_id !== '') {
             if (($pipeline_result['status'] ?? '') === 'completed') {
-                $this->delete_browser_checkpoint($session_id);
+                $this->complete_browser_checkpoint($session_id, absint($pipeline_result['post_id'] ?? $pipeline_arguments['post_id']));
             } else {
                 $completed_step = $pipeline_arguments['step'] === 'start'
                     ? 'search_intent'
@@ -716,14 +718,27 @@ class AzEvent_Editor_Integration
             wp_send_json_error(array('message' => 'Quyền truy cập bị từ chối.'), 403);
         }
 
-        $checkpoint = get_user_meta(get_current_user_id(), '_azevent_seo_browser_checkpoint', true);
-        if (!is_array($checkpoint) || empty($checkpoint['session_id'])) {
+        $job_id = absint($_POST['job_id'] ?? 0);
+        $checkpoint = AzEvent_Background_Queue::get_browser_checkpoint(get_current_user_id(), $job_id);
+        if (!$checkpoint) {
+            $legacy_checkpoint = get_user_meta(get_current_user_id(), '_azevent_seo_browser_checkpoint', true);
+            if (is_array($legacy_checkpoint) && !empty($legacy_checkpoint['session_id'])) {
+                AzEvent_Background_Queue::save_browser_checkpoint(
+                    $legacy_checkpoint['session_id'],
+                    $legacy_checkpoint,
+                    get_current_user_id()
+                );
+                delete_user_meta(get_current_user_id(), '_azevent_seo_browser_checkpoint');
+                $checkpoint = AzEvent_Background_Queue::get_browser_checkpoint(get_current_user_id(), $job_id);
+            }
+        }
+        if (!$checkpoint) {
             wp_send_json_success(array('checkpoint' => null));
         }
 
         $post_id = absint($checkpoint['post_id'] ?? 0);
         if ($post_id > 0 && (!get_post($post_id) || !current_user_can('edit_post', $post_id))) {
-            delete_user_meta(get_current_user_id(), '_azevent_seo_browser_checkpoint');
+            AzEvent_Background_Queue::delete_browser_checkpoint($checkpoint['session_id'], get_current_user_id());
             wp_send_json_success(array('checkpoint' => null));
         }
 
@@ -735,7 +750,7 @@ class AzEvent_Editor_Integration
             $checkpoint['request_id'] = '';
             $checkpoint['error'] = 'Phiên xử lý trước đã dừng quá lâu. Bạn có thể thử lại đúng bước đang dở.';
             $checkpoint['updated_at'] = time();
-            update_user_meta(get_current_user_id(), '_azevent_seo_browser_checkpoint', $checkpoint);
+            AzEvent_Background_Queue::save_browser_checkpoint($checkpoint['session_id'], $checkpoint, get_current_user_id());
         }
 
         wp_send_json_success(array('checkpoint' => $checkpoint));
@@ -776,31 +791,19 @@ class AzEvent_Editor_Integration
         if (get_transient($this->get_cancelled_session_transient_key($session_id))) {
             return;
         }
-        $user_id = get_current_user_id();
-        $current = get_user_meta($user_id, '_azevent_seo_browser_checkpoint', true);
-        if (
-            !$replace_existing &&
-            is_array($current) &&
-            !empty($current['session_id']) &&
-            !hash_equals((string) $current['session_id'], $session_id)
-        ) {
-            return;
-        }
-        $checkpoint['session_id'] = $session_id;
-        $checkpoint['updated_at'] = time();
-        update_user_meta($user_id, '_azevent_seo_browser_checkpoint', $checkpoint);
+        AzEvent_Background_Queue::save_browser_checkpoint($session_id, $checkpoint, get_current_user_id());
     }
 
     private function delete_browser_checkpoint($session_id = '')
     {
-        $user_id = get_current_user_id();
         if ($session_id !== '') {
-            $checkpoint = get_user_meta($user_id, '_azevent_seo_browser_checkpoint', true);
-            if (is_array($checkpoint) && !empty($checkpoint['session_id']) && !hash_equals((string) $checkpoint['session_id'], $session_id)) {
-                return;
-            }
+            AzEvent_Background_Queue::delete_browser_checkpoint($session_id, get_current_user_id());
         }
-        delete_user_meta($user_id, '_azevent_seo_browser_checkpoint');
+    }
+
+    private function complete_browser_checkpoint($session_id, $post_id)
+    {
+        AzEvent_Background_Queue::complete_browser_checkpoint($session_id, get_current_user_id(), $post_id);
     }
 
     private function get_cancelled_session_transient_key($session_id)

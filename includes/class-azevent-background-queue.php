@@ -6,7 +6,7 @@ if (!defined('ABSPATH')) {
 
 class AzEvent_Background_Queue
 {
-    const SCHEMA_VERSION = '1.0';
+    const SCHEMA_VERSION = '1.1';
     const CRON_HOOK = 'azevent_process_background_queue';
     const LOCK_OPTION = 'azevent_seo_queue_worker_lock';
 
@@ -21,6 +21,7 @@ class AzEvent_Background_Queue
         add_action('wp_ajax_azevent_enqueue_background_jobs', array($this, 'enqueue_jobs_ajax'));
         add_action('wp_ajax_azevent_get_background_jobs', array($this, 'get_jobs_ajax'));
         add_action('wp_ajax_azevent_retry_background_job', array($this, 'retry_job_ajax'));
+        add_action('wp_ajax_azevent_delete_background_job', array($this, 'delete_job_ajax'));
         add_action('wp_ajax_azevent_background_worker', array($this, 'worker_ajax'));
         add_action('wp_ajax_nopriv_azevent_background_worker', array($this, 'worker_ajax'));
         add_action(self::CRON_HOOK, array($this, 'process_queue'));
@@ -36,6 +37,10 @@ class AzEvent_Background_Queue
         $sql = "CREATE TABLE {$table_name} (
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
             user_id bigint(20) unsigned NOT NULL DEFAULT 0,
+            session_id varchar(64) NULL,
+            workflow_type varchar(20) NOT NULL DEFAULT 'background',
+            content_mode varchar(20) NOT NULL DEFAULT 'create',
+            request_id varchar(64) NULL,
             keyword varchar(255) NOT NULL,
             language varchar(50) NOT NULL DEFAULT 'Vietnamese',
             status varchar(20) NOT NULL DEFAULT 'pending',
@@ -49,7 +54,9 @@ class AzEvent_Background_Queue
             started_at datetime NULL,
             completed_at datetime NULL,
             PRIMARY KEY  (id),
+            UNIQUE KEY session_id (session_id),
             KEY status_created (status, created_at),
+            KEY workflow_status (workflow_type, status, created_at),
             KEY user_created (user_id, created_at)
         ) {$charset_collate};";
 
@@ -101,6 +108,8 @@ class AzEvent_Background_Queue
                 $this->table_name,
                 array(
                     'user_id' => $user_id,
+                    'workflow_type' => 'background',
+                    'content_mode' => 'create',
                     'keyword' => $keyword,
                     'language' => $language,
                     'status' => 'pending',
@@ -108,7 +117,7 @@ class AzEvent_Background_Queue
                     'created_at' => $now,
                     'updated_at' => $now,
                 ),
-                array('%d', '%s', '%s', '%s', '%s', '%s', '%s')
+                array('%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')
             );
             if ($result !== false) {
                 $inserted++;
@@ -148,6 +157,7 @@ class AzEvent_Background_Queue
         $counts = array(
             'pending' => 0,
             'processing' => 0,
+            'paused' => 0,
             'completed' => 0,
             'failed' => 0,
         );
@@ -159,6 +169,9 @@ class AzEvent_Background_Queue
             unset($job['context']);
             $job['post_url'] = $job['post_id'] > 0
                 ? admin_url('post.php?post=' . absint($job['post_id']) . '&action=edit')
+                : '';
+            $job['resume_url'] = $job['workflow_type'] === 'browser' && in_array($job['status'], array('paused', 'failed', 'processing'), true)
+                ? self::get_resume_url($job)
                 : '';
         }
         unset($job);
@@ -192,6 +205,13 @@ class AzEvent_Background_Queue
             wp_send_json_error(array('message' => 'Chỉ có thể thử lại Job đang lỗi.'));
         }
 
+        if (($job['workflow_type'] ?? 'background') === 'browser') {
+            wp_send_json_error(array(
+                'message' => 'Job Content Studio cần được mở để tiếp tục đúng bước đang dở.',
+                'resume_url' => self::get_resume_url($job),
+            ));
+        }
+
         $wpdb->update(
             $this->table_name,
             array(
@@ -207,6 +227,28 @@ class AzEvent_Background_Queue
 
         $this->dispatch_worker();
         wp_send_json_success(array('message' => 'Đã đưa Job trở lại hàng đợi.'));
+    }
+
+    public function delete_job_ajax()
+    {
+        check_ajax_referer('azevent_seo_nonce', 'nonce');
+
+        if (!current_user_can('edit_posts')) {
+            wp_send_json_error(array('message' => 'Bạn không có quyền xóa Job.'), 403);
+        }
+
+        global $wpdb;
+        $job_id = absint($_POST['job_id'] ?? 0);
+        $job = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$this->table_name} WHERE id = %d", $job_id), ARRAY_A);
+        if (!$job || ($job['user_id'] != get_current_user_id() && !current_user_can('manage_options'))) {
+            wp_send_json_error(array('message' => 'Không tìm thấy Job.'));
+        }
+        if ($job['status'] === 'processing') {
+            wp_send_json_error(array('message' => 'Không thể xóa Job đang xử lý. Hãy chờ bước hiện tại kết thúc.'));
+        }
+
+        $wpdb->delete($this->table_name, array('id' => $job_id), array('%d'));
+        wp_send_json_success(array('message' => 'Đã xóa Job khỏi Background Queue.'));
     }
 
     public function worker_ajax()
@@ -236,14 +278,22 @@ class AzEvent_Background_Queue
             $stale_before = gmdate('Y-m-d H:i:s', time() - 30 * MINUTE_IN_SECONDS + (get_option('gmt_offset') * HOUR_IN_SECONDS));
             $wpdb->query(
                 $wpdb->prepare(
-                    "UPDATE {$this->table_name} SET status = 'pending', updated_at = %s WHERE status = 'processing' AND updated_at < %s",
+                    "UPDATE {$this->table_name} SET status = 'pending', updated_at = %s WHERE workflow_type = 'background' AND status = 'processing' AND updated_at < %s",
+                    current_time('mysql'),
+                    $stale_before
+                )
+            );
+            $wpdb->query(
+                $wpdb->prepare(
+                    "UPDATE {$this->table_name} SET status = 'failed', error = %s, request_id = NULL, updated_at = %s WHERE workflow_type = 'browser' AND status = 'processing' AND updated_at < %s",
+                    'Phiên trình duyệt đã dừng quá lâu. Mở Job để thử lại đúng bước đang dở.',
                     current_time('mysql'),
                     $stale_before
                 )
             );
 
             $job = $wpdb->get_row(
-                "SELECT * FROM {$this->table_name} WHERE status = 'pending' ORDER BY id ASC LIMIT 1",
+                "SELECT * FROM {$this->table_name} WHERE workflow_type = 'background' AND status = 'pending' ORDER BY id ASC LIMIT 1",
                 ARRAY_A
             );
 
@@ -365,6 +415,144 @@ class AzEvent_Background_Queue
         }
     }
 
+    public static function save_browser_checkpoint($session_id, array $checkpoint, $user_id)
+    {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'azevent_seo_jobs';
+        $session_id = substr(sanitize_key($session_id), 0, 64);
+        $user_id = absint($user_id);
+        if ($session_id === '' || $user_id <= 0) {
+            return 0;
+        }
+
+        $existing_id = absint($wpdb->get_var($wpdb->prepare(
+            "SELECT id FROM {$table_name} WHERE session_id = %s AND user_id = %d LIMIT 1",
+            $session_id,
+            $user_id
+        )));
+        $status = sanitize_key($checkpoint['status'] ?? 'paused');
+        if (!in_array($status, array('processing', 'paused', 'failed'), true)) {
+            $status = 'paused';
+        }
+        $step = $status === 'paused'
+            ? sanitize_key($checkpoint['next_step'] ?? $checkpoint['current_step'] ?? 'start')
+            : sanitize_key($checkpoint['current_step'] ?? $checkpoint['next_step'] ?? 'start');
+        $data = array(
+            'user_id' => $user_id,
+            'session_id' => $session_id,
+            'workflow_type' => 'browser',
+            'content_mode' => in_array(($checkpoint['mode'] ?? ''), array('create', 'rewrite'), true) ? $checkpoint['mode'] : 'create',
+            'request_id' => !empty($checkpoint['request_id']) ? substr(sanitize_key($checkpoint['request_id']), 0, 64) : null,
+            'keyword' => sanitize_text_field($checkpoint['keyword'] ?? ''),
+            'language' => sanitize_text_field($checkpoint['language'] ?? 'Vietnamese'),
+            'status' => $status,
+            'step' => $step ?: 'start',
+            'post_id' => absint($checkpoint['post_id'] ?? 0),
+            'context' => wp_json_encode(isset($checkpoint['context']) && is_array($checkpoint['context']) ? $checkpoint['context'] : array()),
+            'error' => !empty($checkpoint['error']) ? sanitize_textarea_field($checkpoint['error']) : null,
+            'updated_at' => current_time('mysql'),
+        );
+
+        if ($existing_id > 0) {
+            $wpdb->update($table_name, $data, array('id' => $existing_id));
+            return $existing_id;
+        }
+
+        $data['created_at'] = current_time('mysql');
+        $data['started_at'] = $status === 'processing' ? current_time('mysql') : null;
+        $inserted = $wpdb->insert($table_name, $data);
+        return $inserted === false ? 0 : absint($wpdb->insert_id);
+    }
+
+    public static function complete_browser_checkpoint($session_id, $user_id, $post_id)
+    {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'azevent_seo_jobs';
+        $wpdb->update(
+            $table_name,
+            array(
+                'status' => 'completed',
+                'step' => 'completed',
+                'post_id' => absint($post_id),
+                'request_id' => null,
+                'context' => null,
+                'error' => null,
+                'updated_at' => current_time('mysql'),
+                'completed_at' => current_time('mysql'),
+            ),
+            array(
+                'session_id' => substr(sanitize_key($session_id), 0, 64),
+                'user_id' => absint($user_id),
+            )
+        );
+    }
+
+    public static function get_browser_checkpoint($user_id, $job_id = 0)
+    {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'azevent_seo_jobs';
+        if ($job_id > 0) {
+            $job = $wpdb->get_row($wpdb->prepare(
+                "SELECT * FROM {$table_name} WHERE id = %d AND user_id = %d AND workflow_type = 'browser' LIMIT 1",
+                absint($job_id),
+                absint($user_id)
+            ), ARRAY_A);
+        } else {
+            $job = $wpdb->get_row($wpdb->prepare(
+                "SELECT * FROM {$table_name} WHERE user_id = %d AND workflow_type = 'browser' AND status IN ('processing','paused','failed') ORDER BY updated_at DESC, id DESC LIMIT 1",
+                absint($user_id)
+            ), ARRAY_A);
+        }
+        if (!$job) {
+            return null;
+        }
+
+        if (!in_array($job['status'], array('processing', 'paused', 'failed'), true)) {
+            return null;
+        }
+
+        $context = json_decode((string) $job['context'], true);
+        return array(
+            'job_id' => absint($job['id']),
+            'session_id' => (string) $job['session_id'],
+            'status' => (string) $job['status'],
+            'keyword' => (string) $job['keyword'],
+            'language' => (string) $job['language'],
+            'mode' => (string) $job['content_mode'],
+            'post_id' => absint($job['post_id']),
+            'current_step' => (string) $job['step'],
+            'next_step' => (string) $job['step'],
+            'request_id' => (string) $job['request_id'],
+            'context' => is_array($context) ? $context : array(),
+            'error' => (string) $job['error'],
+            'updated_at' => mysql2date('U', $job['updated_at'], false),
+        );
+    }
+
+    public static function delete_browser_checkpoint($session_id, $user_id)
+    {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'azevent_seo_jobs';
+        $wpdb->delete(
+            $table_name,
+            array(
+                'session_id' => substr(sanitize_key($session_id), 0, 64),
+                'user_id' => absint($user_id),
+                'workflow_type' => 'browser',
+            )
+        );
+    }
+
+    public static function get_resume_url(array $job)
+    {
+        $job_id = absint($job['id'] ?? 0);
+        $post_id = absint($job['post_id'] ?? 0);
+        $base_url = $post_id > 0
+            ? admin_url('post.php?post=' . $post_id . '&action=edit')
+            : admin_url('post-new.php');
+        return add_query_arg('azevent_resume_job', $job_id, $base_url);
+    }
+
     private function maybe_install()
     {
         if ((string) get_option('azevent_seo_queue_schema_version', '') !== self::SCHEMA_VERSION) {
@@ -375,7 +563,7 @@ class AzEvent_Background_Queue
     private function has_pending_jobs()
     {
         global $wpdb;
-        return (bool) $wpdb->get_var("SELECT id FROM {$this->table_name} WHERE status = 'pending' LIMIT 1");
+        return (bool) $wpdb->get_var("SELECT id FROM {$this->table_name} WHERE workflow_type = 'background' AND status = 'pending' LIMIT 1");
     }
 
     private function acquire_lock()

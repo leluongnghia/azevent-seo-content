@@ -31,6 +31,15 @@ class AzEvent_Admin
             'dashicons-art',
             80
         );
+
+        add_submenu_page(
+            'azevent-seo-settings',
+            __('Background Queue', 'azevent-seo-content'),
+            __('Background Queue', 'azevent-seo-content'),
+            'edit_posts',
+            'azevent-seo-background-queue',
+            array($this, 'render_background_queue_page')
+        );
     }
 
     /**
@@ -86,6 +95,11 @@ class AzEvent_Admin
     public function render_settings_page()
     {
         require_once AZEVENT_SEO_PATH . 'admin/views/settings-page.php';
+    }
+
+    public function render_background_queue_page()
+    {
+        require_once AZEVENT_SEO_PATH . 'admin/views/background-queue-page.php';
     }
 
     public function sanitize_custom_models($value)
