@@ -3,7 +3,7 @@
  * Plugin Name: AzEvent SEO Content Creator
  * Plugin URI:  https://azevent.vn/
  * Description: Tự động hóa việc tạo nội dung chuẩn SEO từ từ khóa sử dụng AI (Claude/GPT) và tạo ảnh đại diện bằng DALL-E. Tích hợp trực tiếp vào Classic Editor.
- * Version:     1.0.13
+ * Version:     1.0.14
  * Author:      AzEvent Team
  * Author URI:  https://azevent.vn/
  * License:     GPL2
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define constants
-define('AZEVENT_SEO_VERSION', '1.0.13');
+define('AZEVENT_SEO_VERSION', '1.0.14');
 define('AZEVENT_SEO_PATH', plugin_dir_path(__FILE__));
 define('AZEVENT_SEO_URL', plugin_dir_url(__FILE__));
 
@@ -42,16 +42,44 @@ class AzEvent_SEO_Content
 
     private function maybe_upgrade_prompt_templates()
     {
-        if (get_option('azevent_seo_prompt_template_version', '') === 'source-v1') {
+        $template_version = get_option('azevent_seo_prompt_template_version', '');
+        if ($template_version === 'source-v2') {
             return;
         }
 
         $prompts = AzEvent_Editor_Integration::get_default_prompts();
+
+        if ($template_version === 'source-v1') {
+            foreach ($prompts as $key => $prompt) {
+                $system_option = "azevent_seo_{$key}_system";
+                $user_option = "azevent_seo_{$key}_user";
+                $system = (string) get_option($system_option, $prompt['system']);
+                $user = (string) get_option($user_option, $prompt['user']);
+
+                $system = str_replace(
+                    array('### Output Language:*Vietnamese*', 'fluent in Vietnamese'),
+                    array('### Output Language:*{language}*', 'fluent in {language}'),
+                    $system
+                );
+                $user = str_replace(
+                    'Vietnamese articles',
+                    'The article must be written in {language}.',
+                    $user
+                );
+
+                update_option($system_option, $system);
+                update_option($user_option, $user);
+            }
+
+            update_option('azevent_seo_prompt_template_version', 'source-v2');
+            return;
+        }
+
         foreach ($prompts as $key => $prompt) {
             update_option("azevent_seo_{$key}_system", $prompt['system']);
             update_option("azevent_seo_{$key}_user", $prompt['user']);
         }
-        update_option('azevent_seo_prompt_template_version', 'source-v1');
+        update_option('azevent_seo_prompt_template_version', 'source-v2');
     }
 
     /**
