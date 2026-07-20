@@ -44,6 +44,9 @@ jQuery(function($) {
     let lastRequestContext = {};
     let queuePollTimer = null;
     let queueLoading = false;
+    let stepRecoveryTimer = null;
+    let stepRecoveryStartedAt = 0;
+    let activeStepRecoveryId = '';
 
     function getMode() {
         return $('input[name="azevent_mode"]:checked').val() || 'create';
@@ -175,6 +178,7 @@ jQuery(function($) {
         results = [];
         lastRequestStep = '';
         lastRequestContext = {};
+        stopStepRecovery();
         stopQueuePolling();
         $log.empty();
         $intentResult.val('');
@@ -237,6 +241,126 @@ jQuery(function($) {
         }, 20);
     }
 
+    function createRequestId() {
+        if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+            return window.crypto.randomUUID();
+        }
+        return 'azevent-' + Date.now() + '-' + Math.random().toString(16).slice(2);
+    }
+
+    function stopStepRecovery() {
+        if (stepRecoveryTimer) {
+            window.clearTimeout(stepRecoveryTimer);
+            stepRecoveryTimer = null;
+        }
+        stepRecoveryStartedAt = 0;
+        activeStepRecoveryId = '';
+    }
+
+    function handleStepResponse(response, step, context) {
+        stopStepRecovery();
+
+        if (!response || !response.success) {
+            const errorPostId = parseInt(response && response.data && response.data.post_id ? response.data.post_id : 0, 10) || 0;
+            if (errorPostId > 0) {
+                currentPostId = errorPostId;
+            }
+            if (response && response.data && response.data.context) {
+                lastRequestContext = response.data.context;
+            }
+            showError(response && response.data && response.data.message ? response.data.message : 'Không thể xử lý từ khóa.');
+            return;
+        }
+
+        const responseContext = response.data.context || context || {};
+        const responsePostId = parseInt(response.data.post_id || responseContext.post_id || currentPostId, 10) || 0;
+        if (responsePostId > 0) {
+            currentPostId = responsePostId;
+        }
+
+        if (response.data.status === 'completed') {
+            finishKeyword(response);
+            return;
+        }
+
+        updateStatus(response.data.message || 'Đã hoàn tất bước hiện tại.');
+        if (
+            response.data.next_step === 'outline' &&
+            !azevent_seo.auto_advance &&
+            (step === 'start' || step === 'search_intent')
+        ) {
+            showIntentReview(responseContext);
+            return;
+        }
+        if (response.data.next_step === 'image' || response.data.next_step === 'finalize') {
+            showReview(responseContext, response.data.next_step);
+            return;
+        }
+
+        runStep(response.data.next_step, responseContext);
+    }
+
+    function startStepRecovery(requestId, step, context) {
+        stopStepRecovery();
+        stepRecoveryStartedAt = Date.now();
+        activeStepRecoveryId = requestId;
+        isProcessing = true;
+        studioState = 'processing';
+        setControlsDisabled(true);
+        showView('workflow');
+        $processingPanel.removeClass('is-error');
+        $errorActions.prop('hidden', true);
+        updateStatus('Kết nối dài đã chuyển sang chế độ chờ nền. AI vẫn đang xử lý ' + getStepFromRequest(step) + '...');
+
+        function pollStepStatus() {
+            if (activeStepRecoveryId !== requestId) {
+                return;
+            }
+            $.ajax({
+                url: azevent_seo.ajax_url,
+                type: 'POST',
+                timeout: 20000,
+                data: {
+                    action: 'azevent_get_browser_step_status',
+                    nonce: azevent_seo.nonce,
+                    request_id: requestId
+                }
+            }).done(function(response) {
+                if (activeStepRecoveryId !== requestId) {
+                    return;
+                }
+                if (response.success && response.data && response.data.status === 'completed') {
+                    handleStepResponse(response.data.payload, step, context);
+                    return;
+                }
+                if (response.success && response.data && response.data.status === 'failed') {
+                    handleStepResponse(response.data.payload, step, context);
+                    return;
+                }
+                scheduleNextPoll();
+            }).fail(function() {
+                if (activeStepRecoveryId !== requestId) {
+                    return;
+                }
+                scheduleNextPoll();
+            });
+        }
+
+        function scheduleNextPoll() {
+            if (activeStepRecoveryId !== requestId) {
+                return;
+            }
+            if (Date.now() - stepRecoveryStartedAt >= 20 * 60 * 1000) {
+                stopStepRecovery();
+                showError('Server chưa trả kết quả sau 20 phút. Hãy kiểm tra timeout PHP/Nginx rồi thử lại bước này.');
+                return;
+            }
+            stepRecoveryTimer = window.setTimeout(pollStepStatus, 4000);
+        }
+
+        pollStepStatus();
+    }
+
     function updateEditor(data) {
         if (data.title) {
             $('#title').val(data.title).trigger('change');
@@ -295,6 +419,7 @@ jQuery(function($) {
     }
 
     function runStep(step, context) {
+        stopStepRecovery();
         lastRequestStep = step;
         lastRequestContext = context || {};
         isProcessing = true;
@@ -316,12 +441,16 @@ jQuery(function($) {
         };
         updateStatus(stepMessages[step] || 'Đang xử lý...');
 
+        const requestId = createRequestId();
+
         $.ajax({
             url: azevent_seo.ajax_url,
             type: 'POST',
+            timeout: 110000,
             data: {
                 action: 'azevent_generate_content',
                 nonce: azevent_seo.nonce,
+                request_id: requestId,
                 keyword: keywordQueue[keywordIndex],
                 language: language,
                 post_id: currentPostId,
@@ -331,48 +460,16 @@ jQuery(function($) {
                 context: JSON.stringify(context || {})
             }
         }).done(function(response) {
-            if (!response.success) {
-                const errorPostId = parseInt(response.data && response.data.post_id ? response.data.post_id : 0, 10) || 0;
-                if (errorPostId > 0) {
-                    currentPostId = errorPostId;
-                }
-                if (response.data && response.data.context) {
-                    lastRequestContext = response.data.context;
-                }
-                showError(response.data && response.data.message ? response.data.message : 'Không thể xử lý từ khóa.');
-                return;
-            }
-
-            const responseContext = response.data.context || context || {};
-            const responsePostId = parseInt(response.data.post_id || responseContext.post_id || currentPostId, 10) || 0;
-            if (responsePostId > 0) {
-                currentPostId = responsePostId;
-            }
-
-            if (response.data.status === 'completed') {
-                finishKeyword(response);
-                return;
-            }
-
-            updateStatus(response.data.message || 'Đã hoàn tất bước hiện tại.');
-            if (
-                response.data.next_step === 'outline' &&
-                !azevent_seo.auto_advance &&
-                (step === 'start' || step === 'search_intent')
-            ) {
-                showIntentReview(responseContext);
-                return;
-            }
-            if (response.data.next_step === 'image' || response.data.next_step === 'finalize') {
-                showReview(responseContext, response.data.next_step);
-                return;
-            }
-
-            runStep(response.data.next_step, responseContext);
-        }).fail(function(xhr) {
+            handleStepResponse(response, step, context);
+        }).fail(function(xhr, textStatus) {
             const responseMessage = xhr.responseJSON && xhr.responseJSON.data && xhr.responseJSON.data.message
                 ? xhr.responseJSON.data.message
                 : 'Mất kết nối khi xử lý từ khóa ' + keywordQueue[keywordIndex] + '.';
+            const recoverable = textStatus === 'timeout' || xhr.status === 0 || xhr.status === 502 || xhr.status === 504;
+            if (recoverable && !(xhr.responseJSON && xhr.responseJSON.data)) {
+                startStepRecovery(requestId, step, context);
+                return;
+            }
             showError(responseMessage);
         });
     }

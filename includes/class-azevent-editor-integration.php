@@ -20,6 +20,7 @@ class AzEvent_Editor_Integration
         add_action('add_meta_boxes', array($this, 'add_seo_meta_box'));
         add_action('admin_enqueue_scripts', array($this, 'enqueue_assets'));
         add_action('wp_ajax_azevent_generate_content', array($this, 'ajax_generate_content'));
+        add_action('wp_ajax_azevent_get_browser_step_status', array($this, 'ajax_get_browser_step_status'));
     }
 
     /**
@@ -322,6 +323,20 @@ class AzEvent_Editor_Integration
             wp_send_json_error(array('message' => 'Quyền truy cập bị từ chối.'));
         }
 
+        ignore_user_abort(true);
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(0);
+        }
+
+        $request_id = sanitize_key(wp_unslash($_POST['request_id'] ?? ''));
+        if ($request_id !== '') {
+            $this->store_browser_step_status($request_id, array(
+                'status' => 'processing',
+                'step' => sanitize_key(wp_unslash($_POST['step'] ?? 'start')),
+                'updated_at' => time(),
+            ));
+        }
+
         $pipeline_arguments = array(
             'keyword' => sanitize_text_field(wp_unslash($_POST['keyword'] ?? '')),
             'language' => sanitize_text_field(wp_unslash($_POST['language'] ?? 'Vietnamese')),
@@ -342,10 +357,26 @@ class AzEvent_Editor_Integration
         $pipeline_result = $pipeline->process_step($pipeline_arguments);
         if (is_wp_error($pipeline_result)) {
             $error_data = $pipeline_result->get_error_data();
-            wp_send_json_error(array(
+            $error_response = array(
                 'message' => $pipeline_result->get_error_message(),
                 'post_id' => isset($error_data['post_id']) ? absint($error_data['post_id']) : 0,
                 'context' => isset($error_data['context']) && is_array($error_data['context']) ? $error_data['context'] : array(),
+            );
+            if ($request_id !== '') {
+                $this->store_browser_step_status($request_id, array(
+                    'status' => 'failed',
+                    'payload' => array('success' => false, 'data' => $error_response),
+                    'updated_at' => time(),
+                ));
+            }
+            wp_send_json_error($error_response);
+        }
+
+        if ($request_id !== '') {
+            $this->store_browser_step_status($request_id, array(
+                'status' => 'completed',
+                'payload' => array('success' => true, 'data' => $pipeline_result),
+                'updated_at' => time(),
             ));
         }
 
@@ -580,6 +611,41 @@ class AzEvent_Editor_Integration
                 wp_send_json_error(array('message' => 'Bước không hợp lệ.'));
                 break;
         }
+    }
+
+    public function ajax_get_browser_step_status()
+    {
+        check_ajax_referer('azevent_seo_nonce', 'nonce');
+
+        if (!current_user_can('edit_posts')) {
+            wp_send_json_error(array('message' => 'Quyền truy cập bị từ chối.'), 403);
+        }
+
+        $request_id = sanitize_key(wp_unslash($_POST['request_id'] ?? ''));
+        if ($request_id === '') {
+            wp_send_json_error(array('message' => 'Thiếu mã request cần kiểm tra.'), 400);
+        }
+
+        $status = get_transient($this->get_browser_step_transient_key($request_id));
+        if (!is_array($status)) {
+            wp_send_json_error(array('message' => 'Chưa tìm thấy trạng thái request.'), 404);
+        }
+
+        wp_send_json_success($status);
+    }
+
+    private function store_browser_step_status($request_id, array $status)
+    {
+        set_transient(
+            $this->get_browser_step_transient_key($request_id),
+            $status,
+            30 * MINUTE_IN_SECONDS
+        );
+    }
+
+    private function get_browser_step_transient_key($request_id)
+    {
+        return 'azevent_browser_step_' . get_current_user_id() . '_' . md5($request_id);
     }
 
     private function complete_generation($post_id, $context, $mode)
