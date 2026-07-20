@@ -121,6 +121,14 @@ class AzEvent_Admin
             register_setting('azevent_seo_settings_group', "azevent_seo_{$p}_system");
             register_setting('azevent_seo_settings_group', "azevent_seo_{$p}_user");
         }
+
+        foreach (array('research', 'brief', 'content', 'seo', 'quality') as $step) {
+            register_setting('azevent_seo_settings_group', "azevent_lab_{$step}_system");
+            register_setting('azevent_seo_settings_group', "azevent_lab_{$step}_user");
+            register_setting('azevent_seo_settings_group', "azevent_lab_{$step}_model", array(
+                'sanitize_callback' => 'sanitize_text_field',
+            ));
+        }
     }
 
     /**

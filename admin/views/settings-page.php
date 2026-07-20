@@ -19,6 +19,10 @@ $azevent_step_models = array(
     'content' => get_option('azevent_seo_content_model', ''),
     'seo' => get_option('azevent_seo_seo_model', ''),
 );
+$azevent_lab_step_models = array();
+foreach (array('research', 'brief', 'content', 'seo', 'quality') as $lab_step) {
+    $azevent_lab_step_models[$lab_step] = get_option("azevent_lab_{$lab_step}_model", '');
+}
 $azevent_brand_defaults = AzEvent_SEO_Content::get_default_brand_profile();
 $azevent_brand_profile = AzEvent_SEO_Content::get_brand_profile();
 $azevent_custom_models = json_decode(get_option('aprg_cliproxy_custom_models', '[]'), true);
@@ -81,6 +85,16 @@ foreach ($azevent_step_models as $step_model) {
         }
     } elseif ($step_model !== '' && !isset($azevent_text_models[$step_model])) {
         $azevent_text_models[$step_model] = $step_model . ' (Current)';
+    }
+}
+foreach ($azevent_lab_step_models as $step_model) {
+    if (AzEvent_CKey_Client::is_model_reference($step_model)) {
+        $ckey_model = AzEvent_CKey_Client::strip_model_prefix($step_model);
+        if ($ckey_model !== '' && !isset($azevent_ckey_models[$ckey_model])) {
+            $azevent_ckey_models[$ckey_model] = $ckey_model . ' (Current Lab)';
+        }
+    } elseif ($step_model !== '' && !isset($azevent_text_models[$step_model])) {
+        $azevent_text_models[$step_model] = $step_model . ' (Current Lab)';
     }
 }
 $azevent_api_ready = AzEvent_API_Client::is_configured();
@@ -147,6 +161,49 @@ $prompt_tokens = array(
     '{existing_excerpt}' => __('Excerpt hiện tại khi Rewrite.', 'azevent-seo-content'),
     '{existing_slug}' => __('Slug hiện tại khi Rewrite.', 'azevent-seo-content'),
     '{rewrite_goal}' => __('Mục tiêu tự động theo chế độ Create/Rewrite.', 'azevent-seo-content'),
+);
+$lab_prompt_defaults = AzEvent_Workflow_Lab_Pipeline::get_default_prompts();
+$lab_prompt_sections = array(
+    'research' => array(
+        'label' => __('Research & Search Intent', 'azevent-seo-content'),
+        'description' => __('Intent, audience, topic map, evidence và information gain.', 'azevent-seo-content'),
+        'fallback_step' => 'intent',
+    ),
+    'brief' => array(
+        'label' => __('Content Brief & Outline', 'azevent-seo-content'),
+        'description' => __('Kiến trúc nội dung, evidence map và kế hoạch internal link.', 'azevent-seo-content'),
+        'fallback_step' => 'outline',
+    ),
+    'content' => array(
+        'label' => __('People-first Content', 'azevent-seo-content'),
+        'description' => __('Viết HTML hữu ích, đáng tin cậy và tránh nội dung SEO máy móc.', 'azevent-seo-content'),
+        'fallback_step' => 'content',
+    ),
+    'seo' => array(
+        'label' => __('Search Appearance & SEO', 'azevent-seo-content'),
+        'description' => __('Title, slug, meta, FAQ hiển thị và image prompt.', 'azevent-seo-content'),
+        'fallback_step' => 'seo',
+    ),
+    'quality' => array(
+        'label' => __('Internal Links & Quality Gate', 'azevent-seo-content'),
+        'description' => __('Chấm điểm intent, trust, originality, spam risk và link thật.', 'azevent-seo-content'),
+        'fallback_step' => 'content',
+    ),
+);
+$lab_prompt_tokens = array(
+    '{language}' => __('Ngôn ngữ mặc định của plugin.', 'azevent-seo-content'),
+    '{keyword}' => __('Từ khóa chính của phiên Lab.', 'azevent-seo-content'),
+    '{secondary_keywords}' => __('Danh sách từ khóa phụ do người dùng nhập.', 'azevent-seo-content'),
+    '{audience}' => __('Đối tượng đọc do người dùng nhập.', 'azevent-seo-content'),
+    '{competitor_notes}' => __('Dữ liệu SERP/đối thủ do người dùng cung cấp.', 'azevent-seo-content'),
+    '{brand_name}' => __('Tên thương hiệu.', 'azevent-seo-content'),
+    '{brand_info}' => __('Thông tin thương hiệu đã xác thực.', 'azevent-seo-content'),
+    '{brand_solution}' => __('Dịch vụ và giải pháp thương hiệu.', 'azevent-seo-content'),
+    '{research}' => __('Kết quả Research đã duyệt.', 'azevent-seo-content'),
+    '{brief}' => __('Content Brief & Outline đã duyệt.', 'azevent-seo-content'),
+    '{content}' => __('Nội dung HTML đã duyệt.', 'azevent-seo-content'),
+    '{seo_json}' => __('SEO metadata dạng JSON.', 'azevent-seo-content'),
+    '{internal_link_candidates}' => __('Danh sách bài Published thật được plugin tìm thấy.', 'azevent-seo-content'),
 );
 ?>
 <div class="wrap azevent-settings-page">
@@ -372,6 +429,11 @@ $prompt_tokens = array(
         .azevent-prompt-description { display: block; color: #64748b; font-size: 11px; font-weight: 400; }
         .azevent-prompt-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding: 17px 15px; }
         .azevent-prompt-body .azevent-field { margin: 0; }
+        .azevent-lab-prompt-model { padding: 15px 15px 0; border-top: 1px solid #eef2f7; }
+        .azevent-lab-prompt-model .azevent-field { margin: 0; }
+        .azevent-lab-reset-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 16px; }
+        .azevent-lab-reset-status { color: #64748b; font-size: 11px; }
+        .azevent-lab-reset-status.is-ready { color: #047857; }
         .azevent-footer { position: sticky; bottom: 16px; z-index: 4; display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; padding: 13px 15px; border: 1px solid #e2e8f0; border-radius: 12px; background: rgba(255,255,255,.92); box-shadow: 0 10px 26px rgba(15,23,42,.1); backdrop-filter: blur(10px); }
         .azevent-footer .button-primary { min-width: 154px; height: 42px; border: 0; border-radius: 10px; background: linear-gradient(135deg, #4f46e5, #7c3aed); box-shadow: 0 8px 18px rgba(79,70,229,.24); font-weight: 700; }
         @media (max-width: 800px) {
@@ -413,6 +475,7 @@ $prompt_tokens = array(
                 <button type="button" class="azevent-tab" data-tab="brand" aria-selected="false"><span class="azevent-tab-icon">◈</span><?php _e('Thương hiệu', 'azevent-seo-content'); ?></button>
                 <button type="button" class="azevent-tab" data-tab="content-settings" aria-selected="false"><span class="azevent-tab-icon">文</span><?php _e('Nội dung', 'azevent-seo-content'); ?></button>
                 <button type="button" class="azevent-tab" data-tab="prompts" aria-selected="false"><span class="azevent-tab-icon">✎</span><?php _e('AI Prompts', 'azevent-seo-content'); ?></button>
+                <button type="button" class="azevent-tab" data-tab="lab-prompts" aria-selected="false"><span class="azevent-tab-icon">◫</span><?php _e('Workflow Lab Prompts', 'azevent-seo-content'); ?></button>
             </nav>
 
             <main>
@@ -691,6 +754,82 @@ $prompt_tokens = array(
                                     <div class="azevent-field">
                                         <label for="azevent_seo_<?php echo esc_attr($key); ?>_user">User Prompt</label>
                                         <textarea id="azevent_seo_<?php echo esc_attr($key); ?>_user" name="azevent_seo_<?php echo esc_attr($key); ?>_user" rows="7"><?php echo esc_textarea($get_prompt("azevent_seo_{$key}_user", $default_prompts[$key]['user'])); ?></textarea>
+                                    </div>
+                                </div>
+                            </details>
+                        <?php endforeach; ?>
+                    </div>
+                </section>
+
+                <section class="azevent-panel" data-panel="lab-prompts">
+                    <div class="azevent-card">
+                        <div class="azevent-card-header">
+                            <div class="azevent-card-title">
+                                <span class="azevent-section-icon">◫</span>
+                                <div>
+                                <h2><?php _e('Workflow Lab Prompts', 'azevent-seo-content'); ?></h2>
+                                <p class="azevent-card-description"><?php _e('Prompt và model độc lập cho 5 bước SEO Workflow Lab; không ảnh hưởng Content Studio.', 'azevent-seo-content'); ?></p>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="azevent-note"><?php _e('Bộ mặc định ưu tiên people-first content, intent, information gain, bằng chứng thương hiệu, internal link thật và kiểm soát spam. Không prompt nào có thể đảm bảo thứ hạng; kết quả còn phụ thuộc website, cạnh tranh, kỹ thuật, backlink và dữ liệu thực tế.', 'azevent-seo-content'); ?></p>
+                        <div class="azevent-lab-reset-row">
+                            <button type="button" class="azevent-legacy-refresh" id="azevent-reset-lab-prompts"><?php _e('↺ Khôi phục bộ prompt SEO nâng cao', 'azevent-seo-content'); ?></button>
+                            <span class="azevent-lab-reset-status" id="azevent-lab-reset-status" aria-live="polite"></span>
+                        </div>
+                        <div class="azevent-token-card">
+                            <div class="azevent-token-header">
+                                <span class="azevent-token-title"><?php _e('Workflow Lab Variables', 'azevent-seo-content'); ?></span>
+                                <span class="azevent-token-subtitle"><?php _e('Click biến để chèn vào textarea đang chọn', 'azevent-seo-content'); ?></span>
+                            </div>
+                            <div class="azevent-token-list">
+                                <?php foreach ($lab_prompt_tokens as $token => $description) : ?>
+                                    <button type="button" class="azevent-token" data-token="<?php echo esc_attr($token); ?>" title="<?php echo esc_attr($description); ?>"><?php echo esc_html($token); ?></button>
+                                <?php endforeach; ?>
+                            </div>
+                            <p class="azevent-token-description"><?php _e('Plugin tự thay các biến khi chạy. Dữ liệu bước trước chỉ có giá trị sau khi bước đó đã hoàn tất hoặc được bạn chỉnh sửa và tiếp tục.', 'azevent-seo-content'); ?></p>
+                        </div>
+                        <?php foreach ($lab_prompt_sections as $key => $section) : ?>
+                            <?php
+                            $lab_model = $azevent_lab_step_models[$key] ?? '';
+                            $fallback_model = $azevent_step_models[$section['fallback_step']] ?? '';
+                            $fallback_label = $fallback_model === ''
+                                ? $azevent_default_text_label
+                                : (AzEvent_CKey_Client::is_model_reference($fallback_model)
+                                    ? 'CKEY.VN — ' . AzEvent_CKey_Client::strip_model_prefix($fallback_model)
+                                    : 'AzEvent API — ' . $fallback_model);
+                            ?>
+                            <details class="azevent-prompt" <?php echo $key === 'content' ? 'open' : ''; ?>>
+                                <summary>
+                                    <span><span class="azevent-prompt-title"><?php echo esc_html($section['label']); ?></span><span class="azevent-prompt-description"><?php echo esc_html($section['description']); ?></span></span>
+                                </summary>
+                                <div class="azevent-lab-prompt-model">
+                                    <div class="azevent-field">
+                                        <label for="azevent_lab_<?php echo esc_attr($key); ?>_model"><?php _e('Model riêng cho bước này', 'azevent-seo-content'); ?></label>
+                                        <select id="azevent_lab_<?php echo esc_attr($key); ?>_model" name="azevent_lab_<?php echo esc_attr($key); ?>_model">
+                                            <option value="" <?php selected($lab_model, ''); ?>><?php printf(esc_html__('Kế thừa cấu hình hiện tại — %s', 'azevent-seo-content'), esc_html($fallback_label)); ?></option>
+                                            <optgroup label="AzEvent API / CLIProxyAPI">
+                                                <?php foreach ($azevent_text_models as $model_id => $model_label) : ?>
+                                                    <option value="<?php echo esc_attr($model_id); ?>" <?php selected($lab_model, $model_id); ?>><?php echo esc_html($model_label); ?></option>
+                                                <?php endforeach; ?>
+                                            </optgroup>
+                                            <optgroup label="CKEY.VN">
+                                                <?php foreach ($azevent_ckey_models as $model_id => $model_label) : ?>
+                                                    <?php $model_reference = AzEvent_CKey_Client::model_reference($model_id); ?>
+                                                    <option value="<?php echo esc_attr($model_reference); ?>" <?php selected($lab_model, $model_reference); ?>><?php echo esc_html($model_label); ?></option>
+                                                <?php endforeach; ?>
+                                            </optgroup>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="azevent-prompt-body">
+                                    <div class="azevent-field">
+                                        <label for="azevent_lab_<?php echo esc_attr($key); ?>_system">System Prompt</label>
+                                        <textarea id="azevent_lab_<?php echo esc_attr($key); ?>_system" name="azevent_lab_<?php echo esc_attr($key); ?>_system" rows="12"><?php echo esc_textarea($get_prompt("azevent_lab_{$key}_system", $lab_prompt_defaults[$key]['system'])); ?></textarea>
+                                    </div>
+                                    <div class="azevent-field">
+                                        <label for="azevent_lab_<?php echo esc_attr($key); ?>_user">User Prompt</label>
+                                        <textarea id="azevent_lab_<?php echo esc_attr($key); ?>_user" name="azevent_lab_<?php echo esc_attr($key); ?>_user" rows="12"><?php echo esc_textarea($get_prompt("azevent_lab_{$key}_user", $lab_prompt_defaults[$key]['user'])); ?></textarea>
                                     </div>
                                 </div>
                             </details>
@@ -1024,6 +1163,30 @@ $prompt_tokens = array(
                     });
                     brandResetStatus.className = 'azevent-brand-reset-status is-ready';
                     brandResetStatus.textContent = '<?php echo esc_js(__('Đã nạp mặc định. Hãy bấm Lưu cấu hình.', 'azevent-seo-content')); ?>';
+                });
+            }
+
+            var labPromptDefaults = <?php echo wp_json_encode($lab_prompt_defaults); ?>;
+            var labPromptResetButton = document.getElementById('azevent-reset-lab-prompts');
+            var labPromptResetStatus = document.getElementById('azevent-lab-reset-status');
+            if (labPromptResetButton) {
+                labPromptResetButton.addEventListener('click', function () {
+                    if (!window.confirm('<?php echo esc_js(__('Khôi phục toàn bộ System Prompt và User Prompt của Workflow Lab về bộ SEO nâng cao mặc định? Model đã chọn sẽ được giữ nguyên.', 'azevent-seo-content')); ?>')) {
+                        return;
+                    }
+                    Object.keys(labPromptDefaults).forEach(function (step) {
+                        ['system', 'user'].forEach(function (type) {
+                            var field = document.getElementById('azevent_lab_' + step + '_' + type);
+                            if (!field || !labPromptDefaults[step] || typeof labPromptDefaults[step][type] !== 'string') {
+                                return;
+                            }
+                            field.value = labPromptDefaults[step][type];
+                            field.dispatchEvent(new Event('input', { bubbles: true }));
+                            field.dispatchEvent(new Event('change', { bubbles: true }));
+                        });
+                    });
+                    labPromptResetStatus.className = 'azevent-lab-reset-status is-ready';
+                    labPromptResetStatus.textContent = '<?php echo esc_js(__('Đã nạp bộ prompt mặc định. Hãy bấm Lưu cấu hình.', 'azevent-seo-content')); ?>';
                 });
             }
 

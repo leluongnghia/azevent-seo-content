@@ -8,6 +8,11 @@ class AzEvent_Workflow_Lab_Pipeline
 {
     const SESSION_META = '_azevent_seo_workflow_lab';
 
+    public static function get_default_prompts()
+    {
+        return require AZEVENT_SEO_PATH . 'includes/class-azevent-workflow-lab-prompt-templates.php';
+    }
+
     public function create_session(array $input, $author_id)
     {
         $keyword = sanitize_text_field($input['keyword'] ?? '');
@@ -94,21 +99,9 @@ class AzEvent_Workflow_Lab_Pipeline
 
     private function run_research($post_id, array $context)
     {
-        $input = $context['input'];
-        $brand = AzEvent_SEO_Content::get_brand_profile();
-        $competitor_note = trim((string) $input['competitor_notes']) === ''
-            ? 'Không có dữ liệu SERP/đối thủ được cung cấp. Tuyệt đối không tự nhận định website nào đang đứng top.'
-            : $input['competitor_notes'];
-        $system = 'Bạn là chuyên gia SEO Research. Chỉ phân tích từ dữ liệu được cung cấp và kiến thức tổng quát ổn định. Không bịa thứ hạng, traffic, backlink, giá, số liệu hoặc đối thủ đang đứng top. Trả về Markdown rõ ràng, có bảng khi phù hợp.';
-        $user = "Lập bản Research & Search Intent bằng {$context['language']} cho bài viết sau.\n\n"
-            . "Từ khóa chính: {$input['keyword']}\n"
-            . 'Từ khóa phụ: ' . implode(', ', $input['secondary_keywords']) . "\n"
-            . "Đối tượng do người dùng nhập: {$input['audience']}\n"
-            . "Dữ liệu đối thủ/SERP do người dùng cung cấp:\n{$competitor_note}\n\n"
-            . "Bối cảnh thương hiệu:\n{$brand['azevent_seo_brand_name']}\n{$brand['azevent_seo_brand_info']}\n{$brand['azevent_seo_brand_solution']}\n\n"
-            . "Bắt buộc gồm: search intent chính/phụ; giai đoạn hành trình; chân dung người đọc; mục tiêu và nỗi đau; cụm từ khóa chính/phụ; câu hỏi thường tìm; entities/chủ đề bắt buộc; content gap có thể khai thác; rủi ro bịa đặt cần tránh. Nếu không có dữ liệu đối thủ thật, ghi rõ là chưa phân tích đối thủ thực tế.";
+        $prompts = $this->build_prompts('research', $context);
 
-        $result = $this->call_text('research', $user, $system, 4096);
+        $result = $this->call_text('research', $prompts['user'], $prompts['system'], 4096);
         if (is_wp_error($result)) {
             return $result;
         }
@@ -125,15 +118,9 @@ class AzEvent_Workflow_Lab_Pipeline
 
         $candidates = $this->find_internal_link_candidates($context['input']['keyword'], $post_id);
         $context['internal_link_candidates'] = $candidates;
-        $brand = AzEvent_SEO_Content::get_brand_profile();
-        $system = 'Bạn là SEO Content Strategist. Hãy chuyển research thành Content Brief và Outline có thể giao trực tiếp cho copywriter. Không viết bài hoàn chỉnh. Không tự tạo URL.';
-        $user = "Tạo Content Brief & Outline bằng {$context['language']}.\n\n"
-            . "RESEARCH:\n{$context['results']['research']}\n\n"
-            . "THƯƠNG HIỆU:\n{$brand['azevent_seo_brand_name']}\n{$brand['azevent_seo_brand_info']}\n{$brand['azevent_seo_brand_solution']}\n\n"
-            . 'INTERNAL LINK CANDIDATES THẬT TỪ WEBSITE:' . "\n" . wp_json_encode($candidates, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n\n"
-            . 'Bắt buộc gồm: góc tiếp cận; lời hứa nội dung; H2/H3 theo logic tìm kiếm; mục tiêu từng phần; entity/câu hỏi cần phủ; bảng/checklist/FAQ nếu phù hợp; CTA mềm; kế hoạch internal link chỉ dùng URL trong danh sách. Không có URL phù hợp thì ghi rõ không chèn.';
+        $prompts = $this->build_prompts('brief', $context, $candidates);
 
-        $result = $this->call_text('brief', $user, $system, 6144, array('auto_continue' => true, 'max_continuations' => 1));
+        $result = $this->call_text('brief', $prompts['user'], $prompts['system'], 6144, array('auto_continue' => true, 'max_continuations' => 1));
         if (is_wp_error($result)) {
             return $result;
         }
@@ -148,15 +135,9 @@ class AzEvent_Workflow_Lab_Pipeline
             return new WP_Error('azevent_lab_missing_brief', 'Chưa có Content Brief & Outline.');
         }
 
-        $brand = AzEvent_SEO_Content::get_brand_profile();
-        $system = 'Bạn là SEO copywriter chuyên nghiệp. Viết nội dung HTML dùng trực tiếp trong WordPress Classic Editor. Không dùng Markdown fence, không tạo thẻ H1, không bịa số liệu, khách hàng, báo giá hoặc thành tích. Chỉ trả về HTML của nội dung bài.';
-        $user = "Viết bài hoàn chỉnh bằng {$context['language']} cho từ khóa '{$context['input']['keyword']}'.\n\n"
-            . "RESEARCH:\n{$context['results']['research']}\n\n"
-            . "CONTENT BRIEF & OUTLINE:\n{$context['results']['brief']}\n\n"
-            . "THƯƠNG HIỆU:\n{$brand['azevent_seo_brand_name']}\n{$brand['azevent_seo_brand_info']}\n{$brand['azevent_seo_brand_solution']}\n\n"
-            . 'Yêu cầu: đúng outline, hữu ích và cụ thể; có heading H2/H3; đoạn ngắn; bảng/checklist/FAQ khi brief yêu cầu; CTA phù hợp. Chưa chèn internal link ở bước này vì bước Liên kết & QA sẽ kiểm tra URL thật.';
+        $prompts = $this->build_prompts('content', $context);
 
-        $result = $this->call_text('content', $user, $system, 8192, array(
+        $result = $this->call_text('content', $prompts['user'], $prompts['system'], 8192, array(
             'auto_continue' => true,
             'max_continuations' => 2,
             'detect_incomplete_ending' => true,
@@ -179,12 +160,9 @@ class AzEvent_Workflow_Lab_Pipeline
             return new WP_Error('azevent_lab_missing_content', 'Chưa có nội dung để tạo SEO metadata.');
         }
 
-        $system = 'Bạn là chuyên gia Technical SEO. Chỉ trả về JSON hợp lệ, không Markdown fence. Không bịa dữ liệu.';
-        $user = "Tạo dữ liệu SEO bằng {$context['language']} cho từ khóa '{$context['input']['keyword']}'.\n\n"
-            . "NỘI DUNG HTML:\n{$context['results']['content']}\n\n"
-            . 'Trả JSON đúng schema: {"title":"","slug":"","meta":"","focus_keyword":"","secondary_keywords":[],"faq_schema":[{"question":"","answer":""}],"image_prompt":""}. Title tự nhiên, meta khoảng 140-160 ký tự, slug ngắn, image_prompt mô tả ảnh sự kiện chân thực không chữ và không logo.';
+        $prompts = $this->build_prompts('seo', $context);
 
-        $result = $this->call_text('seo', $user, $system, 3072);
+        $result = $this->call_text('seo', $prompts['user'], $prompts['system'], 3072);
         if (is_wp_error($result)) {
             return $result;
         }
@@ -207,17 +185,9 @@ class AzEvent_Workflow_Lab_Pipeline
             ? $context['internal_link_candidates']
             : $this->find_internal_link_candidates($context['input']['keyword'], $post_id);
         $original_content = $context['results']['content'];
-        $system = 'Bạn là biên tập viên SEO và QA nghiêm ngặt. Chỉ trả JSON hợp lệ, không Markdown fence. Không trả lại toàn bộ bài viết. Không bịa dữ liệu. Internal link chỉ được dùng URL có trong danh sách được cung cấp.';
-        $user = "Kiểm tra và hoàn thiện bài viết bằng {$context['language']}.\n\n"
-            . "TỪ KHÓA: {$context['input']['keyword']}\n"
-            . "RESEARCH:\n{$context['results']['research']}\n\n"
-            . "BRIEF:\n{$context['results']['brief']}\n\n"
-            . "CONTENT HTML:\n{$original_content}\n\n"
-            . 'SEO JSON:' . "\n" . wp_json_encode($context['results']['seo'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n\n"
-            . 'INTERNAL LINK CANDIDATES HỢP LỆ:' . "\n" . wp_json_encode($candidates, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n\n"
-            . 'Kiểm tra: nội dung bị cắt; Markdown fence; bịa đặt; keyword stuffing; heading; phủ intent/entity; CTA; FAQ; title/meta; cannibalization sơ bộ dựa trên title candidates; internal link tự nhiên. Đề xuất tối đa 5 internal link và chỉ dùng URL được cấp. Trả schema ngắn: {"passed":true,"score":0,"critical_issues":[],"warnings":[],"coverage":{"intent":"","entities":"","questions":""},"replacements":[{"find":"cụm văn bản nguyên gốc","replace":"cụm thay thế","reason":""}],"corrected_seo":{},"internal_links":[{"url":"","anchor":"cụm từ đang có nguyên văn trong bài","reason":""}]}. replacements tối đa 8, find/replace chỉ là text ngắn không chứa HTML. Không trả corrected_content hoặc toàn bộ bài.';
+        $prompts = $this->build_prompts('quality', $context, $candidates);
 
-        $result = $this->call_text('quality', $user, $system, 4096);
+        $result = $this->call_text('quality', $prompts['user'], $prompts['system'], 4096);
         if (is_wp_error($result)) {
             return $result;
         }
@@ -336,6 +306,46 @@ class AzEvent_Workflow_Lab_Pipeline
         return $context;
     }
 
+    private function build_prompts($step, array $context, array $internal_link_candidates = array())
+    {
+        $defaults = self::get_default_prompts();
+        if (empty($defaults[$step])) {
+            return array('system' => '', 'user' => '');
+        }
+
+        $system = (string) get_option("azevent_lab_{$step}_system", '');
+        $user = (string) get_option("azevent_lab_{$step}_user", '');
+        $system = trim($system) === '' ? $defaults[$step]['system'] : $system;
+        $user = trim($user) === '' ? $defaults[$step]['user'] : $user;
+        $input = isset($context['input']) && is_array($context['input']) ? $context['input'] : array();
+        $results = isset($context['results']) && is_array($context['results']) ? $context['results'] : array();
+        $brand = AzEvent_SEO_Content::get_brand_profile();
+        $competitor_notes = trim((string) ($input['competitor_notes'] ?? ''));
+        if ($competitor_notes === '') {
+            $competitor_notes = 'Không có dữ liệu SERP/đối thủ được cung cấp. Không được tự nhận định website nào đang đứng top.';
+        }
+        $replacements = array(
+            '{language}' => sanitize_text_field($context['language'] ?? 'Vietnamese'),
+            '{keyword}' => sanitize_text_field($input['keyword'] ?? ''),
+            '{secondary_keywords}' => implode(', ', (array) ($input['secondary_keywords'] ?? array())),
+            '{audience}' => sanitize_textarea_field($input['audience'] ?? ''),
+            '{competitor_notes}' => $competitor_notes,
+            '{brand_name}' => $brand['azevent_seo_brand_name'],
+            '{brand_info}' => $brand['azevent_seo_brand_info'],
+            '{brand_solution}' => $brand['azevent_seo_brand_solution'],
+            '{research}' => (string) ($results['research'] ?? ''),
+            '{brief}' => (string) ($results['brief'] ?? ''),
+            '{content}' => (string) ($results['content'] ?? ''),
+            '{seo_json}' => wp_json_encode($results['seo'] ?? array(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            '{internal_link_candidates}' => wp_json_encode($internal_link_candidates, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        );
+
+        return array(
+            'system' => str_replace(array_keys($replacements), array_values($replacements), $system),
+            'user' => str_replace(array_keys($replacements), array_values($replacements), $user),
+        );
+    }
+
     private function call_text($step, $user_prompt, $system_prompt, $max_tokens, array $options = array())
     {
         $model_map = array(
@@ -350,9 +360,13 @@ class AzEvent_Workflow_Lab_Pipeline
         $default_model = $provider === 'ckey'
             ? AzEvent_CKey_Client::model_reference(get_option('azevent_seo_ckey_model', 'sypham98/claude-sonnet-5'))
             : sanitize_text_field(get_option('aprg_cliproxy_model', ''));
-        $model = sanitize_text_field(get_option("azevent_seo_{$model_step}_model", $default_model));
+        $fallback_model = sanitize_text_field(get_option("azevent_seo_{$model_step}_model", $default_model));
+        if ($fallback_model === '') {
+            $fallback_model = $default_model;
+        }
+        $model = sanitize_text_field(get_option("azevent_lab_{$step}_model", $fallback_model));
         if ($model === '') {
-            $model = $default_model;
+            $model = $fallback_model;
         }
 
         return (new AzEvent_AI_Service())->call_anthropic($user_prompt, $system_prompt, $model, $max_tokens, $options);
@@ -588,6 +602,9 @@ class AzEvent_Workflow_Lab_Pipeline
             'focus_keyword' => sanitize_text_field($seo['focus_keyword'] ?? $keyword),
             'secondary_keywords' => $secondary,
             'faq_schema' => array_slice($faq, 0, 10),
+            'schema_type' => in_array(($seo['schema_type'] ?? ''), array('Article', 'BlogPosting'), true)
+                ? $seo['schema_type']
+                : 'Article',
             'image_prompt' => sanitize_textarea_field($seo['image_prompt'] ?? ''),
         );
     }
