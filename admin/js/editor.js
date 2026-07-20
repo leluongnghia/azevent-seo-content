@@ -24,6 +24,12 @@ jQuery(function($) {
     const $regenerateImage = $('#azevent-regenerate-image');
     const $reviewFrame = $('#azevent-review-frame');
     const $intentResult = $('#azevent-intent-result-text');
+    const $resumeCard = $('#azevent-resume-card');
+    const $resumeKeyword = $('#azevent-resume-keyword');
+    const $resumeStep = $('#azevent-resume-step');
+    const $resumeTime = $('#azevent-resume-time');
+    const $resumeButton = $('#azevent-resume-session');
+    const $discardSessionButton = $('#azevent-discard-session');
     const $queueRows = $('#azevent-queue-rows');
     const $queueEmpty = $('#azevent-queue-empty');
     const $queueNotice = $('#azevent-queue-notice');
@@ -47,6 +53,10 @@ jQuery(function($) {
     let stepRecoveryTimer = null;
     let stepRecoveryStartedAt = 0;
     let activeStepRecoveryId = '';
+    let sessionId = '';
+    let savedCheckpoint = null;
+    let checkpointLoading = false;
+    let checkpointEstablished = false;
 
     function getMode() {
         return $('input[name="azevent_mode"]:checked').val() || 'create';
@@ -87,6 +97,64 @@ jQuery(function($) {
         $queueView.prop('hidden', view !== 'queue');
     }
 
+    function getCheckpointStepLabel(step) {
+        const labels = {
+            start: 'Search Intent',
+            search_intent: 'Search Intent',
+            outline: 'Outline',
+            content: 'Content',
+            seo: 'SEO Metadata',
+            image: 'Tạo ảnh',
+            finalize: 'Lưu Draft'
+        };
+        return labels[step] || step || 'Chưa xác định';
+    }
+
+    function renderBrowserCheckpoint(checkpoint) {
+        savedCheckpoint = checkpoint && checkpoint.session_id ? checkpoint : null;
+        if (!savedCheckpoint) {
+            $resumeCard.prop('hidden', true);
+            return;
+        }
+
+        const activeStep = savedCheckpoint.status === 'paused'
+            ? savedCheckpoint.next_step
+            : savedCheckpoint.current_step;
+        const statusLabel = savedCheckpoint.status === 'processing'
+            ? 'Đang xử lý tại ' + getCheckpointStepLabel(activeStep)
+            : savedCheckpoint.status === 'failed'
+                ? 'Đang lỗi tại ' + getCheckpointStepLabel(activeStep)
+                : 'Sẵn sàng tiếp tục ' + getCheckpointStepLabel(activeStep);
+        const updatedAt = parseInt(savedCheckpoint.updated_at, 10) || 0;
+
+        $resumeKeyword.text(savedCheckpoint.keyword || 'Phiên nội dung chưa hoàn tất');
+        $resumeStep.text(statusLabel);
+        $resumeTime.text(updatedAt ? new Date(updatedAt * 1000).toLocaleString() : 'Vừa lưu');
+        $resumeCard.prop('hidden', false);
+    }
+
+    function loadBrowserCheckpoint() {
+        if (checkpointLoading || studioState !== 'idle') {
+            return;
+        }
+        checkpointLoading = true;
+        $.ajax({
+            url: azevent_seo.ajax_url,
+            type: 'POST',
+            timeout: 20000,
+            data: {
+                action: 'azevent_get_browser_checkpoint',
+                nonce: azevent_seo.nonce
+            }
+        }).done(function(response) {
+            if (response.success) {
+                renderBrowserCheckpoint(response.data ? response.data.checkpoint : null);
+            }
+        }).always(function() {
+            checkpointLoading = false;
+        });
+    }
+
     function openModal() {
         returnFocus = document.activeElement;
         if (studioState === 'complete') {
@@ -94,6 +162,7 @@ jQuery(function($) {
         }
         $modal.attr('aria-hidden', 'false');
         $('body').addClass('azevent-modal-open');
+        loadBrowserCheckpoint();
         window.setTimeout(function() {
             $('#azevent-modal-close').trigger('focus');
         }, 20);
@@ -101,8 +170,7 @@ jQuery(function($) {
 
     function closeModal() {
         if (isProcessing) {
-            updateStatus('Quy trình đang chạy. Vui lòng chờ đến bước duyệt nội dung.');
-            return;
+            updateStatus('Đã thu gọn Content Studio. Quy trình và checkpoint vẫn tiếp tục chạy.', false);
         }
         $modal.attr('aria-hidden', 'true');
         $('body').removeClass('azevent-modal-open');
@@ -178,6 +246,10 @@ jQuery(function($) {
         results = [];
         lastRequestStep = '';
         lastRequestContext = {};
+        sessionId = '';
+        savedCheckpoint = null;
+        checkpointEstablished = false;
+        $resumeCard.prop('hidden', true);
         stopStepRecovery();
         stopQueuePolling();
         $log.empty();
@@ -259,6 +331,7 @@ jQuery(function($) {
 
     function handleStepResponse(response, step, context) {
         stopStepRecovery();
+        checkpointEstablished = true;
 
         if (!response || !response.success) {
             const errorPostId = parseInt(response && response.data && response.data.post_id ? response.data.post_id : 0, 10) || 0;
@@ -361,6 +434,91 @@ jQuery(function($) {
         pollStepStatus();
     }
 
+    function resumeBrowserCheckpoint() {
+        if (!savedCheckpoint) {
+            return;
+        }
+
+        const checkpoint = savedCheckpoint;
+        sessionId = checkpoint.session_id;
+        checkpointEstablished = true;
+        mode = checkpoint.mode === 'rewrite' ? 'rewrite' : 'create';
+        language = checkpoint.language || azevent_seo.default_language || 'Vietnamese';
+        keywordQueue = [checkpoint.keyword || 'Nội dung AI'];
+        keywordIndex = 0;
+        currentPostId = parseInt(checkpoint.post_id, 10) || 0;
+        currentContext = checkpoint.context && typeof checkpoint.context === 'object' ? checkpoint.context : {};
+        lastRequestStep = checkpoint.current_step || checkpoint.next_step || 'start';
+        lastRequestContext = currentContext;
+        results = [];
+        pendingNextStep = '';
+
+        $('input[name="azevent_mode"][value="' + mode + '"]').prop('checked', true).trigger('change');
+        $keywords.val(keywordQueue[0]);
+        $resumeCard.prop('hidden', true);
+        $log.empty();
+        updateStatus('Đã khôi phục checkpoint cho từ khóa ' + keywordQueue[0] + '.');
+
+        if (checkpoint.status === 'processing') {
+            setActiveStep(getStepFromRequest(lastRequestStep));
+            if (checkpoint.request_id) {
+                startStepRecovery(checkpoint.request_id, lastRequestStep, currentContext);
+            } else {
+                showError('Phiên trước dừng khi đang xử lý ' + getCheckpointStepLabel(lastRequestStep) + '. Bấm Thử lại bước này để tiếp tục.');
+            }
+            return;
+        }
+
+        if (checkpoint.status === 'failed') {
+            setActiveStep(getStepFromRequest(lastRequestStep));
+            showError(checkpoint.error || 'Phiên trước bị dừng tại ' + getCheckpointStepLabel(lastRequestStep) + '.');
+            return;
+        }
+
+        const nextStep = checkpoint.next_step || lastRequestStep;
+        if (nextStep === 'outline' && currentContext.search_intent && !azevent_seo.auto_advance) {
+            showIntentReview(currentContext);
+            return;
+        }
+        if (nextStep === 'image' || nextStep === 'finalize') {
+            showReview(currentContext, nextStep);
+            return;
+        }
+        if (!nextStep) {
+            showError('Checkpoint không xác định được bước cần tiếp tục.');
+            return;
+        }
+        runStep(nextStep, currentContext);
+    }
+
+    function discardBrowserCheckpoint() {
+        if (!savedCheckpoint) {
+            return;
+        }
+        const discardedSessionId = savedCheckpoint.session_id;
+        $resumeButton.prop('disabled', true);
+        $discardSessionButton.prop('disabled', true);
+        $.ajax({
+            url: azevent_seo.ajax_url,
+            type: 'POST',
+            timeout: 20000,
+            data: {
+                action: 'azevent_clear_browser_checkpoint',
+                nonce: azevent_seo.nonce,
+                session_id: discardedSessionId
+            }
+        }).done(function(response) {
+            if (response.success) {
+                savedCheckpoint = null;
+                checkpointEstablished = false;
+                $resumeCard.prop('hidden', true);
+            }
+        }).always(function() {
+            $resumeButton.prop('disabled', false);
+            $discardSessionButton.prop('disabled', false);
+        });
+    }
+
     function updateEditor(data) {
         if (data.title) {
             $('#title').val(data.title).trigger('change');
@@ -442,6 +600,7 @@ jQuery(function($) {
         updateStatus(stepMessages[step] || 'Đang xử lý...');
 
         const requestId = createRequestId();
+        const shouldReplaceCheckpoint = !checkpointEstablished;
 
         $.ajax({
             url: azevent_seo.ajax_url,
@@ -451,6 +610,8 @@ jQuery(function($) {
                 action: 'azevent_generate_content',
                 nonce: azevent_seo.nonce,
                 request_id: requestId,
+                session_id: sessionId,
+                replace_checkpoint: shouldReplaceCheckpoint ? '1' : '0',
                 keyword: keywordQueue[keywordIndex],
                 language: language,
                 post_id: currentPostId,
@@ -469,6 +630,9 @@ jQuery(function($) {
             if (recoverable && !(xhr.responseJSON && xhr.responseJSON.data)) {
                 startStepRecovery(requestId, step, context);
                 return;
+            }
+            if (xhr.responseJSON && xhr.responseJSON.data) {
+                checkpointEstablished = true;
             }
             showError(responseMessage);
         });
@@ -651,6 +815,9 @@ jQuery(function($) {
     $('input[name="azevent_mode"]').on('change', syncModeHelp);
     syncModeHelp();
 
+    $resumeButton.on('click', resumeBrowserCheckpoint);
+    $discardSessionButton.on('click', discardBrowserCheckpoint);
+
     $startButton.on('click', function() {
         keywordQueue = getKeywords();
         mode = getMode();
@@ -697,6 +864,10 @@ jQuery(function($) {
         $keywordHelp.css('color', '');
         keywordIndex = 0;
         results = [];
+        sessionId = createRequestId();
+        savedCheckpoint = null;
+        checkpointEstablished = false;
+        $resumeCard.prop('hidden', true);
         currentPostId = mode === 'rewrite' ? (parseInt(azevent_seo.post_id, 10) || 0) : 0;
         currentContext = initialContext;
         $log.empty();
@@ -746,6 +917,7 @@ jQuery(function($) {
     $restartButton.on('click', function() {
         resetStudio();
         syncModeHelp();
+        loadBrowserCheckpoint();
     });
 
     $retryButton.on('click', function() {

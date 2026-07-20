@@ -212,6 +212,66 @@ body.azevent-modal-open {
     color: #5865d8;
 }
 
+.azevent-resume-card {
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr) auto;
+    gap: 14px;
+    align-items: center;
+    margin: -4px 0 22px;
+    padding: 16px;
+    border: 1px solid #c7d2fe;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #eef2ff, #fff);
+    box-shadow: 0 8px 24px rgba(79, 70, 229, .08);
+}
+
+.azevent-resume-card[hidden] {
+    display: none;
+}
+
+.azevent-resume-icon {
+    display: grid;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 13px;
+    background: #4f46e5;
+    color: #fff;
+}
+
+.azevent-resume-icon .dashicons {
+    width: 24px;
+    height: 24px;
+    font-size: 24px;
+}
+
+.azevent-resume-eyebrow {
+    display: block;
+    margin-bottom: 4px;
+    color: #6366f1;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+}
+
+.azevent-resume-content strong {
+    display: block;
+    color: #172554;
+    font-size: 15px;
+}
+
+.azevent-resume-content p {
+    margin: 5px 0 0;
+    color: #64748b;
+    font-size: 12px;
+}
+
+.azevent-resume-actions {
+    display: flex;
+    gap: 8px;
+}
+
 .azevent-mode-picker {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -948,6 +1008,15 @@ body.azevent-modal-open {
     .azevent-review-actions,
     .azevent-queue-header {
         align-items: stretch;
+        flex-direction: column;
+    }
+
+    .azevent-resume-card {
+        grid-template-columns: 42px minmax(0, 1fr);
+    }
+
+    .azevent-resume-actions {
+        grid-column: 1 / -1;
         flex-direction: column;
     }
 

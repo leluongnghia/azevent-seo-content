@@ -21,6 +21,8 @@ class AzEvent_Editor_Integration
         add_action('admin_enqueue_scripts', array($this, 'enqueue_assets'));
         add_action('wp_ajax_azevent_generate_content', array($this, 'ajax_generate_content'));
         add_action('wp_ajax_azevent_get_browser_step_status', array($this, 'ajax_get_browser_step_status'));
+        add_action('wp_ajax_azevent_get_browser_checkpoint', array($this, 'ajax_get_browser_checkpoint'));
+        add_action('wp_ajax_azevent_clear_browser_checkpoint', array($this, 'ajax_clear_browser_checkpoint'));
     }
 
     /**
@@ -91,6 +93,24 @@ class AzEvent_Editor_Integration
                             <p><?php _e('Chọn cách xử lý và nhập từ khóa. Ngôn ngữ được lấy tự động từ phần cài đặt.', 'azevent-seo-content'); ?></p>
                         </div>
 
+                        <div id="azevent-resume-card" class="azevent-resume-card" hidden>
+                            <div class="azevent-resume-icon">
+                                <span class="dashicons dashicons-backup" aria-hidden="true"></span>
+                            </div>
+                            <div class="azevent-resume-content">
+                                <span class="azevent-resume-eyebrow"><?php _e('Đã tìm thấy checkpoint', 'azevent-seo-content'); ?></span>
+                                <strong id="azevent-resume-keyword"></strong>
+                                <p><span id="azevent-resume-step"></span><span aria-hidden="true"> · </span><span id="azevent-resume-time"></span></p>
+                            </div>
+                            <div class="azevent-resume-actions">
+                                <button type="button" id="azevent-discard-session" class="button azevent-secondary-button"><?php _e('Bỏ bản lưu', 'azevent-seo-content'); ?></button>
+                                <button type="button" id="azevent-resume-session" class="button button-primary azevent-primary-button">
+                                    <?php _e('Tiếp tục quy trình', 'azevent-seo-content'); ?>
+                                    <span class="dashicons dashicons-controls-play" aria-hidden="true"></span>
+                                </button>
+                            </div>
+                        </div>
+
                         <fieldset class="azevent-mode-picker">
                             <legend><?php _e('Chế độ', 'azevent-seo-content'); ?></legend>
                             <label class="azevent-mode-card">
@@ -146,7 +166,7 @@ class AzEvent_Editor_Integration
                             <div>
                                 <span class="azevent-processing-label"><?php _e('Đang xử lý trên trình duyệt', 'azevent-seo-content'); ?></span>
                                 <h3 id="azevent-status-text"><?php _e('Đang chuẩn bị...', 'azevent-seo-content'); ?></h3>
-                                <p><?php _e('Giữ tab này mở cho đến khi quy trình hoàn tất.', 'azevent-seo-content'); ?></p>
+                                <p><?php _e('Có thể đóng modal hoặc tải lại trang; plugin sẽ lưu checkpoint để tiếp tục sau.', 'azevent-seo-content'); ?></p>
                             </div>
                         </div>
 
@@ -348,9 +368,25 @@ class AzEvent_Editor_Integration
             'author_id' => get_current_user_id(),
         );
         $pipeline_arguments['context'] = is_array($pipeline_arguments['context']) ? $pipeline_arguments['context'] : array();
+        $session_id = substr(sanitize_key(wp_unslash($_POST['session_id'] ?? '')), 0, 64);
+        $replace_checkpoint = sanitize_text_field(wp_unslash($_POST['replace_checkpoint'] ?? '0')) === '1';
 
         if ($pipeline_arguments['mode'] === 'rewrite' && $pipeline_arguments['post_id'] > 0 && !current_user_can('edit_post', $pipeline_arguments['post_id'])) {
             wp_send_json_error(array('message' => 'Bạn không có quyền chỉnh sửa bài viết này.'));
+        }
+
+        if ($session_id !== '') {
+            $this->save_browser_checkpoint($session_id, array(
+                'status' => 'processing',
+                'keyword' => $pipeline_arguments['keyword'],
+                'language' => $pipeline_arguments['language'],
+                'mode' => $pipeline_arguments['mode'],
+                'post_id' => $pipeline_arguments['post_id'],
+                'current_step' => $pipeline_arguments['step'],
+                'next_step' => $pipeline_arguments['step'],
+                'request_id' => $request_id,
+                'context' => $pipeline_arguments['context'],
+            ), $replace_checkpoint);
         }
 
         $pipeline = new AzEvent_Content_Pipeline();
@@ -369,6 +405,20 @@ class AzEvent_Editor_Integration
                     'updated_at' => time(),
                 ));
             }
+            if ($session_id !== '') {
+                $this->save_browser_checkpoint($session_id, array(
+                    'status' => 'failed',
+                    'keyword' => $pipeline_arguments['keyword'],
+                    'language' => $pipeline_arguments['language'],
+                    'mode' => $pipeline_arguments['mode'],
+                    'post_id' => $error_response['post_id'] ?: $pipeline_arguments['post_id'],
+                    'current_step' => $pipeline_arguments['step'],
+                    'next_step' => $pipeline_arguments['step'],
+                    'request_id' => '',
+                    'context' => $error_response['context'] ?: $pipeline_arguments['context'],
+                    'error' => $error_response['message'],
+                ));
+            }
             wp_send_json_error($error_response);
         }
 
@@ -378,6 +428,30 @@ class AzEvent_Editor_Integration
                 'payload' => array('success' => true, 'data' => $pipeline_result),
                 'updated_at' => time(),
             ));
+        }
+
+        if ($session_id !== '') {
+            if (($pipeline_result['status'] ?? '') === 'completed') {
+                $this->delete_browser_checkpoint($session_id);
+            } else {
+                $completed_step = $pipeline_arguments['step'] === 'start'
+                    ? 'search_intent'
+                    : $pipeline_arguments['step'];
+                $this->save_browser_checkpoint($session_id, array(
+                    'status' => 'paused',
+                    'keyword' => $pipeline_arguments['keyword'],
+                    'language' => $pipeline_arguments['language'],
+                    'mode' => $pipeline_arguments['mode'],
+                    'post_id' => absint($pipeline_result['post_id'] ?? $pipeline_arguments['post_id']),
+                    'completed_step' => $completed_step,
+                    'current_step' => $completed_step,
+                    'next_step' => sanitize_key($pipeline_result['next_step'] ?? ''),
+                    'request_id' => '',
+                    'context' => isset($pipeline_result['context']) && is_array($pipeline_result['context'])
+                        ? $pipeline_result['context']
+                        : $pipeline_arguments['context'],
+                ));
+            }
         }
 
         wp_send_json_success($pipeline_result);
@@ -634,6 +708,55 @@ class AzEvent_Editor_Integration
         wp_send_json_success($status);
     }
 
+    public function ajax_get_browser_checkpoint()
+    {
+        check_ajax_referer('azevent_seo_nonce', 'nonce');
+
+        if (!current_user_can('edit_posts')) {
+            wp_send_json_error(array('message' => 'Quyền truy cập bị từ chối.'), 403);
+        }
+
+        $checkpoint = get_user_meta(get_current_user_id(), '_azevent_seo_browser_checkpoint', true);
+        if (!is_array($checkpoint) || empty($checkpoint['session_id'])) {
+            wp_send_json_success(array('checkpoint' => null));
+        }
+
+        $post_id = absint($checkpoint['post_id'] ?? 0);
+        if ($post_id > 0 && (!get_post($post_id) || !current_user_can('edit_post', $post_id))) {
+            delete_user_meta(get_current_user_id(), '_azevent_seo_browser_checkpoint');
+            wp_send_json_success(array('checkpoint' => null));
+        }
+
+        if (
+            ($checkpoint['status'] ?? '') === 'processing' &&
+            absint($checkpoint['updated_at'] ?? 0) < time() - 30 * MINUTE_IN_SECONDS
+        ) {
+            $checkpoint['status'] = 'failed';
+            $checkpoint['request_id'] = '';
+            $checkpoint['error'] = 'Phiên xử lý trước đã dừng quá lâu. Bạn có thể thử lại đúng bước đang dở.';
+            $checkpoint['updated_at'] = time();
+            update_user_meta(get_current_user_id(), '_azevent_seo_browser_checkpoint', $checkpoint);
+        }
+
+        wp_send_json_success(array('checkpoint' => $checkpoint));
+    }
+
+    public function ajax_clear_browser_checkpoint()
+    {
+        check_ajax_referer('azevent_seo_nonce', 'nonce');
+
+        if (!current_user_can('edit_posts')) {
+            wp_send_json_error(array('message' => 'Quyền truy cập bị từ chối.'), 403);
+        }
+
+        $session_id = substr(sanitize_key(wp_unslash($_POST['session_id'] ?? '')), 0, 64);
+        if ($session_id !== '') {
+            set_transient($this->get_cancelled_session_transient_key($session_id), 1, 30 * MINUTE_IN_SECONDS);
+        }
+        $this->delete_browser_checkpoint($session_id);
+        wp_send_json_success(array('message' => 'Đã bỏ phiên làm việc đã lưu.'));
+    }
+
     private function store_browser_step_status($request_id, array $status)
     {
         set_transient(
@@ -646,6 +769,43 @@ class AzEvent_Editor_Integration
     private function get_browser_step_transient_key($request_id)
     {
         return 'azevent_browser_step_' . get_current_user_id() . '_' . md5($request_id);
+    }
+
+    private function save_browser_checkpoint($session_id, array $checkpoint, $replace_existing = false)
+    {
+        if (get_transient($this->get_cancelled_session_transient_key($session_id))) {
+            return;
+        }
+        $user_id = get_current_user_id();
+        $current = get_user_meta($user_id, '_azevent_seo_browser_checkpoint', true);
+        if (
+            !$replace_existing &&
+            is_array($current) &&
+            !empty($current['session_id']) &&
+            !hash_equals((string) $current['session_id'], $session_id)
+        ) {
+            return;
+        }
+        $checkpoint['session_id'] = $session_id;
+        $checkpoint['updated_at'] = time();
+        update_user_meta($user_id, '_azevent_seo_browser_checkpoint', $checkpoint);
+    }
+
+    private function delete_browser_checkpoint($session_id = '')
+    {
+        $user_id = get_current_user_id();
+        if ($session_id !== '') {
+            $checkpoint = get_user_meta($user_id, '_azevent_seo_browser_checkpoint', true);
+            if (is_array($checkpoint) && !empty($checkpoint['session_id']) && !hash_equals((string) $checkpoint['session_id'], $session_id)) {
+                return;
+            }
+        }
+        delete_user_meta($user_id, '_azevent_seo_browser_checkpoint');
+    }
+
+    private function get_cancelled_session_transient_key($session_id)
+    {
+        return 'azevent_cancelled_session_' . get_current_user_id() . '_' . md5($session_id);
     }
 
     private function complete_generation($post_id, $context, $mode)
