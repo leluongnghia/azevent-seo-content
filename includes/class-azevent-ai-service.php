@@ -15,6 +15,7 @@ class AzEvent_AI_Service
     private $openai_model;
     private $anthropic_model;
     private $azevent_api;
+    private $ckey_api;
 
     public function __construct()
     {
@@ -23,6 +24,7 @@ class AzEvent_AI_Service
         $this->openai_model = get_option('azevent_seo_openai_model', 'gpt-4o-mini');
         $this->anthropic_model = get_option('azevent_seo_anthropic_model', 'claude-3-5-sonnet-20240620');
         $this->azevent_api = new AzEvent_API_Client();
+        $this->ckey_api = new AzEvent_CKey_Client();
     }
 
     /**
@@ -30,6 +32,13 @@ class AzEvent_AI_Service
      */
     public function call_anthropic($user_prompt, $system_prompt = '', $model = '', $max_tokens = 8192, array $generation_options = array())
     {
+        if (AzEvent_CKey_Client::is_model_reference($model)) {
+            return $this->ckey_api->generate_text($user_prompt, $system_prompt, array_merge($generation_options, array(
+                'model' => AzEvent_CKey_Client::strip_model_prefix($model),
+                'max_tokens' => max(1024, absint($max_tokens)),
+            )));
+        }
+
         if (AzEvent_API_Client::is_configured()) {
             $options = array_merge($generation_options, array(
                 'max_tokens' => max(1024, absint($max_tokens)),
@@ -85,6 +94,13 @@ class AzEvent_AI_Service
      */
     public function call_openai($user_prompt, $system_prompt = '', $endpoint = 'chat/completions', $args = array())
     {
+        if ($endpoint !== 'images/generations' && AzEvent_CKey_Client::is_model_reference($args['model'] ?? '')) {
+            return $this->ckey_api->generate_text($user_prompt, $system_prompt, array(
+                'model' => AzEvent_CKey_Client::strip_model_prefix($args['model']),
+                'max_tokens' => max(1024, absint($args['max_tokens'] ?? 8192)),
+            ));
+        }
+
         if (AzEvent_API_Client::is_configured()) {
             if ($endpoint === 'images/generations') {
                 return $this->generate_image($user_prompt);

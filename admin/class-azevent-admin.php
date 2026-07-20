@@ -15,6 +15,7 @@ class AzEvent_Admin
         add_action('admin_menu', array($this, 'add_menu_pages'));
         add_action('admin_init', array($this, 'register_settings'));
         add_action('wp_ajax_azevent_fetch_legacy_models', array($this, 'fetch_legacy_models'));
+        add_action('wp_ajax_azevent_fetch_ckey_models', array($this, 'fetch_ckey_models'));
     }
 
     /**
@@ -50,6 +51,18 @@ class AzEvent_Admin
         register_setting('azevent_seo_settings_group', 'aprg_cliproxy_api_key');
         register_setting('azevent_seo_settings_group', 'aprg_cliproxy_base_url');
         register_setting('azevent_seo_settings_group', 'aprg_cliproxy_model');
+        register_setting('azevent_seo_settings_group', 'azevent_seo_text_provider', array(
+            'sanitize_callback' => array($this, 'sanitize_text_provider'),
+        ));
+        register_setting('azevent_seo_settings_group', 'azevent_seo_ckey_api_key', array(
+            'sanitize_callback' => 'sanitize_text_field',
+        ));
+        register_setting('azevent_seo_settings_group', 'azevent_seo_ckey_model', array(
+            'sanitize_callback' => 'sanitize_text_field',
+        ));
+        register_setting('azevent_seo_settings_group', 'azevent_seo_ckey_custom_models', array(
+            'sanitize_callback' => array($this, 'sanitize_custom_models'),
+        ));
         foreach (array('intent', 'outline', 'content', 'seo') as $step) {
             register_setting('azevent_seo_settings_group', "azevent_seo_{$step}_model", array(
                 'sanitize_callback' => 'sanitize_text_field',
@@ -111,6 +124,32 @@ class AzEvent_Admin
 
         $models = array_values(array_unique(array_filter(array_map('sanitize_text_field', $models))));
         return wp_json_encode($models);
+    }
+
+    public function sanitize_text_provider($value)
+    {
+        $value = sanitize_key($value);
+        return in_array($value, array('azevent', 'ckey'), true) ? $value : 'azevent';
+    }
+
+    public function fetch_ckey_models()
+    {
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array('message' => __('Bạn không có quyền thực hiện thao tác này.', 'azevent-seo-content')), 403);
+        }
+
+        check_ajax_referer('azevent_fetch_ckey_models', 'nonce');
+        $client = new AzEvent_CKey_Client();
+        $models = $client->fetch_models();
+        if (is_wp_error($models)) {
+            wp_send_json_error(array('message' => $models->get_error_message()));
+        }
+
+        update_option('azevent_seo_ckey_models', wp_json_encode($models), false);
+        wp_send_json_success(array(
+            'models' => $models,
+            'message' => sprintf(__('Đã tải %d model mới nhất từ CKey.', 'azevent-seo-content'), count($models)),
+        ));
     }
 
     public function fetch_legacy_models()

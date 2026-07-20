@@ -111,21 +111,29 @@ class AzEvent_Content_Pipeline
             'content' => "\n\nChế độ viết lại. Hãy viết lại bài hiện tại dưới đây theo outline mới. Giữ lại thông tin đúng, không tự bịa số liệu hoặc cam kết, cải thiện chiều sâu SEO và khả năng chuyển đổi.\n{existing_content}",
             'seo' => "\n\nĐây là chế độ viết lại. Hãy tạo metadata mới cho nội dung, nhưng giữ slug hiện tại '{existing_slug}' trừ khi có lý do SEO rõ ràng.",
         );
-        $uses_azevent_api = AzEvent_API_Client::is_configured();
+        $default_text_provider = sanitize_key(get_option('azevent_seo_text_provider', 'azevent'));
+        $default_ckey_model = AzEvent_CKey_Client::model_reference(get_option('azevent_seo_ckey_model', 'sypham98/claude-sonnet-5'));
+        $default_step_model = $default_text_provider === 'ckey' ? $default_ckey_model : '';
+        $uses_primary_api = AzEvent_API_Client::is_configured() || AzEvent_CKey_Client::is_configured();
         $step_models = array(
-            'intent' => $uses_azevent_api
-                ? sanitize_text_field(get_option('azevent_seo_intent_model', ''))
+            'intent' => $uses_primary_api
+                ? sanitize_text_field(get_option('azevent_seo_intent_model', $default_step_model))
                 : 'claude-3-5-haiku-20241022',
-            'outline' => $uses_azevent_api
-                ? sanitize_text_field(get_option('azevent_seo_outline_model', ''))
+            'outline' => $uses_primary_api
+                ? sanitize_text_field(get_option('azevent_seo_outline_model', $default_step_model))
                 : 'claude-3-5-sonnet-20240620',
-            'content' => $uses_azevent_api
-                ? sanitize_text_field(get_option('azevent_seo_content_model', ''))
+            'content' => $uses_primary_api
+                ? sanitize_text_field(get_option('azevent_seo_content_model', $default_step_model))
                 : 'claude-3-5-sonnet-20240620',
-            'seo' => $uses_azevent_api
-                ? sanitize_text_field(get_option('azevent_seo_seo_model', ''))
+            'seo' => $uses_primary_api
+                ? sanitize_text_field(get_option('azevent_seo_seo_model', $default_step_model))
                 : '',
         );
+        foreach ($step_models as $step_key => $step_model) {
+            if ($uses_primary_api && $step_model === '') {
+                $step_models[$step_key] = $default_step_model;
+            }
+        }
 
         switch ($step) {
             case 'start':
@@ -236,6 +244,7 @@ class AzEvent_Content_Pipeline
                 if (is_wp_error($result)) {
                     return $this->attach_error_context($result, $post_id, $context);
                 }
+                $result = $this->clean_generated_json($result);
                 $seo_data = json_decode($result, true);
                 if (!is_array($seo_data) || empty($seo_data['title']) || empty($seo_data['meta']) || empty($seo_data['image_prompt'])) {
                     return new WP_Error('azevent_invalid_seo_response', 'AI trả về dữ liệu SEO không đầy đủ.');
@@ -243,7 +252,8 @@ class AzEvent_Content_Pipeline
                 $context['seo'] = $seo_data;
                 $context['mode'] = $mode;
                 $context['regenerate_image'] = $regenerate_image;
-                $should_generate_image = $mode !== 'rewrite' || $regenerate_image || !has_post_thumbnail($post_id);
+                $should_generate_image = AzEvent_API_Client::is_configured()
+                    && ($mode !== 'rewrite' || $regenerate_image || !has_post_thumbnail($post_id));
                 return array(
                     'status' => 'processing',
                     'message' => $should_generate_image
@@ -320,6 +330,16 @@ class AzEvent_Content_Pipeline
         $content = preg_replace('/^\xEF\xBB\xBF/', '', (string) $content);
         $content = trim($content);
         $content = preg_replace('/^\s*(?:```|~~~)(?:html|htm)?\s*/i', '', $content);
+        $content = preg_replace('/\s*(?:```|~~~)\s*$/', '', $content);
+
+        return trim($content);
+    }
+
+    private function clean_generated_json($content)
+    {
+        $content = preg_replace('/^\xEF\xBB\xBF/', '', (string) $content);
+        $content = trim($content);
+        $content = preg_replace('/^\s*(?:```|~~~)(?:json)?\s*/i', '', $content);
         $content = preg_replace('/\s*(?:```|~~~)\s*$/', '', $content);
 
         return trim($content);
