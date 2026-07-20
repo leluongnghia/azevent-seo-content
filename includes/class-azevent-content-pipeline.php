@@ -201,6 +201,10 @@ class AzEvent_Content_Pipeline
                 if (is_wp_error($result)) {
                     return $this->attach_error_context($result, $post_id, $context);
                 }
+                $result = $this->clean_generated_html($result);
+                if ($result === '') {
+                    return new WP_Error('azevent_empty_content', 'AI không trả về nội dung bài viết hợp lệ.');
+                }
                 $context['content'] = $result;
                 return array(
                     'status' => 'processing',
@@ -275,6 +279,10 @@ class AzEvent_Content_Pipeline
 
     private function complete_generation($post_id, array $context, $mode)
     {
+        if (!empty($context['content'])) {
+            $context['content'] = $this->clean_generated_html($context['content']);
+        }
+
         if (empty($context['seo']['title']) || empty($context['seo']['meta']) || empty($context['content'])) {
             return new WP_Error('azevent_incomplete_context', 'Thiếu dữ liệu để lưu bài viết.');
         }
@@ -305,6 +313,16 @@ class AzEvent_Content_Pipeline
             'title' => $context['seo']['title'],
             'content' => $context['content'],
         );
+    }
+
+    private function clean_generated_html($content)
+    {
+        $content = preg_replace('/^\xEF\xBB\xBF/', '', (string) $content);
+        $content = trim($content);
+        $content = preg_replace('/^\s*(?:```|~~~)(?:html|htm)?\s*/i', '', $content);
+        $content = preg_replace('/\s*(?:```|~~~)\s*$/', '', $content);
+
+        return trim($content);
     }
 
     private function attach_error_context($error, $post_id, array $context)
