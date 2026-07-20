@@ -110,6 +110,21 @@ class AzEvent_Content_Pipeline
             'content' => "\n\nChế độ viết lại. Hãy viết lại bài hiện tại dưới đây theo outline mới. Giữ lại thông tin đúng, không tự bịa số liệu hoặc cam kết, cải thiện chiều sâu SEO và khả năng chuyển đổi.\n{existing_content}",
             'seo' => "\n\nĐây là chế độ viết lại. Hãy tạo metadata mới cho nội dung, nhưng giữ slug hiện tại '{existing_slug}' trừ khi có lý do SEO rõ ràng.",
         );
+        $uses_azevent_api = AzEvent_API_Client::is_configured();
+        $step_models = array(
+            'intent' => $uses_azevent_api
+                ? sanitize_text_field(get_option('azevent_seo_intent_model', ''))
+                : 'claude-3-5-haiku-20241022',
+            'outline' => $uses_azevent_api
+                ? sanitize_text_field(get_option('azevent_seo_outline_model', ''))
+                : 'claude-3-5-sonnet-20240620',
+            'content' => $uses_azevent_api
+                ? sanitize_text_field(get_option('azevent_seo_content_model', ''))
+                : 'claude-3-5-sonnet-20240620',
+            'seo' => $uses_azevent_api
+                ? sanitize_text_field(get_option('azevent_seo_seo_model', ''))
+                : '',
+        );
 
         switch ($step) {
             case 'start':
@@ -122,7 +137,7 @@ class AzEvent_Content_Pipeline
                 $result = $ai->call_anthropic(
                     $replace_placeholders($user_prompt, $context),
                     $replace_placeholders($system_prompt, $context),
-                    'claude-3-5-haiku-20241022'
+                    $step_models['intent']
                 );
                 if (is_wp_error($result)) {
                     return $this->attach_error_context($result, $post_id, $context);
@@ -145,7 +160,7 @@ class AzEvent_Content_Pipeline
                 $result = $ai->call_anthropic(
                     $replace_placeholders($user_prompt, $context),
                     $replace_placeholders($system_prompt, $context),
-                    'claude-3-5-sonnet-20240620'
+                    $step_models['outline']
                 );
                 if (is_wp_error($result)) {
                     return $this->attach_error_context($result, $post_id, $context);
@@ -168,7 +183,7 @@ class AzEvent_Content_Pipeline
                 $result = $ai->call_anthropic(
                     $replace_placeholders($user_prompt, $context),
                     $replace_placeholders($system_prompt, $context),
-                    'claude-3-5-sonnet-20240620'
+                    $step_models['content']
                 );
                 if (is_wp_error($result)) {
                     return $this->attach_error_context($result, $post_id, $context);
@@ -188,11 +203,15 @@ class AzEvent_Content_Pipeline
                 if ($mode === 'rewrite') {
                     $user_prompt .= $rewrite_instructions['seo'];
                 }
+                $seo_arguments = array('response_format' => array('type' => 'json_object'));
+                if ($step_models['seo'] !== '') {
+                    $seo_arguments['model'] = $step_models['seo'];
+                }
                 $result = $ai->call_openai(
                     $replace_placeholders($user_prompt, $context),
                     $replace_placeholders($system_prompt, $context),
                     'chat/completions',
-                    array('response_format' => array('type' => 'json_object'))
+                    $seo_arguments
                 );
                 if (is_wp_error($result)) {
                     return $this->attach_error_context($result, $post_id, $context);

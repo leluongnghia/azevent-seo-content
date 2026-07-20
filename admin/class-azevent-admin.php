@@ -41,6 +41,11 @@ class AzEvent_Admin
         register_setting('azevent_seo_settings_group', 'aprg_cliproxy_api_key');
         register_setting('azevent_seo_settings_group', 'aprg_cliproxy_base_url');
         register_setting('azevent_seo_settings_group', 'aprg_cliproxy_model');
+        foreach (array('intent', 'outline', 'content', 'seo') as $step) {
+            register_setting('azevent_seo_settings_group', "azevent_seo_{$step}_model", array(
+                'sanitize_callback' => 'sanitize_text_field',
+            ));
+        }
         register_setting('azevent_seo_settings_group', 'aprg_cliproxy_custom_models', array(
             'sanitize_callback' => array($this, 'sanitize_custom_models'),
         ));

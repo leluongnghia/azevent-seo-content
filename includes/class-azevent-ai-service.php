@@ -31,9 +31,13 @@ class AzEvent_AI_Service
     public function call_anthropic($user_prompt, $system_prompt = '', $model = '')
     {
         if (AzEvent_API_Client::is_configured()) {
-            return $this->azevent_api->generate_text($user_prompt, $system_prompt, array(
+            $options = array(
                 'max_tokens' => 8192,
-            ));
+            );
+            if ($model !== '') {
+                $options['model'] = sanitize_text_field($model);
+            }
+            return $this->azevent_api->generate_text($user_prompt, $system_prompt, $options);
         }
 
         if (!$this->anthropic_key) {
@@ -89,6 +93,9 @@ class AzEvent_AI_Service
             $options = array();
             if (isset($args['response_format']) && is_array($args['response_format'])) {
                 $options['response_format'] = $args['response_format'];
+            }
+            if (!empty($args['model'])) {
+                $options['model'] = sanitize_text_field($args['model']);
             }
             return $this->azevent_api->generate_text($user_prompt, $system_prompt, $options);
         }

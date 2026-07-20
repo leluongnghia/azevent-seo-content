@@ -10,6 +10,12 @@ if (!defined('ABSPATH')) {
 $azevent_base_url = get_option('aprg_cliproxy_base_url', AzEvent_API_Client::DEFAULT_BASE_URL);
 $azevent_image_model = get_option('aprg_seo_default_cliproxy_image_model', 'gpt-image-2');
 $azevent_text_model = get_option('aprg_cliproxy_model', 'claude-sonnet-4-6');
+$azevent_step_models = array(
+    'intent' => get_option('azevent_seo_intent_model', ''),
+    'outline' => get_option('azevent_seo_outline_model', ''),
+    'content' => get_option('azevent_seo_content_model', ''),
+    'seo' => get_option('azevent_seo_seo_model', ''),
+);
 $azevent_custom_models = json_decode(get_option('aprg_cliproxy_custom_models', '[]'), true);
 $azevent_custom_models = is_array($azevent_custom_models) ? array_values(array_filter(array_map('sanitize_text_field', $azevent_custom_models))) : array();
 $azevent_legacy_openai_models = json_decode(get_option('azevent_seo_legacy_openai_models', '[]'), true);
@@ -49,9 +55,32 @@ foreach ($azevent_custom_models as $custom_model) {
 if (!isset($azevent_text_models[$azevent_text_model]) && $azevent_text_model !== '') {
     $azevent_text_models[$azevent_text_model] = $azevent_text_model . ' (Current)';
 }
+foreach ($azevent_step_models as $step_model) {
+    if ($step_model !== '' && !isset($azevent_text_models[$step_model])) {
+        $azevent_text_models[$step_model] = $step_model . ' (Current)';
+    }
+}
 $azevent_api_ready = AzEvent_API_Client::is_configured();
 $azevent_default_language = get_option('azevent_seo_default_language', 'Vietnamese');
 $azevent_browser_auto_advance = absint(get_option('azevent_seo_browser_auto_advance', 0));
+$azevent_step_model_fields = array(
+    'intent' => array(
+        'label' => __('Search Intent', 'azevent-seo-content'),
+        'hint' => __('Phân tích', 'azevent-seo-content'),
+    ),
+    'outline' => array(
+        'label' => __('Outline', 'azevent-seo-content'),
+        'hint' => __('Lập dàn ý', 'azevent-seo-content'),
+    ),
+    'content' => array(
+        'label' => __('Content', 'azevent-seo-content'),
+        'hint' => __('Viết bài', 'azevent-seo-content'),
+    ),
+    'seo' => array(
+        'label' => __('SEO Metadata', 'azevent-seo-content'),
+        'hint' => __('JSON SEO', 'azevent-seo-content'),
+    ),
+);
 $default_prompts = AzEvent_Editor_Integration::get_default_prompts();
 $get_prompt = function ($option, $default) {
     $value = get_option($option, '');
@@ -249,6 +278,16 @@ $prompt_tokens = array(
         .azevent-workflow-option strong { margin-bottom: 4px; color: #1e293b; font-size: 13px; }
         .azevent-workflow-option span { color: #64748b; font-size: 12px; line-height: 1.55; }
         .azevent-model-tools { display: flex; gap: 8px; align-items: stretch; margin-top: 9px; }
+        .azevent-model-routing { margin-top: 18px; padding: 18px; border: 1px solid #dbe4f3; border-radius: 14px; background: linear-gradient(145deg, #f8fafc, #eef2ff); }
+        .azevent-model-routing-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 14px; }
+        .azevent-model-routing-header h3 { margin: 0 0 5px; color: #172554; font-size: 15px; }
+        .azevent-model-routing-header p { margin: 0; color: #64748b; font-size: 12px; line-height: 1.55; }
+        .azevent-model-routing-badge { flex: 0 0 auto; padding: 5px 9px; border: 1px solid #c7d2fe; border-radius: 999px; background: #fff; color: #4338ca; font-size: 10px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+        .azevent-step-model-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+        .azevent-step-model { padding: 13px; border: 1px solid #e2e8f0; border-radius: 11px; background: rgba(255,255,255,.9); }
+        .azevent-step-model label { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        .azevent-step-model small { color: #818cf8; font-size: 10px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+        .azevent-step-model select { margin-top: 8px; }
         .azevent-model-tools input { flex: 1; min-width: 0; }
         .azevent-model-add { flex: 0 0 auto; padding: 0 12px; border: 1px solid #c7d2fe; border-radius: 8px; background: #eef2ff; color: #4338ca; cursor: pointer; font-size: 12px; font-weight: 700; }
         .azevent-model-add:hover { background: #e0e7ff; }
@@ -304,7 +343,7 @@ $prompt_tokens = array(
         @media (max-width: 800px) {
             .azevent-settings-page { margin-right: 12px; }
             .azevent-tabs { margin-bottom: 14px; }
-            .azevent-grid, .azevent-prompt-body { grid-template-columns: 1fr; }
+            .azevent-grid, .azevent-prompt-body, .azevent-step-model-grid { grid-template-columns: 1fr; }
             .azevent-tabs { top: 10px; }
             .azevent-tab { justify-content: flex-start; }
             .azevent-version { position: static; display: inline-block; margin-top: 18px; }
@@ -391,6 +430,31 @@ $prompt_tokens = array(
                                     <option value="grok-imagine-image" <?php selected($azevent_image_model, 'grok-imagine-image'); ?>>Grok Imagine Image</option>
                                     <option value="gemini-3.1-flash-image" <?php selected($azevent_image_model, 'gemini-3.1-flash-image'); ?>>Gemini 3.1 Flash Image</option>
                                 </select>
+                            </div>
+                        </div>
+                        <div class="azevent-model-routing">
+                            <div class="azevent-model-routing-header">
+                                <div>
+                                    <h3><?php _e('Model theo từng bước nội dung', 'azevent-seo-content'); ?></h3>
+                                    <p><?php _e('Chọn model riêng cho Search Intent, Outline, Content và SEO. Để mặc định nếu muốn tất cả dùng Text Model phía trên.', 'azevent-seo-content'); ?></p>
+                                </div>
+                                <span class="azevent-model-routing-badge"><?php _e('4 bước', 'azevent-seo-content'); ?></span>
+                            </div>
+                            <div class="azevent-step-model-grid">
+                                <?php foreach ($azevent_step_model_fields as $step_key => $step_field) : ?>
+                                    <div class="azevent-field azevent-step-model">
+                                        <label for="azevent_seo_<?php echo esc_attr($step_key); ?>_model">
+                                            <span><?php echo esc_html($step_field['label']); ?></span>
+                                            <small><?php echo esc_html($step_field['hint']); ?></small>
+                                        </label>
+                                        <select class="azevent-step-model-select" id="azevent_seo_<?php echo esc_attr($step_key); ?>_model" name="azevent_seo_<?php echo esc_attr($step_key); ?>_model">
+                                            <option value="" <?php selected($azevent_step_models[$step_key], ''); ?>><?php printf(esc_html__('Dùng Text Model mặc định — %s', 'azevent-seo-content'), esc_html($azevent_text_models[$azevent_text_model] ?? $azevent_text_model)); ?></option>
+                                            <?php foreach ($azevent_text_models as $model_id => $model_label) : ?>
+                                                <option value="<?php echo esc_attr($model_id); ?>" <?php selected($azevent_step_models[$step_key], $model_id); ?>><?php echo esc_html($model_label); ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                <?php endforeach; ?>
                             </div>
                         </div>
                         <details class="azevent-legacy">
@@ -620,6 +684,7 @@ $prompt_tokens = array(
             var modelInput = document.getElementById('azevent-new-text-model');
             var addModelButton = document.getElementById('azevent-add-text-model');
             var modelList = document.getElementById('azevent-custom-model-list');
+            var stepModelSelects = Array.prototype.slice.call(document.querySelectorAll('.azevent-step-model-select'));
             var customModels = [];
 
             try {
@@ -642,11 +707,13 @@ $prompt_tokens = array(
                     remove.textContent = '×';
                     remove.addEventListener('click', function () {
                         customModels = customModels.filter(function (item) { return item !== model; });
-                        for (var index = modelSelect.options.length - 1; index >= 0; index--) {
-                            if (modelSelect.options[index].value === model) {
-                                modelSelect.remove(index);
+                        [modelSelect].concat(stepModelSelects).forEach(function (select) {
+                            for (var index = select.options.length - 1; index >= 0; index--) {
+                                if (select.options[index].value === model) {
+                                    select.remove(index);
+                                }
                             }
-                        }
+                        });
                         if (modelSelect.value === model) {
                             modelSelect.value = modelSelect.options[0] ? modelSelect.options[0].value : '';
                         }
@@ -667,6 +734,10 @@ $prompt_tokens = array(
                 option.value = model;
                 option.textContent = model + ' (Custom)';
                 modelSelect.appendChild(option);
+                stepModelSelects.forEach(function (select) {
+                    var stepOption = option.cloneNode(true);
+                    select.appendChild(stepOption);
+                });
                 modelSelect.value = model;
                 modelInput.value = '';
                 syncCustomModels();
