@@ -3,7 +3,7 @@
  * Plugin Name: AzEvent SEO Content Creator
  * Plugin URI:  https://azevent.vn/
  * Description: Tự động hóa việc tạo nội dung chuẩn SEO từ từ khóa sử dụng AI (Claude/GPT) và tạo ảnh đại diện bằng DALL-E. Tích hợp trực tiếp vào Classic Editor.
- * Version:     1.7.2
+ * Version:     1.7.4
  * Author:      AzEvent Team
  * Author URI:  https://azevent.vn/
  * License:     GPL2
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define constants
-define('AZEVENT_SEO_VERSION', '1.7.2');
+define('AZEVENT_SEO_VERSION', '1.7.4');
 define('AZEVENT_SEO_PATH', plugin_dir_path(__FILE__));
 define('AZEVENT_SEO_URL', plugin_dir_url(__FILE__));
 

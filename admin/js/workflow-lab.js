@@ -126,6 +126,7 @@
         });
         elements.processing.hidden = !value;
         elements.review.hidden = value;
+        elements.workflow.setAttribute('aria-busy', value ? 'true' : 'false');
         if (value) {
             elements.processingTitle.textContent = processingCopy[step] || 'AI đang xử lý...';
             updateStepper(step);
@@ -134,6 +135,8 @@
         } else {
             stopElapsedTimer();
             stopLogPolling();
+            processingStartedAt = 0;
+            elements.processingElapsed.textContent = 'Đã chạy 0 giây';
         }
     }
 
@@ -403,7 +406,7 @@
             return;
         }
         const fetchedAt = parseInt(snapshot.fetched_at, 10) || 0;
-        elements.serpMeta.textContent = (snapshot.provider || 'SERP') + ' · ' + (snapshot.location || '') + (fetchedAt ? ' · ' + new Date(fetchedAt * 1000).toLocaleString() : '');
+        elements.serpMeta.textContent = (snapshot.provider || 'SERP') + ' · Đã lưu theo phiên' + (snapshot.location ? ' · ' + snapshot.location : '') + (fetchedAt ? ' · ' + new Date(fetchedAt * 1000).toLocaleString() : '');
         results.forEach(function (result) {
             const item = document.createElement('li');
             const link = document.createElement('a');

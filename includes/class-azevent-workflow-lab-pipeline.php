@@ -7,6 +7,7 @@ if (!defined('ABSPATH')) {
 class AzEvent_Workflow_Lab_Pipeline
 {
     const SESSION_META = '_azevent_seo_workflow_lab';
+    const SERP_META = '_azevent_seo_workflow_lab_serp_snapshot';
     private $last_ai_metrics = array();
 
     public static function get_default_prompts()
@@ -189,36 +190,54 @@ class AzEvent_Workflow_Lab_Pipeline
     private function run_research($post_id, array &$context)
     {
         $manual_competitor_notes = trim((string) ($context['input']['competitor_notes'] ?? ''));
-        if ($manual_competitor_notes === '' && empty($context['serp_snapshot']['organic_results'])) {
-            $serp_started_at = microtime(true);
-            $this->append_log(
-                $post_id,
-                $context,
-                'info',
-                'research',
-                sprintf(
-                    'Đang gọi SerpApi và đọc cấu trúc tối đa %d trang đối thủ.',
-                    min(5, max(0, absint(get_option('azevent_lab_serp_fetch_pages', 2))))
-                )
-            );
-            $serp_snapshot = (new AzEvent_SERP_Client())->search($context['input']['keyword']);
-            if (is_wp_error($serp_snapshot)) {
-                return $serp_snapshot;
+        if ($manual_competitor_notes === '') {
+            $keyword = sanitize_text_field($context['input']['keyword'] ?? '');
+            $serp_snapshot = $this->get_session_serp_snapshot($post_id, $keyword, $context['serp_snapshot'] ?? array());
+            if (!empty($serp_snapshot['organic_results'])) {
+                $context['serp_snapshot'] = $serp_snapshot;
+                $context['competitor_source'] = 'automatic_serp';
+                $this->append_log(
+                    $post_id,
+                    $context,
+                    'info',
+                    'research',
+                    sprintf(
+                        'Tái sử dụng %d nguồn SERP đã lưu của phiên; không gọi lại SerpApi.',
+                        count((array) $serp_snapshot['organic_results'])
+                    )
+                );
+            } else {
+                $serp_started_at = microtime(true);
+                $this->append_log(
+                    $post_id,
+                    $context,
+                    'info',
+                    'research',
+                    sprintf(
+                        'Đang gọi SerpApi và đọc cấu trúc tối đa %d trang đối thủ.',
+                        min(5, max(0, absint(get_option('azevent_lab_serp_fetch_pages', 2))))
+                    )
+                );
+                $serp_snapshot = (new AzEvent_SERP_Client())->search($keyword);
+                if (is_wp_error($serp_snapshot)) {
+                    return $serp_snapshot;
+                }
+                $context['serp_snapshot'] = $serp_snapshot;
+                update_post_meta($post_id, self::SERP_META, $serp_snapshot);
+                $context['competitor_source'] = 'automatic_serp';
+                $this->append_log(
+                    $post_id,
+                    $context,
+                    'success',
+                    'research',
+                    sprintf(
+                        'Đã nhận và lưu %d kết quả đối thủ theo phiên trong %s%s.',
+                        count((array) ($serp_snapshot['organic_results'] ?? array())),
+                        $this->format_duration(microtime(true) - $serp_started_at),
+                        !empty($serp_snapshot['cache_hit']) ? ' (dữ liệu cache)' : ''
+                    )
+                );
             }
-            $context['serp_snapshot'] = $serp_snapshot;
-            $context['competitor_source'] = 'automatic_serp';
-            $this->append_log(
-                $post_id,
-                $context,
-                'success',
-                'research',
-                sprintf(
-                    'Đã nhận %d kết quả đối thủ trong %s%s.',
-                    count((array) ($serp_snapshot['organic_results'] ?? array())),
-                    $this->format_duration(microtime(true) - $serp_started_at),
-                    !empty($serp_snapshot['cache_hit']) ? ' (dữ liệu cache)' : ''
-                )
-            );
         } elseif ($manual_competitor_notes !== '') {
             $context['competitor_source'] = 'manual';
             $this->append_log($post_id, $context, 'info', 'research', 'Đang dùng dữ liệu đối thủ nhập thủ công, không gọi SerpApi.');
@@ -234,6 +253,36 @@ class AzEvent_Workflow_Lab_Pipeline
 
         $context['results']['research'] = trim($result);
         return $this->complete_step($context, 'research', 'brief');
+    }
+
+    private function get_session_serp_snapshot($post_id, $keyword, $context_snapshot)
+    {
+        $context_snapshot = is_array($context_snapshot) ? $context_snapshot : array();
+        if ($this->is_matching_serp_snapshot($context_snapshot, $keyword)) {
+            update_post_meta(absint($post_id), self::SERP_META, $context_snapshot);
+            return $context_snapshot;
+        }
+
+        $saved_snapshot = get_post_meta(absint($post_id), self::SERP_META, true);
+        return $this->is_matching_serp_snapshot($saved_snapshot, $keyword) ? $saved_snapshot : array();
+    }
+
+    private function is_matching_serp_snapshot($snapshot, $keyword)
+    {
+        if (!is_array($snapshot) || empty($snapshot['organic_results']) || !is_array($snapshot['organic_results'])) {
+            return false;
+        }
+
+        $snapshot_query = trim((string) ($snapshot['query'] ?? ''));
+        $keyword = trim((string) $keyword);
+        if ($snapshot_query === '' || $keyword === '') {
+            return true;
+        }
+
+        if (function_exists('mb_strtolower')) {
+            return mb_strtolower($snapshot_query, 'UTF-8') === mb_strtolower($keyword, 'UTF-8');
+        }
+        return strtolower($snapshot_query) === strtolower($keyword);
     }
 
     private function run_brief($post_id, array &$context)

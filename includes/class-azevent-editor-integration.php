@@ -86,6 +86,14 @@ class AzEvent_Editor_Integration
                 </header>
 
                 <div class="azevent-modal-body">
+                    <ol id="azevent-workflow-stepper" class="azevent-stepper" aria-label="<?php esc_attr_e('Tiến trình tạo nội dung', 'azevent-seo-content'); ?>" hidden>
+                        <li data-step="intent"><span>1</span><small>Search Intent</small></li>
+                        <li data-step="outline"><span>2</span><small>Outline</small></li>
+                        <li data-step="content"><span>3</span><small>Content</small></li>
+                        <li data-step="seo"><span>4</span><small>SEO</small></li>
+                        <li data-step="finish"><span>5</span><small><?php _e('Ảnh & Lưu', 'azevent-seo-content'); ?></small></li>
+                    </ol>
+
                     <section id="azevent-setup-view" class="azevent-view">
                         <div class="azevent-view-heading">
                             <span class="azevent-step-kicker"><?php _e('Bước 1', 'azevent-seo-content'); ?></span>
@@ -154,14 +162,6 @@ class AzEvent_Editor_Integration
                     </section>
 
                     <section id="azevent-workflow-view" class="azevent-view" hidden>
-                        <ol class="azevent-stepper" aria-label="<?php esc_attr_e('Tiến trình tạo nội dung', 'azevent-seo-content'); ?>">
-                            <li data-step="intent"><span>1</span><small>Search Intent</small></li>
-                            <li data-step="outline"><span>2</span><small>Outline</small></li>
-                            <li data-step="content"><span>3</span><small>Content</small></li>
-                            <li data-step="seo"><span>4</span><small>SEO</small></li>
-                            <li data-step="finish"><span>5</span><small><?php _e('Ảnh & Lưu', 'azevent-seo-content'); ?></small></li>
-                        </ol>
-
                         <div id="azevent-processing-panel" class="azevent-processing-panel">
                             <div class="azevent-spinner" aria-hidden="true"></div>
                             <div>
@@ -172,9 +172,15 @@ class AzEvent_Editor_Integration
                         </div>
 
                         <div id="azevent-log" class="azevent-log" aria-live="polite"></div>
-                        <div id="azevent-error-actions" class="azevent-actions azevent-actions-end" hidden>
+                        <div id="azevent-error-actions" class="azevent-actions azevent-review-actions" hidden>
                             <button type="button" id="azevent-restart-btn" class="button azevent-secondary-button"><?php _e('Quay lại thiết lập', 'azevent-seo-content'); ?></button>
-                            <button type="button" id="azevent-retry-btn" class="button button-primary azevent-primary-button"><?php _e('Thử lại bước này', 'azevent-seo-content'); ?></button>
+                            <div class="azevent-review-action-group">
+                                <button type="button" id="azevent-error-back-btn" class="button azevent-secondary-button" hidden>
+                                    <span class="dashicons dashicons-arrow-left-alt2" aria-hidden="true"></span>
+                                    <span><?php _e('Xem lại bước trước', 'azevent-seo-content'); ?></span>
+                                </button>
+                                <button type="button" id="azevent-retry-btn" class="button button-primary azevent-primary-button"><?php _e('Thử lại bước này', 'azevent-seo-content'); ?></button>
+                            </div>
                         </div>
                     </section>
 

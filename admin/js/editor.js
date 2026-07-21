@@ -22,7 +22,9 @@ jQuery(function($) {
     const $regenerateButton = $('#azevent-regenerate-content-btn');
     const $restartButton = $('#azevent-restart-btn');
     const $retryButton = $('#azevent-retry-btn');
+    const $errorBackButton = $('#azevent-error-back-btn');
     const $errorActions = $('#azevent-error-actions');
+    const $workflowStepper = $('#azevent-workflow-stepper');
     const $processingPanel = $('#azevent-processing-panel');
     const $statusText = $('#azevent-status-text');
     const $log = $('#azevent-log');
@@ -97,6 +99,7 @@ jQuery(function($) {
     }
 
     function showView(view) {
+        const workflowViews = ['workflow', 'intent-review', 'outline-review', 'content-review', 'review'];
         $setupView.prop('hidden', view !== 'setup');
         $workflowView.prop('hidden', view !== 'workflow');
         $intentReviewView.prop('hidden', view !== 'intent-review');
@@ -105,6 +108,7 @@ jQuery(function($) {
         $reviewView.prop('hidden', view !== 'review');
         $completeView.prop('hidden', view !== 'complete');
         $queueView.prop('hidden', view !== 'queue');
+        $workflowStepper.prop('hidden', workflowViews.indexOf(view) === -1);
     }
 
     function getCheckpointStepLabel(step) {
@@ -231,6 +235,107 @@ jQuery(function($) {
                 .toggleClass('is-complete', activeIndex >= 0 && index < activeIndex)
                 .toggleClass('is-active', index === activeIndex);
         });
+        updateStepNavigation();
+    }
+
+    function getAvailableReviewSteps() {
+        return {
+            intent: !!currentContext.search_intent,
+            outline: !!currentContext.outline,
+            content: !!currentContext.content,
+            seo: !!currentContext.seo
+        };
+    }
+
+    function updateStepNavigation() {
+        const availableSteps = getAvailableReviewSteps();
+        $('.azevent-stepper li').each(function() {
+            const $step = $(this);
+            const step = $step.attr('data-step');
+            const isAvailable = !!availableSteps[step] && !isProcessing;
+            $step
+                .toggleClass('is-available', isAvailable)
+                .toggleClass('has-result', !!availableSteps[step])
+                .attr('aria-disabled', isAvailable ? 'false' : 'true')
+                .attr('tabindex', isAvailable ? '0' : '-1')
+                .attr('role', isAvailable ? 'button' : 'listitem');
+        });
+    }
+
+    function syncCurrentReviewEdits() {
+        if (studioState === 'intent-review' && !$intentResult.prop('readonly')) {
+            currentContext.search_intent = $intentResult.val().trim();
+        }
+        if (studioState === 'outline-review' && !$outlineResult.prop('readonly')) {
+            currentContext.outline = $outlineResult.val().trim();
+        }
+    }
+
+    function getFinalizationStep() {
+        if (pendingNextStep === 'image' || pendingNextStep === 'finalize') {
+            return pendingNextStep;
+        }
+        if (lastRequestStep === 'image' || lastRequestStep === 'finalize') {
+            return lastRequestStep;
+        }
+        return mode === 'create' ? 'image' : 'finalize';
+    }
+
+    function showSavedStep(step) {
+        if (isProcessing) {
+            return false;
+        }
+        syncCurrentReviewEdits();
+        if (step === 'intent' && currentContext.search_intent) {
+            showIntentReview(currentContext);
+            return true;
+        }
+        if (step === 'outline' && currentContext.outline) {
+            showOutlineReview(currentContext);
+            return true;
+        }
+        if (step === 'content' && currentContext.content) {
+            showContentReview(currentContext);
+            return true;
+        }
+        if (step === 'seo' && currentContext.seo) {
+            showReview(currentContext, getFinalizationStep());
+            return true;
+        }
+        return false;
+    }
+
+    function getPreviousSavedStep(requestStep) {
+        const activeStep = getStepFromRequest(requestStep);
+        const activeIndex = stepOrder.indexOf(activeStep);
+        const availableSteps = getAvailableReviewSteps();
+        for (let index = activeIndex - 1; index >= 0; index -= 1) {
+            if (availableSteps[stepOrder[index]]) {
+                return stepOrder[index];
+            }
+        }
+        for (let index = stepOrder.length - 1; index >= 0; index -= 1) {
+            if (availableSteps[stepOrder[index]]) {
+                return stepOrder[index];
+            }
+        }
+        return '';
+    }
+
+    function updateErrorNavigation() {
+        const previousStep = getPreviousSavedStep(lastRequestStep);
+        const labels = {
+            intent: 'Search Intent',
+            outline: 'Outline',
+            content: 'Content',
+            seo: 'SEO'
+        };
+        $errorBackButton
+            .prop('hidden', !previousStep)
+            .attr('data-step', previousStep)
+            .find('span:last')
+            .text(previousStep ? 'Xem lại ' + labels[previousStep] : 'Xem lại bước trước');
+        $retryButton.text('Thử lại bước ' + getCheckpointStepLabel(lastRequestStep));
     }
 
     function getStepFromRequest(step) {
@@ -253,6 +358,8 @@ jQuery(function($) {
         $rerunOutlineButton.prop('disabled', disabled);
         $continueSeoButton.prop('disabled', disabled);
         $regenerateSeoButton.prop('disabled', disabled);
+        $errorBackButton.prop('disabled', disabled);
+        updateStepNavigation();
     }
 
     function resetStudio() {
@@ -277,6 +384,8 @@ jQuery(function($) {
         $outlineResult.val('');
         $processingPanel.removeClass('is-error');
         $errorActions.prop('hidden', true);
+        $errorBackButton.prop('hidden', true).removeAttr('data-step');
+        $retryButton.text('Thử lại bước này');
         $('.azevent-stepper li').removeClass('is-active is-complete');
         setControlsDisabled(false);
         showView('setup');
@@ -289,6 +398,7 @@ jQuery(function($) {
         showView('workflow');
         $processingPanel.addClass('is-error');
         $errorActions.prop('hidden', false);
+        updateErrorNavigation();
         updateStatus(message || 'Không thể hoàn tất yêu cầu.');
     }
 
@@ -411,7 +521,8 @@ jQuery(function($) {
                 currentPostId = errorPostId;
             }
             if (response && response.data && response.data.context) {
-                lastRequestContext = response.data.context;
+                currentContext = $.extend(true, {}, currentContext, response.data.context);
+                lastRequestContext = currentContext;
             }
             showError(response && response.data && response.data.message ? response.data.message : 'Không thể xử lý từ khóa.');
             return;
@@ -533,7 +644,7 @@ jQuery(function($) {
         lastRequestStep = checkpoint.current_step || checkpoint.next_step || 'start';
         lastRequestContext = currentContext;
         results = [];
-        pendingNextStep = '';
+        pendingNextStep = lastRequestStep === 'image' || lastRequestStep === 'finalize' ? lastRequestStep : '';
 
         $('input[name="azevent_mode"][value="' + mode + '"]').prop('checked', true).trigger('change');
         $keywords.val(keywordQueue[0]);
@@ -727,6 +838,10 @@ jQuery(function($) {
             }
             if (xhr.responseJSON && xhr.responseJSON.data) {
                 checkpointEstablished = true;
+                if (xhr.responseJSON.data.context && typeof xhr.responseJSON.data.context === 'object') {
+                    currentContext = $.extend(true, {}, currentContext, xhr.responseJSON.data.context);
+                    lastRequestContext = currentContext;
+                }
             }
             showError(responseMessage);
         });
@@ -1016,7 +1131,7 @@ jQuery(function($) {
     });
 
     $('#azevent-back-to-intent-btn').on('click', function() {
-        showIntentReview(currentContext);
+        showSavedStep('intent');
     });
 
     $rerunOutlineButton.on('click', function() {
@@ -1041,7 +1156,7 @@ jQuery(function($) {
     });
 
     $('#azevent-back-to-outline-btn').on('click', function() {
-        showOutlineReview(currentContext);
+        showSavedStep('outline');
     });
 
     $continueSeoButton.on('click', function() {
@@ -1054,7 +1169,7 @@ jQuery(function($) {
     });
 
     $('#azevent-back-to-content-btn').on('click', function() {
-        showContentReview(currentContext);
+        showSavedStep('content');
     });
 
     $regenerateSeoButton.on('click', function() {
@@ -1083,6 +1198,18 @@ jQuery(function($) {
         resetStudio();
         syncModeHelp();
         loadBrowserCheckpoint();
+    });
+
+    $errorBackButton.on('click', function() {
+        showSavedStep($(this).attr('data-step') || '');
+    });
+
+    $workflowStepper.on('click keydown', 'li.is-available', function(event) {
+        if (event.type === 'keydown' && event.key !== 'Enter' && event.key !== ' ') {
+            return;
+        }
+        event.preventDefault();
+        showSavedStep($(this).attr('data-step') || '');
     });
 
     $retryButton.on('click', function() {

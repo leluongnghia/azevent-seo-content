@@ -487,6 +487,10 @@ body.azevent-modal-open {
     list-style: none;
 }
 
+.azevent-stepper[hidden] {
+    display: none;
+}
+
 .azevent-stepper li {
     position: relative;
     display: flex;
@@ -555,6 +559,30 @@ body.azevent-modal-open {
 .azevent-stepper li.is-active,
 .azevent-stepper li.is-complete {
     color: #334155;
+}
+
+.azevent-stepper li.is-available {
+    cursor: pointer;
+}
+
+.azevent-stepper li.has-result:not(.is-active):not(.is-complete) {
+    color: #4f46e5;
+}
+
+.azevent-stepper li.has-result:not(.is-active):not(.is-complete) span {
+    border-color: #a5b4fc;
+    background: #eef2ff;
+    color: #4338ca;
+}
+
+.azevent-stepper li.is-available:hover span,
+.azevent-stepper li.is-available:focus span {
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 4px rgba(79, 70, 229, .14);
+}
+
+.azevent-stepper li.is-available:focus {
+    outline: 0;
 }
 
 .azevent-processing-panel {

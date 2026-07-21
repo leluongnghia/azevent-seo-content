@@ -166,6 +166,7 @@ class AzEvent_SEO_Workflow_Lab
         }
 
         delete_post_meta($post_id, AzEvent_Workflow_Lab_Pipeline::SESSION_META);
+        delete_post_meta($post_id, AzEvent_Workflow_Lab_Pipeline::SERP_META);
         delete_post_meta($post_id, '_azevent_seo_workflow_lab_owner');
 
         wp_send_json_success(array(
