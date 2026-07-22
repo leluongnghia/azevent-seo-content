@@ -7,7 +7,9 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-$azevent_base_url = get_option('aprg_cliproxy_base_url', AzEvent_API_Client::DEFAULT_BASE_URL);
+$azevent_base_url = AzEvent_API_Client::get_base_url(
+    get_option('aprg_cliproxy_base_url', AzEvent_API_Client::DEFAULT_BASE_URL)
+);
 $azevent_image_model = get_option('aprg_seo_default_cliproxy_image_model', 'gpt-image-2');
 $azevent_text_model = get_option('aprg_cliproxy_model', 'claude-sonnet-4-6');
 $azevent_text_provider = get_option('azevent_seo_text_provider', 'azevent');
@@ -514,9 +516,13 @@ $lab_prompt_tokens = array(
                             <div class="azevent-field">
                                 <label for="aprg_cliproxy_base_url"><?php _e('Môi trường API', 'azevent-seo-content'); ?></label>
                                 <select id="aprg_cliproxy_base_url" name="aprg_cliproxy_base_url">
-                                    <option value="<?php echo esc_attr(AzEvent_API_Client::REMOTE_BASE_URL); ?>" <?php selected($azevent_base_url, AzEvent_API_Client::REMOTE_BASE_URL); ?>>Production — api.azevent.vn</option>
-                                    <option value="<?php echo esc_attr(AzEvent_API_Client::DEFAULT_BASE_URL); ?>" <?php selected($azevent_base_url, AzEvent_API_Client::DEFAULT_BASE_URL); ?>>Local — 192.168.1.5:8317</option>
+                                    <option value="<?php echo esc_attr(AzEvent_API_Client::DEFAULT_BASE_URL); ?>" <?php selected($azevent_base_url, AzEvent_API_Client::DEFAULT_BASE_URL); ?>>CLI API — cliapi.azevent.vn (Mặc định)</option>
+                                    <option value="<?php echo esc_attr(AzEvent_API_Client::REMOTE_BASE_URL); ?>" <?php selected($azevent_base_url, AzEvent_API_Client::REMOTE_BASE_URL); ?>>AzEvent API — api.azevent.vn</option>
+                                    <?php if ($azevent_base_url === AzEvent_API_Client::LEGACY_LOCAL_BASE_URL) : ?>
+                                        <option value="<?php echo esc_attr(AzEvent_API_Client::LEGACY_LOCAL_BASE_URL); ?>" selected>Local cũ — 192.168.1.5:8317</option>
+                                    <?php endif; ?>
                                 </select>
+                                <p class="azevent-help"><?php _e('Plugin tự gọi endpoint /v1. Cấu hình Local cũ vẫn được giữ nếu website đang sử dụng.', 'azevent-seo-content'); ?></p>
                             </div>
                             <div class="azevent-field">
                                 <label for="aprg_cliproxy_model"><?php _e('Text Model', 'azevent-seo-content'); ?></label>

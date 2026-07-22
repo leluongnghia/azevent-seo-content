@@ -9,8 +9,9 @@ if (!defined('ABSPATH')) {
 
 class AzEvent_API_Client
 {
-    const DEFAULT_BASE_URL = 'http://192.168.1.5:8317';
+    const DEFAULT_BASE_URL = 'https://cliapi.azevent.vn';
     const REMOTE_BASE_URL = 'https://api.azevent.vn';
+    const LEGACY_LOCAL_BASE_URL = 'http://192.168.1.5:8317';
 
     private $api_key;
     private $base_url;
@@ -30,7 +31,12 @@ class AzEvent_API_Client
             $base_url = get_option('aprg_cliproxy_base_url', self::DEFAULT_BASE_URL);
         }
 
-        $allowed_urls = array(self::DEFAULT_BASE_URL, self::REMOTE_BASE_URL);
+        $base_url = rtrim((string) $base_url, '/');
+        if (substr($base_url, -3) === '/v1') {
+            $base_url = substr($base_url, 0, -3);
+        }
+
+        $allowed_urls = array(self::DEFAULT_BASE_URL, self::REMOTE_BASE_URL, self::LEGACY_LOCAL_BASE_URL);
         if (!in_array($base_url, $allowed_urls, true)) {
             $base_url = self::DEFAULT_BASE_URL;
         }
@@ -100,7 +106,7 @@ class AzEvent_API_Client
 
         $use_stream = array_key_exists('stream', $options)
             ? (bool) $options['stream']
-            : $this->base_url === self::REMOTE_BASE_URL;
+            : in_array($this->base_url, array(self::DEFAULT_BASE_URL, self::REMOTE_BASE_URL), true);
         if ($use_stream) {
             $body['stream'] = true;
             $body['stream_options'] = array('include_usage' => true);

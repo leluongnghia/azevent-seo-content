@@ -67,7 +67,10 @@ class AzEvent_Admin
     public function register_settings()
     {
         register_setting('azevent_seo_settings_group', 'aprg_cliproxy_api_key');
-        register_setting('azevent_seo_settings_group', 'aprg_cliproxy_base_url');
+        register_setting('azevent_seo_settings_group', 'aprg_cliproxy_base_url', array(
+            'sanitize_callback' => array('AzEvent_API_Client', 'get_base_url'),
+            'default' => AzEvent_API_Client::DEFAULT_BASE_URL,
+        ));
         register_setting('azevent_seo_settings_group', 'aprg_cliproxy_model');
         register_setting('azevent_seo_settings_group', 'azevent_seo_text_provider', array(
             'sanitize_callback' => array($this, 'sanitize_text_provider'),
