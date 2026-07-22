@@ -42,6 +42,7 @@ jQuery(function($) {
     const $queueRows = $('#azevent-queue-rows');
     const $queueEmpty = $('#azevent-queue-empty');
     const $queueNotice = $('#azevent-queue-notice');
+    const $sectionImagesResult = $('#azevent-section-images-result');
     const stepOrder = ['intent', 'outline', 'content', 'seo', 'finish'];
 
     let studioState = 'idle';
@@ -118,6 +119,7 @@ jQuery(function($) {
             outline: 'Outline',
             content: 'Content',
             seo: 'SEO Metadata',
+            section_images: 'Ảnh minh họa H2',
             image: 'Tạo ảnh',
             finalize: 'Lưu Draft'
         };
@@ -286,10 +288,10 @@ jQuery(function($) {
     }
 
     function getFinalizationStep() {
-        if (pendingNextStep === 'image' || pendingNextStep === 'finalize') {
+        if (['section_images', 'image', 'finalize'].indexOf(pendingNextStep) !== -1) {
             return pendingNextStep;
         }
-        if (lastRequestStep === 'image' || lastRequestStep === 'finalize') {
+        if (['section_images', 'image', 'finalize'].indexOf(lastRequestStep) !== -1) {
             return lastRequestStep;
         }
         return mode === 'create' ? 'image' : 'finalize';
@@ -356,7 +358,7 @@ jQuery(function($) {
         if (step === 'start' || step === 'search_intent') {
             return 'intent';
         }
-        if (step === 'image' || step === 'finalize') {
+        if (step === 'section_images' || step === 'image' || step === 'finalize') {
             return 'finish';
         }
         return step;
@@ -499,10 +501,10 @@ jQuery(function($) {
 
     function clearContextAfter(step) {
         const downstream = {
-            intent: ['search_intent', 'outline', 'content', 'seo'],
-            outline: ['outline', 'content', 'seo'],
-            content: ['content', 'seo'],
-            seo: ['seo']
+            intent: ['search_intent', 'outline', 'content', 'seo', 'content_split', 'section_images'],
+            outline: ['outline', 'content', 'seo', 'content_split', 'section_images'],
+            content: ['content', 'seo', 'section_images'],
+            seo: ['seo', 'section_images']
         };
         (downstream[step] || []).forEach(function(key) {
             delete currentContext[key];
@@ -559,6 +561,14 @@ jQuery(function($) {
             runStep('content', responseContext);
             return;
         }
+        if (response.data.next_step === 'section_images') {
+            if (azevent_seo.auto_advance || step === 'section_images') {
+                runStep('section_images', responseContext);
+            } else {
+                showReview(responseContext, 'section_images');
+            }
+            return;
+        }
         if (!azevent_seo.auto_advance) {
             if (response.data.next_step === 'outline') {
                 showIntentReview(responseContext);
@@ -572,6 +582,10 @@ jQuery(function($) {
                 showContentReview(responseContext);
                 return;
             }
+        }
+        if ((response.data.next_step === 'image' || response.data.next_step === 'finalize') && step === 'section_images') {
+            runStep(response.data.next_step, responseContext);
+            return;
         }
         if (response.data.next_step === 'image' || response.data.next_step === 'finalize') {
             if (azevent_seo.auto_advance) {
@@ -663,7 +677,7 @@ jQuery(function($) {
         lastRequestStep = checkpoint.current_step || checkpoint.next_step || 'start';
         lastRequestContext = currentContext;
         results = [];
-        pendingNextStep = lastRequestStep === 'image' || lastRequestStep === 'finalize' ? lastRequestStep : '';
+        pendingNextStep = ['section_images', 'image', 'finalize'].indexOf(lastRequestStep) !== -1 ? lastRequestStep : '';
 
         $('input[name="azevent_mode"][value="' + mode + '"]').prop('checked', true).trigger('change');
         $keywords.val(keywordQueue[0]);
@@ -692,6 +706,14 @@ jQuery(function($) {
         const splitState = currentContext.content_split || {};
         if (nextStep === 'content' && splitState.enabled && !splitState.completed) {
             runStep('content', currentContext);
+            return;
+        }
+        if (nextStep === 'section_images') {
+            if (azevent_seo.auto_advance || (currentContext.section_images && currentContext.section_images.items)) {
+                runStep('section_images', currentContext);
+            } else {
+                showReview(currentContext, 'section_images');
+            }
             return;
         }
         if (nextStep === 'outline' && currentContext.search_intent && !azevent_seo.auto_advance) {
@@ -784,8 +806,64 @@ jQuery(function($) {
                 ? azevent_seo.admin_url + 'post.php?post=' + singlePostId + '&action=edit'
                 : azevent_seo.admin_url + 'edit.php?post_type=post')
             .text(singlePostId > 0 ? 'Mở bài Draft' : 'Xem danh sách Draft');
+        renderSectionImages(lastResponse && lastResponse.data ? lastResponse.data.section_images : null, currentPostId);
         showView('complete');
     }
+
+    function renderSectionImages(state, postId) {
+        $sectionImagesResult.empty().prop('hidden', true);
+        const items = state && Array.isArray(state.items) ? state.items : [];
+        if (!items.length) {
+            return;
+        }
+        $('<h4>').text('Ảnh minh họa theo H2').appendTo($sectionImagesResult);
+        const $grid = $('<div class="azevent-section-images-grid">').appendTo($sectionImagesResult);
+        items.forEach(function(item) {
+            const $card = $('<div class="azevent-section-image-card">').attr('data-section-key', item.key || '');
+            const attachment = item.attachment || {};
+            if (item.status === 'created' && attachment.url) {
+                $('<img>').attr({ src: attachment.url, alt: item.alt || item.title || '' }).appendTo($card);
+            } else {
+                $('<div class="azevent-section-image-error">').text(item.error || 'Ảnh này đã được bỏ qua.').appendTo($card);
+            }
+            $('<strong>').text(item.title || 'H2').appendTo($card);
+            $('<button type="button" class="button azevent-regenerate-section-image">')
+                .attr({ 'data-post-id': postId, 'data-section-key': item.key || '' })
+                .text(item.status === 'created' ? 'Tạo lại ảnh' : 'Thử tạo ảnh')
+                .appendTo($card);
+            $card.appendTo($grid);
+        });
+        $sectionImagesResult.prop('hidden', false);
+    }
+
+    $sectionImagesResult.on('click', '.azevent-regenerate-section-image', function() {
+        const $button = $(this);
+        if (!window.confirm('Tạo ảnh mới và thay đúng ảnh H2 này? Ảnh cũ vẫn được giữ trong Media Library.')) {
+            return;
+        }
+        $button.prop('disabled', true).text('Đang tạo lại...');
+        $.ajax({
+            url: azevent_seo.ajax_url,
+            type: 'POST',
+            timeout: 1000000,
+            data: {
+                action: 'azevent_regenerate_section_image',
+                nonce: azevent_seo.section_image_nonce,
+                post_id: $button.data('post-id'),
+                section_key: $button.data('section-key')
+            }
+        }).done(function(response) {
+            if (!response.success) {
+                showError(response.data && response.data.message ? response.data.message : 'Không thể tạo lại ảnh H2.');
+                return;
+            }
+            renderSectionImages(response.data.state, parseInt($button.data('post-id'), 10) || currentPostId);
+        }).fail(function(xhr) {
+            window.alert(xhr.responseJSON && xhr.responseJSON.data ? xhr.responseJSON.data.message : 'Không thể tạo lại ảnh H2.');
+        }).always(function() {
+            $button.prop('disabled', false).text('Tạo lại ảnh');
+        });
+    });
 
     function finishKeyword(response) {
         results.push({
@@ -830,6 +908,7 @@ jQuery(function($) {
                 ? 'Đang viết H2 ' + (splitIndex + 1) + '/' + splitSections.length + splitTitle + '...'
                 : 'Đang viết nội dung hoàn chỉnh...',
             seo: 'Đang tối ưu SEO Metadata...',
+            section_images: 'Đang tạo ảnh minh họa theo H2...',
             image: 'Đang tạo ảnh đại diện và lưu Draft...',
             finalize: 'Đang lưu nội dung vào Draft...'
         };
@@ -852,7 +931,7 @@ jQuery(function($) {
                 language: language,
                 post_id: currentPostId,
                 mode: mode,
-                regenerate_image: mode === 'create' ? '1' : '0',
+                regenerate_image: (mode === 'create' || (context && context.regenerate_image)) ? '1' : '0',
                 step: step,
                 context: JSON.stringify(context || {})
             }
@@ -917,6 +996,7 @@ jQuery(function($) {
             outline: 'Outline',
             content: 'Content',
             seo: 'SEO Metadata',
+            section_images: 'Ảnh H2',
             image: 'Tạo ảnh',
             finalize: 'Lưu Draft',
             completed: 'Đã hoàn tất'
@@ -1221,7 +1301,10 @@ jQuery(function($) {
             showError('Không tìm thấy dữ liệu SEO để hoàn tất bài viết.');
             return;
         }
-        pendingNextStep = $regenerateImage.is(':checked') ? 'image' : 'finalize';
+        currentContext.regenerate_image = $regenerateImage.is(':checked');
+        pendingNextStep = pendingNextStep === 'section_images'
+            ? 'section_images'
+            : ($regenerateImage.is(':checked') ? 'image' : 'finalize');
         runStep(pendingNextStep, currentContext);
     });
 

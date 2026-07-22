@@ -109,6 +109,12 @@ class AzEvent_Admin
         register_setting('azevent_seo_settings_group', 'azevent_seo_split_content_by_outline', array(
             'sanitize_callback' => 'absint',
         ));
+        register_setting('azevent_seo_settings_group', 'azevent_seo_generate_h2_images', array(
+            'sanitize_callback' => 'absint',
+        ));
+        register_setting('azevent_seo_settings_group', 'azevent_seo_h2_image_limit', array(
+            'sanitize_callback' => array($this, 'sanitize_h2_image_limit'),
+        ));
         register_setting('azevent_seo_settings_group', 'azevent_seo_openai_key');
         register_setting('azevent_seo_settings_group', 'azevent_seo_anthropic_key');
         register_setting('azevent_seo_settings_group', 'azevent_seo_openai_model', array(
@@ -208,6 +214,11 @@ class AzEvent_Admin
     {
         $value = sanitize_key($value);
         return in_array($value, array('messages', 'auto', 'chat'), true) ? $value : 'messages';
+    }
+
+    public function sanitize_h2_image_limit($value)
+    {
+        return min(10, max(1, absint($value)));
     }
 
     public function test_ckey_connection()

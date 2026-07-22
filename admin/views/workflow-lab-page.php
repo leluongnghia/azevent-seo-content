@@ -138,6 +138,7 @@ $recent_query = new WP_Query(array(
                             <figcaption><?php _e('Ảnh đại diện đã tạo và gắn vào bài Draft', 'azevent-seo-content'); ?></figcaption>
                         </figure>
                         <p id="azlab-featured-image-empty" class="azlab-featured-image-empty" hidden><?php _e('Phiên này đã lưu Draft không có ảnh đại diện.', 'azevent-seo-content'); ?></p>
+                        <div id="azlab-section-images-result" class="azevent-section-images-result" hidden></div>
                         <div class="azlab-final-result-actions">
                             <button id="azlab-regenerate-image" type="button" class="button" hidden><span class="dashicons dashicons-update"></span> <?php _e('Tạo lại ảnh đại diện', 'azevent-seo-content'); ?></button>
                             <a id="azlab-edit-post" class="button button-primary azlab-primary" href="#"><?php _e('Mở Draft để kiểm tra', 'azevent-seo-content'); ?></a>

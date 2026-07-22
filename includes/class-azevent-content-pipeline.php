@@ -407,11 +407,96 @@ class AzEvent_Content_Pipeline
                 $context['regenerate_image'] = $regenerate_image;
                 $should_generate_image = AzEvent_API_Client::is_configured()
                     && ($mode !== 'rewrite' || $regenerate_image || !has_post_thumbnail($post_id));
+                $should_generate_section_images = AzEvent_Section_Images::is_enabled() && AzEvent_API_Client::is_configured();
                 return array(
                     'status' => 'processing',
-                    'message' => $should_generate_image
+                    'message' => $should_generate_section_images
+                        ? 'Đã tối ưu SEO. Sẵn sàng lập kế hoạch ảnh minh họa theo H2...'
+                        : ($should_generate_image
                         ? 'Đã tối ưu SEO. Đang xử lý ảnh đại diện...'
-                        : 'Đã tối ưu SEO. Đang lưu bản viết lại dưới dạng bản nháp...',
+                        : 'Đã tối ưu SEO. Đang lưu bản viết lại dưới dạng bản nháp...'),
+                    'next_step' => $should_generate_section_images ? 'section_images' : ($should_generate_image ? 'image' : 'finalize'),
+                    'post_id' => $post_id,
+                    'context' => $context,
+                );
+
+            case 'section_images':
+                if (empty($context['content']) || empty($context['seo'])) {
+                    return $this->attach_error_context(
+                        new WP_Error('azevent_missing_section_image_context', 'Thiếu Content hoặc SEO để tạo ảnh H2.'),
+                        $post_id,
+                        $context
+                    );
+                }
+                if (!AzEvent_Section_Images::is_enabled() || !AzEvent_API_Client::is_configured()) {
+                    $should_generate_image = AzEvent_API_Client::is_configured()
+                        && ($mode !== 'rewrite' || $regenerate_image || !has_post_thumbnail($post_id));
+                    return array(
+                        'status' => 'processing',
+                        'message' => 'Đã bỏ qua ảnh H2 theo cấu hình hiện tại.',
+                        'next_step' => $should_generate_image ? 'image' : 'finalize',
+                        'post_id' => $post_id,
+                        'context' => $context,
+                    );
+                }
+                if (empty($context['section_images']) || !is_array($context['section_images'])) {
+                    $context['section_images'] = AzEvent_Section_Images::create_plan($context['content'], $keyword, $language);
+                    AzEvent_Section_Images::save_state($post_id, $context['section_images']);
+                    if (!empty($context['section_images']['completed'])) {
+                        $should_generate_image = $mode !== 'rewrite' || $regenerate_image || !has_post_thumbnail($post_id);
+                        return array(
+                            'status' => 'processing',
+                            'message' => $context['section_images']['message'] ?? 'Không có H2 phù hợp để tạo ảnh.',
+                            'next_step' => $should_generate_image ? 'image' : 'finalize',
+                            'post_id' => $post_id,
+                            'context' => $context,
+                        );
+                    }
+                    $planning_metrics = $context['section_images']['planning_metrics'] ?? array();
+                    return array(
+                        'status' => 'processing',
+                        'message' => sprintf(
+                            'Đã lập kế hoạch %1$d ảnh H2 · %2$s · %3$s giây · %4$d/%5$d token. Bắt đầu tạo ảnh thứ nhất...',
+                            count($context['section_images']['items'] ?? array()),
+                            sanitize_text_field($planning_metrics['model'] ?? $planning_metrics['provider'] ?? 'AI'),
+                            round((float) ($planning_metrics['duration_seconds'] ?? 0), 1),
+                            absint($planning_metrics['input_tokens'] ?? 0),
+                            absint($planning_metrics['output_tokens'] ?? 0)
+                        ),
+                        'next_step' => 'section_images',
+                        'post_id' => $post_id,
+                        'context' => $context,
+                    );
+                }
+                $processed = AzEvent_Section_Images::process_next($post_id, $context['content'], $context['section_images']);
+                $context['content'] = $processed['content'];
+                $context['section_images'] = $processed['state'];
+                AzEvent_Section_Images::save_state($post_id, $context['section_images']);
+                $item = $processed['item'] ?? array();
+                $status_message = ($item['status'] ?? '') === 'created'
+                    ? sprintf(
+                        'Đã tạo và chèn ảnh cho H2: %1$s · %4$s · %2$s giây · %3$d lần gọi.',
+                        sanitize_text_field($item['title'] ?? ''),
+                        round((float) ($item['duration_seconds'] ?? 0), 1),
+                        absint($item['attempts'] ?? 1),
+                        sanitize_text_field($item['model'] ?? $item['provider'] ?? 'AI Image')
+                    )
+                    : 'Đã bỏ qua ảnh H2 ' . sanitize_text_field($item['title'] ?? '') . ': ' . sanitize_text_field($item['error'] ?? 'Không xác định.') . '.';
+                if (empty($processed['done'])) {
+                    $next_index = absint($context['section_images']['current_index'] ?? 0);
+                    $total_images = count($context['section_images']['items'] ?? array());
+                    return array(
+                        'status' => 'processing',
+                        'message' => $status_message . sprintf(' Tiếp tục ảnh %d/%d.', $next_index + 1, $total_images),
+                        'next_step' => 'section_images',
+                        'post_id' => $post_id,
+                        'context' => $context,
+                    );
+                }
+                $should_generate_image = $mode !== 'rewrite' || $regenerate_image || !has_post_thumbnail($post_id);
+                return array(
+                    'status' => 'processing',
+                    'message' => $status_message . ' Đã hoàn tất ảnh H2.',
                     'next_step' => $should_generate_image ? 'image' : 'finalize',
                     'post_id' => $post_id,
                     'context' => $context,
@@ -424,11 +509,15 @@ class AzEvent_Content_Pipeline
                 $image_prompt = $context['seo']['image_prompt'] . ' Cinematic style, professional photography, high resolution, no text, no watermark.';
                 $image_result = $ai->generate_image($image_prompt, '', '1:1');
                 if (is_wp_error($image_result)) {
-                    return $image_result;
+                    return $this->attach_error_context($image_result, $post_id, $context);
                 }
                 $attachment_id = $this->upload_image_from_result($image_result, $post_id, $context['seo']['title']);
                 if (is_wp_error($attachment_id)) {
-                    return new WP_Error('azevent_image_upload_failed', 'Lỗi tải ảnh: ' . $attachment_id->get_error_message());
+                    return $this->attach_error_context(
+                        new WP_Error('azevent_image_upload_failed', 'Lỗi tải ảnh: ' . $attachment_id->get_error_message()),
+                        $post_id,
+                        $context
+                    );
                 }
                 set_post_thumbnail($post_id, $attachment_id);
                 return $this->complete_generation($post_id, $context, $mode);
@@ -466,6 +555,9 @@ class AzEvent_Content_Pipeline
         if (is_wp_error($updated)) {
             return new WP_Error('azevent_save_failed', 'Không thể lưu bài viết: ' . $updated->get_error_message());
         }
+        if (!empty($context['section_images']) && is_array($context['section_images'])) {
+            AzEvent_Section_Images::save_state($post_id, $context['section_images']);
+        }
 
         return array(
             'status' => 'completed',
@@ -475,6 +567,7 @@ class AzEvent_Content_Pipeline
                 : 'Bài viết mới đã được tạo thành công dưới dạng bản nháp.',
             'title' => $context['seo']['title'],
             'content' => $context['content'],
+            'section_images' => isset($context['section_images']) && is_array($context['section_images']) ? $context['section_images'] : array(),
         );
     }
 

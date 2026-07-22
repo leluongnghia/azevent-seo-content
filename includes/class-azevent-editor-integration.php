@@ -23,6 +23,7 @@ class AzEvent_Editor_Integration
         add_action('wp_ajax_azevent_get_browser_step_status', array($this, 'ajax_get_browser_step_status'));
         add_action('wp_ajax_azevent_get_browser_checkpoint', array($this, 'ajax_get_browser_checkpoint'));
         add_action('wp_ajax_azevent_clear_browser_checkpoint', array($this, 'ajax_clear_browser_checkpoint'));
+        add_action('wp_ajax_azevent_regenerate_section_image', array($this, 'ajax_regenerate_section_image'));
     }
 
     /**
@@ -317,6 +318,7 @@ class AzEvent_Editor_Integration
                         <span class="dashicons dashicons-yes-alt" aria-hidden="true"></span>
                         <h3><?php _e('Đã hoàn tất', 'azevent-seo-content'); ?></h3>
                         <p id="azevent-complete-message"></p>
+                        <div id="azevent-section-images-result" class="azevent-section-images-result" hidden></div>
                         <div class="azevent-actions">
                             <button type="button" class="button azevent-secondary-button" data-azevent-close><?php _e('Đóng', 'azevent-seo-content'); ?></button>
                             <a id="azevent-complete-link" class="button button-primary azevent-primary-button" href="#"><?php _e('Mở bài Draft', 'azevent-seo-content'); ?></a>
@@ -415,6 +417,7 @@ class AzEvent_Editor_Integration
         wp_localize_script('azevent-seo-js', 'azevent_seo', array(
             'ajax_url' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('azevent_seo_nonce'),
+            'section_image_nonce' => wp_create_nonce('azevent_section_image'),
             'post_id' => $is_studio_page ? 0 : get_the_ID(),
             'default_language' => get_option('azevent_seo_default_language', 'Vietnamese'),
             'auto_advance' => (bool) get_option('azevent_seo_browser_auto_advance', false),
@@ -778,6 +781,28 @@ class AzEvent_Editor_Integration
                 wp_send_json_error(array('message' => 'Bước không hợp lệ.'));
                 break;
         }
+    }
+
+    public function ajax_regenerate_section_image()
+    {
+        check_ajax_referer('azevent_section_image', 'nonce');
+        ignore_user_abort(true);
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(0);
+        }
+        $post_id = absint($_POST['post_id'] ?? 0);
+        $section_key = sanitize_key(wp_unslash($_POST['section_key'] ?? ''));
+        if ($post_id <= 0 || !current_user_can('edit_post', $post_id)) {
+            wp_send_json_error(array('message' => 'Bạn không có quyền tạo lại ảnh của bài viết này.'), 403);
+        }
+        if ($section_key === '') {
+            wp_send_json_error(array('message' => 'Thiếu mã H2 cần tạo lại ảnh.'), 400);
+        }
+        $result = AzEvent_Section_Images::regenerate($post_id, $section_key);
+        if (is_wp_error($result)) {
+            wp_send_json_error(array('message' => $result->get_error_message()), 502);
+        }
+        wp_send_json_success($result);
     }
 
     public function ajax_get_browser_step_status()

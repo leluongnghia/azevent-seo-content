@@ -55,6 +55,7 @@ class AzEvent_SEO_Workflow_Lab
         wp_localize_script('azevent-seo-workflow-lab', 'azevent_workflow_lab', array(
             'ajax_url' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('azevent_workflow_lab'),
+            'section_image_nonce' => wp_create_nonce('azevent_section_image'),
             'post_id' => absint($_GET['azevent_lab_post'] ?? 0),
             'default_language' => get_option('azevent_seo_default_language', 'Vietnamese'),
             'edit_url_base' => admin_url('post.php?action=edit&post='),
@@ -136,6 +137,13 @@ class AzEvent_SEO_Workflow_Lab
                     'full_url' => esc_url_raw(wp_get_attachment_image_url($attachment_id, 'full')),
                     'alt' => sanitize_text_field(get_post_meta($attachment_id, '_wp_attachment_image_alt', true)),
                 );
+                update_post_meta($post_id, AzEvent_Workflow_Lab_Pipeline::SESSION_META, $context);
+            }
+        }
+        if (($context['status'] ?? '') === 'completed') {
+            $section_images = get_post_meta($post_id, AzEvent_Section_Images::META_KEY, true);
+            if (is_array($section_images) && !empty($section_images['items'])) {
+                $context['section_images'] = $section_images;
                 update_post_meta($post_id, AzEvent_Workflow_Lab_Pipeline::SESSION_META, $context);
             }
         }

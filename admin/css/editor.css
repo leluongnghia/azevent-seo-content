@@ -1172,3 +1172,4 @@ body.azevent-modal-open {
         transition: none;
     }
 }
+.azevent-section-images-result{width:100%;margin:20px 0;text-align:left}.azevent-section-images-result h4{margin:0 0 12px;color:#0f172a}.azevent-section-images-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}.azevent-section-image-card{padding:10px;border:1px solid #dbe4f3;border-radius:12px;background:#fff}.azevent-section-image-card img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:8px;background:#eef2f7}.azevent-section-image-card strong{display:block;margin:9px 0 7px;font-size:13px;line-height:1.4}.azevent-section-image-card .button{width:100%;text-align:center}.azevent-section-image-error{padding:12px;border-radius:8px;background:#fff7ed;color:#9a3412;font-size:12px}

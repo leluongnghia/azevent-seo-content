@@ -75,6 +75,7 @@
         featuredImage: document.getElementById('azlab-featured-image'),
         featuredImageEmpty: document.getElementById('azlab-featured-image-empty'),
         regenerateImage: document.getElementById('azlab-regenerate-image'),
+        sectionImagesResult: document.getElementById('azlab-section-images-result'),
         editPost: document.getElementById('azlab-edit-post'),
         reviewActions: document.getElementById('azlab-review-actions'),
         finalActions: document.getElementById('azlab-final-actions'),
@@ -172,7 +173,20 @@
     }
 
     function updateContentSplitProgress(sessionContext) {
-        if (!elements.processingTitle || !sessionContext || sessionContext.current_step !== 'content') {
+        if (!elements.processingTitle || !sessionContext) {
+            return;
+        }
+        if (sessionContext.current_step === 'finalize') {
+            const imageState = sessionContext.section_images || {};
+            const imageItems = Array.isArray(imageState.items) ? imageState.items : [];
+            const imageIndex = parseInt(imageState.current_index, 10) || 0;
+            if (!imageState.completed && imageItems[imageIndex]) {
+                const imageTitle = imageItems[imageIndex].title ? ': ' + imageItems[imageIndex].title : '';
+                elements.processingTitle.textContent = 'Đang tạo ảnh H2 ' + (imageIndex + 1) + '/' + imageItems.length + imageTitle;
+            }
+            return;
+        }
+        if (sessionContext.current_step !== 'content') {
             return;
         }
         const split = sessionContext.content_split || {};
@@ -556,6 +570,7 @@
                     elements.featuredImage.alt = '';
                 }
                 elements.finalResult.hidden = false;
+                renderSectionImages(context.section_images || {});
                 elements.reviewActions.hidden = true;
                 elements.finalActions.hidden = true;
                 elements.editPost.href = config.edit_url_base + postId;
@@ -585,6 +600,50 @@
         if (tab === 'preview') {
             setIframeContent(elements.contentPreview, elements.contentHtml.value);
         }
+    }
+
+    function renderSectionImages(state) {
+        if (!elements.sectionImagesResult) {
+            return;
+        }
+        elements.sectionImagesResult.innerHTML = '';
+        const items = state && Array.isArray(state.items) ? state.items : [];
+        elements.sectionImagesResult.hidden = !items.length;
+        if (!items.length) {
+            return;
+        }
+        const heading = document.createElement('h4');
+        heading.textContent = 'Ảnh minh họa theo H2';
+        elements.sectionImagesResult.appendChild(heading);
+        const grid = document.createElement('div');
+        grid.className = 'azevent-section-images-grid';
+        items.forEach(function (item) {
+            const card = document.createElement('div');
+            card.className = 'azevent-section-image-card';
+            const attachment = item.attachment || {};
+            if (item.status === 'created' && attachment.url) {
+                const image = document.createElement('img');
+                image.src = attachment.url;
+                image.alt = item.alt || item.title || '';
+                card.appendChild(image);
+            } else {
+                const error = document.createElement('div');
+                error.className = 'azevent-section-image-error';
+                error.textContent = item.error || 'Ảnh này đã được bỏ qua.';
+                card.appendChild(error);
+            }
+            const title = document.createElement('strong');
+            title.textContent = item.title || 'H2';
+            card.appendChild(title);
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'button azlab-regenerate-section-image';
+            button.dataset.sectionKey = item.key || '';
+            button.textContent = item.status === 'created' ? 'Tạo lại ảnh' : 'Thử tạo ảnh';
+            card.appendChild(button);
+            grid.appendChild(card);
+        });
+        elements.sectionImagesResult.appendChild(grid);
     }
 
     function processStep(step, skipImage) {
@@ -758,6 +817,27 @@
             return;
         }
         processStep('finalize', false);
+    });
+    elements.sectionImagesResult.addEventListener('click', function (event) {
+        const button = event.target.closest('.azlab-regenerate-section-image');
+        if (!button || !window.confirm('Tạo ảnh mới và thay đúng ảnh H2 này? Ảnh cũ vẫn được giữ trong Media Library.')) {
+            return;
+        }
+        button.disabled = true;
+        button.textContent = 'Đang tạo lại...';
+        request('azevent_regenerate_section_image', {
+            nonce: config.section_image_nonce,
+            post_id: postId,
+            section_key: button.dataset.sectionKey || ''
+        }).then(function (data) {
+            context.section_images = data.state;
+            renderSectionImages(data.state);
+            setNotice('Đã tạo lại và thay ảnh H2 thành công.', true);
+        }).catch(function (error) {
+            setNotice(error.message, false);
+            button.disabled = false;
+            button.textContent = 'Tạo lại ảnh';
+        });
     });
     elements.copyLog.addEventListener('click', copyLogs);
     document.querySelectorAll('.azlab-stepper li').forEach(function (item) {

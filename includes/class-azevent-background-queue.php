@@ -183,6 +183,21 @@ class AzEvent_Background_Queue
                     );
                 }
             }
+            $section_images = is_array($job_context) && isset($job_context['section_images']) && is_array($job_context['section_images'])
+                ? $job_context['section_images']
+                : array();
+            if ($job['step'] === 'section_images' && !empty($section_images['items'])) {
+                $image_index = max(0, absint($section_images['current_index'] ?? 0));
+                $image_items = array_values($section_images['items']);
+                if (isset($image_items[$image_index])) {
+                    $job['section_progress'] = sprintf(
+                        'Ảnh H2 %1$d/%2$d: %3$s',
+                        $image_index + 1,
+                        count($image_items),
+                        sanitize_text_field($image_items[$image_index]['title'] ?? '')
+                    );
+                }
+            }
             unset($job['context']);
             $job['post_url'] = $job['post_id'] > 0
                 ? admin_url('post.php?post=' . absint($job['post_id']) . '&action=edit')

@@ -600,6 +600,65 @@ class AzEvent_Workflow_Lab_Pipeline
         }
 
         $seo = $context['results']['seo'];
+        if (!$skip_image && AzEvent_Section_Images::is_enabled() && AzEvent_API_Client::is_configured()) {
+            if (empty($context['section_images']) || !is_array($context['section_images'])) {
+                $context['section_images'] = AzEvent_Section_Images::create_plan(
+                    $context['results']['content'],
+                    $context['input']['keyword'] ?? '',
+                    $context['language'] ?? 'Vietnamese'
+                );
+                AzEvent_Section_Images::save_state($post_id, $context['section_images']);
+                $planning_metrics = $context['section_images']['planning_metrics'] ?? array();
+                $this->append_log(
+                    $post_id,
+                    $context,
+                    'info',
+                    'finalize',
+                    sprintf(
+                        'Đã lập kế hoạch %1$d ảnh H2 · %2$s · %3$s giây · %4$d input/%5$d output token.',
+                        count($context['section_images']['items'] ?? array()),
+                        sanitize_text_field($planning_metrics['model'] ?? $planning_metrics['provider'] ?? 'AI'),
+                        round((float) ($planning_metrics['duration_seconds'] ?? 0), 1),
+                        absint($planning_metrics['input_tokens'] ?? 0),
+                        absint($planning_metrics['output_tokens'] ?? 0)
+                    )
+                );
+                if (empty($context['section_images']['completed'])) {
+                    $context['next_step'] = 'finalize';
+                    return array(
+                        'context' => $context,
+                        'continue_step' => true,
+                        'progress_message' => 'Đã lưu kế hoạch ảnh H2. Bắt đầu tạo từng ảnh trong background job.',
+                    );
+                }
+            } elseif (empty($context['section_images']['completed'])) {
+                $processed = AzEvent_Section_Images::process_next(
+                    $post_id,
+                    $context['results']['content'],
+                    $context['section_images']
+                );
+                $context['results']['content'] = $processed['content'];
+                $context['section_images'] = $processed['state'];
+                AzEvent_Section_Images::save_state($post_id, $context['section_images']);
+                $item = $processed['item'] ?? array();
+                $message = ($item['status'] ?? '') === 'created'
+                    ? sprintf(
+                        'Đã tạo và chèn ảnh H2: %1$s · %4$s · %2$s giây · %3$d lần gọi.',
+                        sanitize_text_field($item['title'] ?? ''),
+                        round((float) ($item['duration_seconds'] ?? 0), 1),
+                        absint($item['attempts'] ?? 1),
+                        sanitize_text_field($item['model'] ?? $item['provider'] ?? 'AI Image')
+                    )
+                    : 'Đã bỏ qua ảnh H2 ' . sanitize_text_field($item['title'] ?? '') . ': ' . sanitize_text_field($item['error'] ?? '') . '.';
+                $this->append_log($post_id, $context, ($item['status'] ?? '') === 'created' ? 'success' : 'warning', 'finalize', $message);
+                $context['next_step'] = 'finalize';
+                return array(
+                    'context' => $context,
+                    'continue_step' => true,
+                    'progress_message' => empty($processed['done']) ? $message . ' Tiếp tục ảnh H2 tiếp theo.' : $message . ' Đã hoàn tất ảnh H2; tiếp theo tạo ảnh đại diện.',
+                );
+            }
+        }
         $image_status = 'skipped';
         $featured_image = array();
         if (!$skip_image && !empty($context['input']['generate_image'])) {
@@ -651,6 +710,9 @@ class AzEvent_Workflow_Lab_Pipeline
         $context['next_step'] = '';
         $context['image_status'] = $image_status;
         $context['featured_image'] = $featured_image;
+        if (!empty($context['section_images']) && is_array($context['section_images'])) {
+            AzEvent_Section_Images::save_state($post_id, $context['section_images']);
+        }
         $context['completed_at'] = time();
         $context['updated_at'] = time();
         unset($context['error']);

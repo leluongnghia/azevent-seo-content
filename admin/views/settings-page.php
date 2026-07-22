@@ -27,6 +27,8 @@ foreach (array('research', 'brief', 'content', 'seo', 'quality') as $lab_step) {
 }
 $azevent_lab_split_content = absint(get_option('azevent_lab_split_content_by_outline', 0));
 $azevent_studio_split_content = absint(get_option('azevent_seo_split_content_by_outline', 0));
+$azevent_generate_h2_images = absint(get_option('azevent_seo_generate_h2_images', 0));
+$azevent_h2_image_limit = min(10, max(1, absint(get_option('azevent_seo_h2_image_limit', 6))));
 $azevent_brand_defaults = AzEvent_SEO_Content::get_default_brand_profile();
 $azevent_brand_profile = AzEvent_SEO_Content::get_brand_profile();
 $azevent_custom_models = json_decode(get_option('aprg_cliproxy_custom_models', '[]'), true);
@@ -776,6 +778,26 @@ $lab_prompt_tokens = array(
                                 </span>
                             </label>
                             <p class="azevent-help"><?php _e('Nếu Outline không có ít nhất 2 H2, plugin tự viết toàn bài trong một request như trước.', 'azevent-seo-content'); ?></p>
+                        </div>
+                        <div class="azevent-serp-box">
+                            <h3><?php _e('Ảnh minh họa tự động theo H2', 'azevent-seo-content'); ?></h3>
+                            <input type="hidden" name="azevent_seo_generate_h2_images" value="0">
+                            <label class="azevent-workflow-option" for="azevent_seo_generate_h2_images">
+                                <input id="azevent_seo_generate_h2_images" type="checkbox" name="azevent_seo_generate_h2_images" value="1" <?php checked($azevent_generate_h2_images, 1); ?>>
+                                <span>
+                                    <strong><?php _e('Tạo và chèn ảnh minh họa cho các H2 quan trọng', 'azevent-seo-content'); ?></strong>
+                                    <span><?php _e('Áp dụng cho Content Studio và SEO Workflow Lab. AI chọn section, tạo ảnh 16:9 và chèn sau đoạn mở đầu của H2.', 'azevent-seo-content'); ?></span>
+                                </span>
+                            </label>
+                            <div class="azevent-field" style="max-width:260px;margin-top:14px">
+                                <label for="azevent_seo_h2_image_limit"><?php _e('Số ảnh H2 tối đa mỗi bài', 'azevent-seo-content'); ?></label>
+                                <select id="azevent_seo_h2_image_limit" name="azevent_seo_h2_image_limit">
+                                    <?php foreach (array(3, 4, 5, 6, 8, 10) as $image_limit) : ?>
+                                        <option value="<?php echo esc_attr($image_limit); ?>" <?php selected($azevent_h2_image_limit, $image_limit); ?>><?php echo esc_html($image_limit); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <p class="azevent-help"><?php _e('Mặc định tắt. Ảnh lỗi sẽ thử lại hai lần, sau đó bỏ qua để bài vẫn hoàn tất. Ảnh đại diện vẫn được tạo riêng.', 'azevent-seo-content'); ?></p>
                         </div>
                         <?php foreach ($prompt_sections as $key => $section) : ?>
                             <details class="azevent-prompt" <?php echo $key === 'content' ? 'open' : ''; ?>>
