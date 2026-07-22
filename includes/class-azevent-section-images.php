@@ -20,6 +20,7 @@ class AzEvent_Section_Images
 
     public static function create_plan($content, $keyword, $language = 'Vietnamese')
     {
+        $keyword = sanitize_text_field($keyword);
         $sections = self::extract_content_sections($content);
         $eligible = array_values(array_filter($sections, function ($section) {
             return !preg_match('/(?:faq|câu hỏi thường gặp|kết luận|liên hệ|đăng ký|cta|tóm tắt)/ui', $section['title']);
@@ -45,12 +46,13 @@ class AzEvent_Section_Images
         }, $eligible);
         $system = 'Bạn là art director và chuyên gia SEO hình ảnh. Chọn các section quan trọng, có giá trị minh họa cao. Trả về duy nhất JSON hợp lệ, không Markdown.';
         $user = "Lập kế hoạch ảnh minh họa cho bài SEO bằng {$language}.\n";
-        $user .= 'Từ khóa: ' . sanitize_text_field($keyword) . "\n";
+        $user .= 'Từ khóa: ' . $keyword . "\n";
         $user .= 'Thương hiệu: ' . sanitize_text_field($brand['azevent_seo_brand_name']) . "\n";
         $user .= 'Thông tin thương hiệu: ' . sanitize_textarea_field($brand['azevent_seo_brand_info']) . "\n";
         $user .= 'Chọn tối đa ' . $limit . " H2. Không chọn FAQ, kết luận hoặc CTA. Mỗi ảnh phải khác ý tưởng và bám sát section.\n";
         $user .= 'Ảnh ngang 16:9, professional realistic event photography, natural lighting, no text, no logo, no watermark.\n';
-        $user .= 'JSON: {"images":[{"key":"section key","prompt":"English image prompt","alt":"Vietnamese SEO alt text"}]}\n';
+        $user .= "ALT phải mô tả cảnh nhìn thấy một cách tự nhiên trong 6-18 từ, duy nhất cho từng ảnh; không mở đầu bằng \"ảnh/hình minh họa\", không nhồi từ khóa và không nhắc thương hiệu nếu thương hiệu không xuất hiện trong ảnh.\n";
+        $user .= 'JSON: {"images":[{"key":"section key","prompt":"English image prompt","alt":"Vietnamese descriptive alt text"}]}\n';
         $user .= 'Sections: ' . wp_json_encode($candidate_payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
         $provider = sanitize_key(get_option('azevent_seo_text_provider', 'azevent'));
@@ -73,22 +75,31 @@ class AzEvent_Section_Images
             $eligible_by_key[$section['key']] = $section;
         }
         $items = array();
+        $used_alts = array();
         foreach ($requested as $image) {
             $key = sanitize_key($image['key'] ?? '');
             if (!isset($eligible_by_key[$key]) || count($items) >= $limit) {
                 continue;
             }
             $section = $eligible_by_key[$key];
+            $alt = self::normalize_alt($image['alt'] ?? '', $section['title'], $keyword);
+            $alt_key = self::normalize($alt);
+            if (isset($used_alts[$alt_key])) {
+                $alt = self::normalize_alt($alt . ' - ' . $section['title'], $section['title'], $keyword);
+                $alt_key = self::normalize($alt);
+            }
+            $used_alts[$alt_key] = true;
             $items[] = self::build_item(
                 $section,
                 sanitize_textarea_field($image['prompt'] ?? ''),
-                sanitize_text_field($image['alt'] ?? '')
+                $alt,
+                $keyword
             );
             unset($eligible_by_key[$key]);
         }
         if (!$items) {
             foreach (array_slice($eligible, 0, $limit) as $section) {
-                $items[] = self::build_item($section, '', 'Ảnh minh họa ' . $section['title']);
+                $items[] = self::build_item($section, '', '', $keyword);
             }
         }
 
@@ -114,6 +125,8 @@ class AzEvent_Section_Images
         }
 
         $item = $items[$index];
+        $item['keyword'] = sanitize_text_field($item['keyword'] ?? get_the_title($post_id));
+        $item['alt'] = self::normalize_alt($item['alt'] ?? '', $item['title'] ?? '', $item['keyword']);
         $image_result = self::generate_with_retry($item['prompt']);
         $item['attempts'] = absint($image_result['attempts'] ?? 1);
         if (is_wp_error($image_result['result'])) {
@@ -122,7 +135,13 @@ class AzEvent_Section_Images
         } else {
             $item['model'] = sanitize_text_field($image_result['result']['model'] ?? get_option('aprg_seo_default_cliproxy_image_model', ''));
             $item['provider'] = sanitize_text_field($image_result['result']['provider'] ?? AzEvent_API_Client::get_provider_label());
-            $attachment_id = self::upload_image($image_result['result'], $post_id, $item['title'], $item['alt']);
+            $attachment_id = self::upload_image(
+                $image_result['result'],
+                $post_id,
+                $item['title'],
+                $item['alt'],
+                $item['keyword'] ?? get_the_title($post_id)
+            );
             if (is_wp_error($attachment_id)) {
                 $item['status'] = 'skipped';
                 $item['error'] = $attachment_id->get_error_message();
@@ -130,6 +149,7 @@ class AzEvent_Section_Images
                 $image = self::attachment_data($attachment_id, $item['alt']);
                 $updated_content = self::insert_or_replace($content, $item, $image);
                 if ($updated_content === $content) {
+                    wp_delete_attachment($attachment_id, true);
                     $item['status'] = 'skipped';
                     $item['error'] = 'Không tìm thấy vị trí H2 tương ứng trong nội dung.';
                 } else {
@@ -171,22 +191,36 @@ class AzEvent_Section_Images
             if (($item['key'] ?? '') !== $section_key) {
                 continue;
             }
+            $item['keyword'] = sanitize_text_field($item['keyword'] ?? get_the_title($post_id));
+            $item['alt'] = self::normalize_alt($item['alt'] ?? '', $item['title'] ?? '', $item['keyword']);
             $generated = self::generate_with_retry($item['prompt']);
             if (is_wp_error($generated['result'])) {
                 return $generated['result'];
             }
-            $attachment_id = self::upload_image($generated['result'], $post_id, $item['title'], $item['alt']);
+            $attachment_id = self::upload_image(
+                $generated['result'],
+                $post_id,
+                $item['title'],
+                $item['alt'],
+                $item['keyword'] ?? get_the_title($post_id)
+            );
             if (is_wp_error($attachment_id)) {
                 return $attachment_id;
             }
             $image = self::attachment_data($attachment_id, $item['alt']);
             $content = self::insert_or_replace($post->post_content, $item, $image);
             if ($content === $post->post_content) {
+                wp_delete_attachment($attachment_id, true);
                 return new WP_Error('azevent_section_image_replace_failed', 'Không tìm thấy ảnh H2 cần thay trong bài viết.');
             }
             $updated = wp_update_post(array('ID' => $post_id, 'post_content' => $content), true);
             if (is_wp_error($updated)) {
+                wp_delete_attachment($attachment_id, true);
                 return $updated;
+            }
+            $previous_attachment_id = absint($item['attachment']['id'] ?? 0);
+            if ($previous_attachment_id && $previous_attachment_id !== $attachment_id) {
+                wp_delete_attachment($previous_attachment_id, true);
             }
             $item['status'] = 'created';
             $item['model'] = sanitize_text_field($generated['result']['model'] ?? get_option('aprg_seo_default_cliproxy_image_model', ''));
@@ -202,7 +236,7 @@ class AzEvent_Section_Images
         return new WP_Error('azevent_section_image_not_found', 'Không tìm thấy H2 cần tạo lại ảnh.');
     }
 
-    private static function build_item(array $section, $prompt, $alt)
+    private static function build_item(array $section, $prompt, $alt, $keyword = '')
     {
         if ($prompt === '') {
             $prompt = 'Professional realistic event photography illustrating "' . $section['title'] . '", relevant Vietnamese corporate event context, natural lighting, cinematic composition, landscape 16:9, high resolution, no text, no logo, no watermark.';
@@ -211,7 +245,8 @@ class AzEvent_Section_Images
             'key' => $section['key'],
             'title' => $section['title'],
             'prompt' => $prompt,
-            'alt' => $alt !== '' ? $alt : 'Ảnh minh họa ' . $section['title'],
+            'alt' => self::normalize_alt($alt, $section['title'], $keyword),
+            'keyword' => sanitize_text_field($keyword),
             'status' => 'pending',
             'attempts' => 0,
             'error' => '',
@@ -238,8 +273,9 @@ class AzEvent_Section_Images
 
     private static function insert_or_replace($content, array $item, array $image)
     {
-        $figure = '<figure class="azevent-h2-image" data-azevent-h2-key="' . esc_attr($item['key']) . '">'
-            . '<img src="' . esc_url($image['url']) . '" alt="' . esc_attr($item['alt']) . '" loading="lazy" decoding="async" data-attachment-id="' . absint($image['id']) . '">'
+        $image_html = self::responsive_image_html($image, $item['alt']);
+        $figure = '<figure class="wp-block-image size-large azevent-h2-image" data-azevent-h2-key="' . esc_attr($item['key']) . '">'
+            . $image_html
             . '</figure>';
         $marker_pattern = '/<figure\b[^>]*data-azevent-h2-key=["\']' . preg_quote($item['key'], '/') . '["\'][^>]*>.*?<\/figure>/isu';
         if (preg_match($marker_pattern, $content)) {
@@ -279,7 +315,7 @@ class AzEvent_Section_Images
         return array('result' => $last_error ?: new WP_Error('azevent_section_image_failed', 'Không thể tạo ảnh H2.'), 'attempts' => 3);
     }
 
-    private static function upload_image($image_result, $post_id, $title, $alt)
+    private static function upload_image($image_result, $post_id, $title, $alt, $keyword = '')
     {
         if (empty($image_result['base64'])) {
             return new WP_Error('azevent_section_image_empty', 'API không trả về dữ liệu ảnh.');
@@ -291,14 +327,23 @@ class AzEvent_Section_Images
         }
         $mime = sanitize_mime_type($detected['mime']);
         $extensions = array('image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp');
-        $upload = wp_upload_bits(sanitize_title($title) . '-h2-' . time() . '.' . ($extensions[$mime] ?? 'png'), null, $image_data);
+        $filename = self::build_filename($keyword, $title, $extensions[$mime] ?? 'png');
+        $upload = wp_upload_bits($filename, null, $image_data);
         if (!empty($upload['error'])) {
             return new WP_Error('azevent_section_image_upload', $upload['error']);
         }
         require_once ABSPATH . 'wp-admin/includes/image.php';
+        self::optimize_uploaded_image($upload['file']);
+        $optimized = function_exists('wp_getimagesize') ? wp_getimagesize($upload['file']) : @getimagesize($upload['file']);
+        if (is_array($optimized) && !empty($optimized['mime'])) {
+            $mime = sanitize_mime_type($optimized['mime']);
+        }
+        $alt = self::normalize_alt($alt, $title, $keyword);
+        $attachment_title = self::attachment_title($title, $keyword);
         $attachment_id = wp_insert_attachment(array(
             'post_mime_type' => $mime,
-            'post_title' => $title,
+            'post_title' => $attachment_title,
+            'post_content' => $alt,
             'post_status' => 'inherit',
         ), $upload['file'], $post_id, true);
         if (is_wp_error($attachment_id)) {
@@ -315,12 +360,111 @@ class AzEvent_Section_Images
 
     private static function attachment_data($attachment_id, $alt)
     {
+        $source = wp_get_attachment_image_src($attachment_id, 'large');
+        $file = get_attached_file($attachment_id);
+        $stored_alt = sanitize_text_field(get_post_meta($attachment_id, '_wp_attachment_image_alt', true));
         return array(
             'id' => absint($attachment_id),
-            'url' => esc_url_raw(wp_get_attachment_image_url($attachment_id, 'large')),
+            'url' => esc_url_raw(is_array($source) ? $source[0] : wp_get_attachment_image_url($attachment_id, 'large')),
             'full_url' => esc_url_raw(wp_get_attachment_image_url($attachment_id, 'full')),
-            'alt' => sanitize_text_field($alt),
+            'alt' => $stored_alt !== '' ? $stored_alt : sanitize_text_field($alt),
+            'width' => absint(is_array($source) ? $source[1] : 0),
+            'height' => absint(is_array($source) ? $source[2] : 0),
+            'mime' => sanitize_mime_type(get_post_mime_type($attachment_id)),
+            'filename' => $file ? sanitize_file_name(wp_basename($file)) : '',
+            'filesize' => $file && file_exists($file) ? absint(filesize($file)) : 0,
         );
+    }
+
+    private static function responsive_image_html(array $image, $alt)
+    {
+        $attachment_id = absint($image['id'] ?? 0);
+        $attributes = array(
+            'class' => 'attachment-large size-large wp-image-' . $attachment_id . ' azevent-h2-image__img',
+            'alt' => sanitize_text_field($alt),
+            'loading' => 'lazy',
+            'decoding' => 'async',
+            'data-attachment-id' => $attachment_id,
+        );
+        $html = $attachment_id ? wp_get_attachment_image($attachment_id, 'large', false, $attributes) : '';
+        if ($html !== '') {
+            return $html;
+        }
+        $width = absint($image['width'] ?? 0);
+        $height = absint($image['height'] ?? 0);
+        return '<img src="' . esc_url($image['url'] ?? '') . '" alt="' . esc_attr($attributes['alt']) . '"'
+            . ($width ? ' width="' . $width . '"' : '')
+            . ($height ? ' height="' . $height . '"' : '')
+            . ' loading="lazy" decoding="async" class="azevent-h2-image__img" data-attachment-id="' . $attachment_id . '">';
+    }
+
+    private static function optimize_uploaded_image($file)
+    {
+        $editor = wp_get_image_editor($file);
+        if (is_wp_error($editor)) {
+            return;
+        }
+        $size = $editor->get_size();
+        $max_width = max(800, absint(apply_filters('azevent_h2_image_max_width', 1600)));
+        $max_height = max(450, absint(apply_filters('azevent_h2_image_max_height', 900)));
+        if (is_array($size) && (!empty($size['width']) || !empty($size['height']))) {
+            if (absint($size['width'] ?? 0) > $max_width || absint($size['height'] ?? 0) > $max_height) {
+                $editor->resize($max_width, $max_height, false);
+            }
+        }
+        $editor->set_quality(min(92, max(65, absint(apply_filters('azevent_h2_image_quality', 82)))));
+        $editor->save($file);
+    }
+
+    private static function build_filename($keyword, $title, $extension)
+    {
+        $slug = sanitize_title(trim(sanitize_text_field($keyword) . ' ' . sanitize_text_field($title)));
+        if ($slug === '') {
+            $slug = 'azevent-section-image';
+        }
+        if (strlen($slug) > 120) {
+            $slug = rtrim(substr($slug, 0, 120), '-');
+        }
+        return sanitize_file_name($slug . '-h2.' . sanitize_key($extension));
+    }
+
+    private static function attachment_title($title, $keyword)
+    {
+        $title = sanitize_text_field($title);
+        $keyword = sanitize_text_field($keyword);
+        if ($keyword === '' || self::normalize($title) === self::normalize($keyword)) {
+            return $title;
+        }
+        return $title . ' – ' . $keyword;
+    }
+
+    private static function normalize_alt($alt, $section_title, $keyword = '')
+    {
+        $alt = sanitize_text_field(wp_strip_all_tags(html_entity_decode((string) $alt, ENT_QUOTES, 'UTF-8')));
+        $alt = trim(preg_replace('/\s+/u', ' ', $alt), " \t\n\r\0\x0B\"'“”");
+        $alt = preg_replace('/^(?:ảnh|hình ảnh|hình)\s+(?:minh họa\s+)?(?:cho|về)?\s*/iu', '', $alt);
+        if ($alt === '') {
+            $alt = sanitize_text_field($section_title);
+        }
+        if ($alt === '') {
+            $alt = sanitize_text_field($keyword);
+        }
+        return self::truncate_at_word($alt, 125);
+    }
+
+    private static function truncate_at_word($value, $length)
+    {
+        $value = trim((string) $value);
+        $current_length = function_exists('mb_strlen') ? mb_strlen($value) : strlen($value);
+        if ($current_length <= $length) {
+            return $value;
+        }
+        $short = function_exists('mb_substr') ? mb_substr($value, 0, $length) : substr($value, 0, $length);
+        $space = function_exists('mb_strrpos') ? mb_strrpos($short, ' ') : strrpos($short, ' ');
+        if ($space !== false && $space > (int) ($length * 0.6)) {
+            $short = function_exists('mb_substr') ? mb_substr($short, 0, $space) : substr($short, 0, $space);
+        }
+        return rtrim($short, " ,.;:-");
     }
 
     private static function decode_json($content)
