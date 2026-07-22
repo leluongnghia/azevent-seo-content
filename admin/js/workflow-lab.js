@@ -61,6 +61,7 @@
         seoMeta: document.getElementById('azlab-seo-meta'),
         seoFocus: document.getElementById('azlab-seo-focus'),
         seoImage: document.getElementById('azlab-seo-image'),
+        seoImageAlt: document.getElementById('azlab-seo-image-alt'),
         qualityResult: document.getElementById('azlab-quality-result'),
         qualityScore: document.getElementById('azlab-quality-score'),
         qualityState: document.getElementById('azlab-quality-state'),
@@ -487,7 +488,8 @@
                 slug: elements.seoSlug.value,
                 meta: elements.seoMeta.value,
                 focus_keyword: elements.seoFocus.value,
-                image_prompt: elements.seoImage.value
+                image_prompt: elements.seoImage.value,
+                image_alt: elements.seoImageAlt.value
             });
         }
     }
@@ -542,6 +544,7 @@
             elements.seoMeta.value = seo.meta || '';
             elements.seoFocus.value = seo.focus_keyword || '';
             elements.seoImage.value = seo.image_prompt || '';
+            elements.seoImageAlt.value = seo.image_alt || '';
         } else if (step === 'quality') {
             const quality = context.results.quality || {};
             const coverage = quality.coverage || {};

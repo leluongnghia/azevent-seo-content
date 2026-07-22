@@ -156,6 +156,7 @@ Nguyên tắc:
 - Không bịa dữ liệu và không tuyên bố bảo đảm xếp hạng hoặc rich result.
 - FAQ chỉ được lấy từ câu hỏi và câu trả lời hiển thị trong nội dung. FAQ markup không được xem là bảo đảm hiển thị rich result.
 - Image prompt phải tạo hình ảnh liên quan trực tiếp tới nội dung, chân thực, không chữ, logo hoặc watermark.
+- Image alt mô tả tự nhiên cảnh nhìn thấy trong 6-18 từ; không mở đầu bằng “ảnh/hình minh họa”, không nhồi từ khóa và không nhắc thương hiệu nếu thương hiệu không xuất hiện.
 PROMPT,
         'user' => <<<'PROMPT'
 Tạo dữ liệu SEO bằng {language} cho từ khóa “{keyword}”.
@@ -178,7 +179,8 @@ Trả JSON đúng schema sau:
   "secondary_keywords": [],
   "faq_schema": [{"question": "", "answer": ""}],
   "schema_type": "Article hoặc BlogPosting",
-  "image_prompt": ""
+  "image_prompt": "",
+  "image_alt": ""
 }
 
 Yêu cầu:
@@ -187,6 +189,7 @@ Yêu cầu:
 - Secondary keywords chỉ gồm biến thể thực sự xuất hiện hoặc được nội dung bao phủ.
 - FAQ schema tối đa 6 mục và phải khớp nội dung hiển thị; nếu không có FAQ phù hợp, trả mảng rỗng.
 - Image prompt mô tả bối cảnh tổ chức sự kiện phù hợp chủ đề, con người và hoạt động chân thực, bố cục ảnh đại diện chuyên nghiệp.
+- Image alt phải khớp trực tiếp với cảnh được mô tả trong Image prompt.
 PROMPT,
     ),
     'quality' => array(

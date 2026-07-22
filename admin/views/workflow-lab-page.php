@@ -113,6 +113,7 @@ $recent_query = new WP_Query(array(
                             <label class="azlab-field"><span>Focus Keyword</span><input id="azlab-seo-focus" type="text"></label>
                             <label class="azlab-field azlab-field-wide"><span>Meta Description</span><textarea id="azlab-seo-meta" rows="4"></textarea></label>
                             <label class="azlab-field azlab-field-wide"><span>Image Prompt</span><textarea id="azlab-seo-image" rows="5"></textarea></label>
+                            <label class="azlab-field azlab-field-wide"><span>Image ALT</span><input id="azlab-seo-image-alt" type="text" maxlength="125"></label>
                         </div>
                     </div>
 

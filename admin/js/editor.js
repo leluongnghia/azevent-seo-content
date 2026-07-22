@@ -438,6 +438,7 @@ jQuery(function($) {
         $('#azevent-review-meta').text(seo.meta || '');
         $('#azevent-review-slug').text(seo.slug || '');
         $('#azevent-review-image-prompt').text(seo.image_prompt || '');
+        $('#azevent-review-image-alt').text(seo.image_alt || '');
 
         const shouldCreateImage = mode === 'create' || pendingNextStep === 'image';
         $regenerateImage.prop('checked', shouldCreateImage);

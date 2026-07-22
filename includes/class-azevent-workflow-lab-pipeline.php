@@ -671,18 +671,24 @@ class AzEvent_Workflow_Lab_Pipeline
             if (is_wp_error($image_result)) {
                 return $image_result;
             }
-            $attachment_id = $this->upload_image($image_result, $post_id, $seo['title']);
+            $attachment_id = AzEvent_Image_SEO::upload_base64($image_result, $post_id, array(
+                'role' => 'featured',
+                'title' => $seo['title'],
+                'alt' => $seo['image_alt'] ?? '',
+                'keyword' => $seo['focus_keyword'] ?? ($context['input']['keyword'] ?? ''),
+                'max_width' => 1600,
+                'max_height' => 1600,
+                'quality' => 82,
+            ));
             if (is_wp_error($attachment_id)) {
                 return $attachment_id;
             }
-            set_post_thumbnail($post_id, $attachment_id);
+            $featured_result = AzEvent_Image_SEO::set_featured_image($post_id, $attachment_id);
+            if (is_wp_error($featured_result)) {
+                return $featured_result;
+            }
             $image_status = 'created';
-            $featured_image = array(
-                'id' => absint($attachment_id),
-                'url' => esc_url_raw(wp_get_attachment_image_url($attachment_id, 'large')),
-                'full_url' => esc_url_raw(wp_get_attachment_image_url($attachment_id, 'full')),
-                'alt' => sanitize_text_field(get_post_meta($attachment_id, '_wp_attachment_image_alt', true)),
-            );
+            $featured_image = AzEvent_Image_SEO::attachment_data($attachment_id);
             $this->append_log($post_id, $context, 'success', 'finalize', 'Đã tạo, tải lên và gắn ảnh đại diện.');
         } else {
             $this->append_log($post_id, $context, 'info', 'finalize', 'Bỏ qua tạo ảnh đại diện theo lựa chọn hiện tại.');
@@ -1267,6 +1273,7 @@ class AzEvent_Workflow_Lab_Pipeline
                 ? $seo['schema_type']
                 : 'Article',
             'image_prompt' => sanitize_textarea_field($seo['image_prompt'] ?? ''),
+            'image_alt' => AzEvent_Image_SEO::normalize_alt($seo['image_alt'] ?? '', $seo['title'] ?? $keyword, $keyword),
         );
     }
 
@@ -1317,40 +1324,14 @@ class AzEvent_Workflow_Lab_Pipeline
 
     private function upload_image($image_result, $post_id, $title)
     {
-        if (empty($image_result['base64'])) {
-            return new WP_Error('azevent_lab_empty_image', 'API không trả về dữ liệu ảnh.');
-        }
-        $image_data = base64_decode(preg_replace('/\s+/', '', $image_result['base64']), true);
-        if ($image_data === false || $image_data === '') {
-            return new WP_Error('azevent_lab_invalid_image', 'Dữ liệu ảnh không hợp lệ.');
-        }
-        $detected = function_exists('getimagesizefromstring') ? @getimagesizefromstring($image_data) : false;
-        if (!$detected || empty($detected['mime'])) {
-            return new WP_Error('azevent_lab_invalid_image_type', 'API trả về dữ liệu không phải ảnh.');
-        }
-        $extensions = array('image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp');
-        $mime = sanitize_mime_type($detected['mime']);
-        $extension = $extensions[$mime] ?? 'png';
-        $upload = wp_upload_bits(sanitize_title($title) . '-azevent.' . $extension, null, $image_data);
-        if (!empty($upload['error'])) {
-            return new WP_Error('azevent_lab_upload_failed', $upload['error']);
-        }
-
-        require_once ABSPATH . 'wp-admin/includes/image.php';
-        $attachment_id = wp_insert_attachment(array(
-            'post_mime_type' => $mime,
-            'post_title' => $title,
-            'post_status' => 'inherit',
-        ), $upload['file'], $post_id, true);
-        if (is_wp_error($attachment_id)) {
-            wp_delete_file($upload['file']);
-            return $attachment_id;
-        }
-        update_post_meta($attachment_id, '_wp_attachment_image_alt', $title);
-        $metadata = wp_generate_attachment_metadata($attachment_id, $upload['file']);
-        if (is_array($metadata)) {
-            wp_update_attachment_metadata($attachment_id, $metadata);
-        }
-        return $attachment_id;
+        return AzEvent_Image_SEO::upload_base64($image_result, $post_id, array(
+            'role' => 'featured',
+            'title' => $title,
+            'alt' => $title,
+            'keyword' => $title,
+            'max_width' => 1600,
+            'max_height' => 1600,
+            'quality' => 82,
+        ));
     }
 }

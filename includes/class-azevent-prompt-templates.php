@@ -422,7 +422,7 @@ Maintain logical flow: ideally end each section with a sentence that smoothly le
   ),
   'seo' => 
   array (
-    'system' => 'Use the original SEO metadata instructions below. The plugin requires a single valid JSON object with exactly four keys: title, slug, meta, image_prompt. Do not add Markdown fences or explanations.',
+    'system' => 'Use the original SEO metadata instructions below. The plugin requires a single valid JSON object with exactly five keys: title, slug, meta, image_prompt, image_alt. Do not add Markdown fences or explanations.',
     'user' => '[Original Slug Prompt]
 
 Create a slug for the following outline of the Blogpost/Content: 
@@ -465,6 +465,6 @@ Your output must only be the meta description and nothing else.
 
 [Plugin output contract]
 
-Return only valid JSON with exactly these keys: title, slug, meta, image_prompt. The image_prompt must describe a professional event-organizing featured image with no text, logo, or watermark.',
+Return only valid JSON with exactly these keys: title, slug, meta, image_prompt, image_alt. The image_prompt must describe a professional event-organizing featured image with no text, logo, or watermark. image_alt must be a natural Vietnamese description of the visible scene in 6-18 words, without starting with "ảnh/hình minh họa", keyword stuffing, or mentioning a brand that is not visible.',
   ),
 );

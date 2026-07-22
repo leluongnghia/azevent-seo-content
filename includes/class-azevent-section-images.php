@@ -317,63 +317,24 @@ class AzEvent_Section_Images
 
     private static function upload_image($image_result, $post_id, $title, $alt, $keyword = '')
     {
-        if (empty($image_result['base64'])) {
-            return new WP_Error('azevent_section_image_empty', 'API không trả về dữ liệu ảnh.');
-        }
-        $image_data = base64_decode(preg_replace('/\s+/', '', $image_result['base64']), true);
-        $detected = $image_data && function_exists('getimagesizefromstring') ? @getimagesizefromstring($image_data) : false;
-        if (!$detected || empty($detected['mime'])) {
-            return new WP_Error('azevent_section_image_invalid', 'API trả về dữ liệu không phải ảnh.');
-        }
-        $mime = sanitize_mime_type($detected['mime']);
-        $extensions = array('image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp');
-        $filename = self::build_filename($keyword, $title, $extensions[$mime] ?? 'png');
-        $upload = wp_upload_bits($filename, null, $image_data);
-        if (!empty($upload['error'])) {
-            return new WP_Error('azevent_section_image_upload', $upload['error']);
-        }
-        require_once ABSPATH . 'wp-admin/includes/image.php';
-        self::optimize_uploaded_image($upload['file']);
-        $optimized = function_exists('wp_getimagesize') ? wp_getimagesize($upload['file']) : @getimagesize($upload['file']);
-        if (is_array($optimized) && !empty($optimized['mime'])) {
-            $mime = sanitize_mime_type($optimized['mime']);
-        }
-        $alt = self::normalize_alt($alt, $title, $keyword);
-        $attachment_title = self::attachment_title($title, $keyword);
-        $attachment_id = wp_insert_attachment(array(
-            'post_mime_type' => $mime,
-            'post_title' => $attachment_title,
-            'post_content' => $alt,
-            'post_status' => 'inherit',
-        ), $upload['file'], $post_id, true);
-        if (is_wp_error($attachment_id)) {
-            wp_delete_file($upload['file']);
-            return $attachment_id;
-        }
-        update_post_meta($attachment_id, '_wp_attachment_image_alt', $alt);
-        $metadata = wp_generate_attachment_metadata($attachment_id, $upload['file']);
-        if (is_array($metadata)) {
-            wp_update_attachment_metadata($attachment_id, $metadata);
-        }
-        return $attachment_id;
+        return AzEvent_Image_SEO::upload_base64($image_result, $post_id, array(
+            'role' => 'h2',
+            'title' => $title,
+            'alt' => $alt,
+            'keyword' => $keyword,
+            'max_width' => 1600,
+            'max_height' => 900,
+            'quality' => 82,
+        ));
     }
 
     private static function attachment_data($attachment_id, $alt)
     {
-        $source = wp_get_attachment_image_src($attachment_id, 'large');
-        $file = get_attached_file($attachment_id);
-        $stored_alt = sanitize_text_field(get_post_meta($attachment_id, '_wp_attachment_image_alt', true));
-        return array(
-            'id' => absint($attachment_id),
-            'url' => esc_url_raw(is_array($source) ? $source[0] : wp_get_attachment_image_url($attachment_id, 'large')),
-            'full_url' => esc_url_raw(wp_get_attachment_image_url($attachment_id, 'full')),
-            'alt' => $stored_alt !== '' ? $stored_alt : sanitize_text_field($alt),
-            'width' => absint(is_array($source) ? $source[1] : 0),
-            'height' => absint(is_array($source) ? $source[2] : 0),
-            'mime' => sanitize_mime_type(get_post_mime_type($attachment_id)),
-            'filename' => $file ? sanitize_file_name(wp_basename($file)) : '',
-            'filesize' => $file && file_exists($file) ? absint(filesize($file)) : 0,
-        );
+        $data = AzEvent_Image_SEO::attachment_data($attachment_id);
+        if (empty($data['alt'])) {
+            $data['alt'] = sanitize_text_field($alt);
+        }
+        return $data;
     }
 
     private static function responsive_image_html(array $image, $alt)
@@ -398,73 +359,9 @@ class AzEvent_Section_Images
             . ' loading="lazy" decoding="async" class="azevent-h2-image__img" data-attachment-id="' . $attachment_id . '">';
     }
 
-    private static function optimize_uploaded_image($file)
-    {
-        $editor = wp_get_image_editor($file);
-        if (is_wp_error($editor)) {
-            return;
-        }
-        $size = $editor->get_size();
-        $max_width = max(800, absint(apply_filters('azevent_h2_image_max_width', 1600)));
-        $max_height = max(450, absint(apply_filters('azevent_h2_image_max_height', 900)));
-        if (is_array($size) && (!empty($size['width']) || !empty($size['height']))) {
-            if (absint($size['width'] ?? 0) > $max_width || absint($size['height'] ?? 0) > $max_height) {
-                $editor->resize($max_width, $max_height, false);
-            }
-        }
-        $editor->set_quality(min(92, max(65, absint(apply_filters('azevent_h2_image_quality', 82)))));
-        $editor->save($file);
-    }
-
-    private static function build_filename($keyword, $title, $extension)
-    {
-        $slug = sanitize_title(trim(sanitize_text_field($keyword) . ' ' . sanitize_text_field($title)));
-        if ($slug === '') {
-            $slug = 'azevent-section-image';
-        }
-        if (strlen($slug) > 120) {
-            $slug = rtrim(substr($slug, 0, 120), '-');
-        }
-        return sanitize_file_name($slug . '-h2.' . sanitize_key($extension));
-    }
-
-    private static function attachment_title($title, $keyword)
-    {
-        $title = sanitize_text_field($title);
-        $keyword = sanitize_text_field($keyword);
-        if ($keyword === '' || self::normalize($title) === self::normalize($keyword)) {
-            return $title;
-        }
-        return $title . ' – ' . $keyword;
-    }
-
     private static function normalize_alt($alt, $section_title, $keyword = '')
     {
-        $alt = sanitize_text_field(wp_strip_all_tags(html_entity_decode((string) $alt, ENT_QUOTES, 'UTF-8')));
-        $alt = trim(preg_replace('/\s+/u', ' ', $alt), " \t\n\r\0\x0B\"'“”");
-        $alt = preg_replace('/^(?:ảnh|hình ảnh|hình)\s+(?:minh họa\s+)?(?:cho|về)?\s*/iu', '', $alt);
-        if ($alt === '') {
-            $alt = sanitize_text_field($section_title);
-        }
-        if ($alt === '') {
-            $alt = sanitize_text_field($keyword);
-        }
-        return self::truncate_at_word($alt, 125);
-    }
-
-    private static function truncate_at_word($value, $length)
-    {
-        $value = trim((string) $value);
-        $current_length = function_exists('mb_strlen') ? mb_strlen($value) : strlen($value);
-        if ($current_length <= $length) {
-            return $value;
-        }
-        $short = function_exists('mb_substr') ? mb_substr($value, 0, $length) : substr($value, 0, $length);
-        $space = function_exists('mb_strrpos') ? mb_strrpos($short, ' ') : strrpos($short, ' ');
-        if ($space !== false && $space > (int) ($length * 0.6)) {
-            $short = function_exists('mb_substr') ? mb_substr($short, 0, $space) : substr($short, 0, $space);
-        }
-        return rtrim($short, " ,.;:-");
+        return AzEvent_Image_SEO::normalize_alt($alt, $section_title, $keyword);
     }
 
     private static function decode_json($content)
