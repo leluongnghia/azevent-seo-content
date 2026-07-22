@@ -2,18 +2,28 @@
     'use strict';
 
     const config = window.azevent_workflow_lab || {};
-    const stepOrder = ['research', 'brief', 'content', 'seo', 'quality', 'finalize'];
+    const stepOrderWithValidation = ['research', 'brief', 'outline_validation', 'content', 'seo', 'quality', 'finalize'];
+    const stepOrderWithoutValidation = ['research', 'brief', 'content', 'seo', 'quality', 'finalize'];
+    let stepOrder = config.outline_validation_enabled ? stepOrderWithValidation : stepOrderWithoutValidation;
     const stepCopy = {
         research: ['Bước 1 · Research', 'Research & Search Intent', 'Kiểm tra đối tượng, intent, câu hỏi, entities và content gap trước khi lập dàn ý.'],
         brief: ['Bước 2 · Strategy', 'Content Brief & Outline', 'Dàn ý đã dùng Research và các bài Published thật để đề xuất internal link.'],
-        content: ['Bước 3 · Writing', 'Nội dung bài viết', 'Đọc bản xem trước hoặc chỉnh HTML trước khi tạo SEO metadata.'],
-        seo: ['Bước 4 · Metadata', 'SEO Metadata', 'Kiểm tra title, slug, meta, focus keyword và prompt ảnh.'],
-        quality: ['Bước 5 · Validation', 'Internal Links & Quality Gate', 'Lab chỉ giữ internal link hợp lệ và kiểm tra lỗi trước khi cho phép lưu Draft.'],
-        finalize: ['Bước 6 · Delivery', 'Ảnh đại diện & Draft', 'Chọn tạo ảnh hoặc lưu Draft không ảnh. Nội dung chỉ được ghi vào bài ở bước này.']
+        outline_validation: ['Bước 3 · Validation', 'Kiểm định Outline bằng AI', 'So sánh với Research, loại heading biên tập nội bộ, gộp mục trùng và hoàn thiện dàn ý xuất bản.'],
+        content: ['Bước 4 · Writing', 'Nội dung bài viết', 'Đọc bản xem trước hoặc chỉnh HTML trước khi tạo SEO metadata.'],
+        seo: ['Bước 5 · Metadata', 'SEO Metadata', 'Kiểm tra title, slug, meta, focus keyword và prompt ảnh.'],
+        quality: ['Bước 6 · Quality', 'Internal Links & Quality Gate', 'Lab chỉ giữ internal link hợp lệ và kiểm tra lỗi trước khi cho phép lưu Draft.'],
+        finalize: ['Bước 7 · Delivery', 'Ảnh đại diện & Draft', 'Chọn tạo ảnh hoặc lưu Draft không ảnh. Nội dung chỉ được ghi vào bài ở bước này.']
     };
+    const stepCopyWithoutValidation = Object.assign({}, stepCopy, {
+        content: ['Bước 3 · Writing', 'Nội dung bài viết', stepCopy.content[2]],
+        seo: ['Bước 4 · Metadata', 'SEO Metadata', stepCopy.seo[2]],
+        quality: ['Bước 5 · Quality', 'Internal Links & Quality Gate', stepCopy.quality[2]],
+        finalize: ['Bước 6 · Delivery', 'Ảnh đại diện & Draft', stepCopy.finalize[2]]
+    });
     const processingCopy = {
         research: 'Đang phân tích Research & Search Intent...',
         brief: 'Đang xây dựng Content Brief & Outline...',
+        outline_validation: 'Đang kiểm định Outline bằng AI...',
         content: 'Đang viết nội dung HTML...',
         seo: 'Đang tạo SEO metadata...',
         quality: 'Đang chèn internal link và chạy Quality Gate...',
@@ -271,10 +281,12 @@
     }
 
     function renderMetrics(metrics) {
+        syncOutlineValidationStep();
         const steps = metrics && metrics.steps ? metrics.steps : {};
         const names = {
             research: 'Research',
             brief: 'Brief & Outline',
+            outline_validation: 'Kiểm định Outline',
             content: 'Content',
             seo: 'SEO',
             quality: 'Links & QA',
@@ -399,19 +411,38 @@
     }
 
     function updateStepper(step) {
+        syncOutlineValidationStep();
         const activeIndex = stepOrder.indexOf(step);
         const completedIndex = context && context.status === 'completed'
             ? stepOrder.length - 1
             : stepOrder.indexOf(context && context.last_completed_step ? context.last_completed_step : '');
-        document.querySelectorAll('.azlab-stepper li').forEach(function (item, index) {
-            const isComplete = index <= completedIndex;
-            item.classList.toggle('is-active', index === activeIndex);
+        document.querySelectorAll('.azlab-stepper li').forEach(function (item) {
+            const itemIndex = stepOrder.indexOf(item.dataset.step || '');
+            const isAvailable = itemIndex !== -1;
+            const isComplete = isAvailable && itemIndex <= completedIndex;
+            item.hidden = !isAvailable;
+            const number = item.querySelector('span');
+            if (number && isAvailable) {
+                number.textContent = String(itemIndex + 1);
+            }
+            item.classList.toggle('is-active', isAvailable && itemIndex === activeIndex);
             item.classList.toggle('is-complete', isComplete);
             item.classList.toggle('is-clickable', isComplete);
-            item.setAttribute('aria-current', index === activeIndex ? 'step' : 'false');
+            item.setAttribute('aria-current', isAvailable && itemIndex === activeIndex ? 'step' : 'false');
             item.setAttribute('aria-disabled', isComplete ? 'false' : 'true');
             item.tabIndex = isComplete ? 0 : -1;
         });
+    }
+
+    function syncOutlineValidationStep() {
+        const enabled = context && Object.prototype.hasOwnProperty.call(context, 'outline_validation_enabled')
+            ? !!context.outline_validation_enabled
+            : !!config.outline_validation_enabled;
+        stepOrder = enabled ? stepOrderWithValidation : stepOrderWithoutValidation;
+        const stepper = document.querySelector('.azlab-stepper');
+        if (stepper) {
+            stepper.classList.toggle('is-six-steps', !enabled);
+        }
     }
 
     function openCompletedStep(item) {
@@ -478,8 +509,32 @@
         if (!context || !context.results) {
             return;
         }
-        if (viewStep === 'research' || viewStep === 'brief') {
+        if (viewStep === 'research' || viewStep === 'brief' || viewStep === 'outline_validation') {
+            const previousValue = context.results[viewStep] || '';
             context.results[viewStep] = elements.textResult.value;
+            if (viewStep === 'brief' && previousValue !== elements.textResult.value) {
+                delete context.results.outline_validation;
+                delete context.results.content;
+                delete context.results.seo;
+                delete context.results.quality;
+                delete context.outline_validation;
+                delete context.content_split;
+                context.current_step = 'brief';
+                context.last_completed_step = 'brief';
+                context.next_step = context.outline_validation_enabled ? 'outline_validation' : 'content';
+            }
+            if (viewStep === 'outline_validation') {
+                context.results.brief = elements.textResult.value;
+                if (previousValue !== elements.textResult.value) {
+                    delete context.results.content;
+                    delete context.results.seo;
+                    delete context.results.quality;
+                    delete context.content_split;
+                    context.current_step = 'outline_validation';
+                    context.last_completed_step = 'outline_validation';
+                    context.next_step = 'content';
+                }
+            }
         } else if (viewStep === 'content') {
             context.results.content = elements.contentHtml.value;
         } else if (viewStep === 'seo') {
@@ -496,12 +551,16 @@
 
     function buildEdits() {
         captureCurrentEdits();
-        return {
+        const edits = {
             research: context.results.research || '',
             brief: context.results.brief || '',
             content: context.results.content || '',
             seo: context.results.seo || {}
         };
+        if (Object.prototype.hasOwnProperty.call(context.results, 'outline_validation')) {
+            edits.outline_validation = context.results.outline_validation || '';
+        }
+        return edits;
     }
 
     function renderReview(step) {
@@ -515,7 +574,8 @@
         elements.processing.hidden = true;
         elements.reviewActions.hidden = false;
         elements.finalActions.hidden = true;
-        const copy = stepCopy[step] || ['', step, ''];
+        const copySource = stepOrder === stepOrderWithValidation ? stepCopy : stepCopyWithoutValidation;
+        const copy = copySource[step] || ['', step, ''];
         elements.kicker.textContent = copy[0];
         elements.title.textContent = copy[1];
         elements.description.textContent = copy[2];
@@ -523,9 +583,11 @@
         renderLogs(context.logs || []);
         renderMetrics(context.metrics || {});
 
-        if (step === 'research' || step === 'brief') {
+        if (step === 'research' || step === 'brief' || step === 'outline_validation') {
             elements.textEditor.hidden = false;
-            elements.textResult.value = context.results[step] || '';
+            elements.textResult.value = step === 'outline_validation'
+                ? (context.results.outline_validation || context.results.brief || '')
+                : (context.results[step] || '');
             if (step === 'research') {
                 renderSerpSources();
             } else {

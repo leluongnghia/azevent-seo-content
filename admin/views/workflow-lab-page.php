@@ -69,13 +69,14 @@ $recent_query = new WP_Query(array(
             </div>
 
             <div id="azlab-workflow" class="azlab-panel" hidden>
-                <ol class="azlab-stepper" aria-label="SEO Workflow Lab steps">
+                <ol class="azlab-stepper <?php echo absint(get_option('azevent_lab_validate_outline', 0)) === 1 ? '' : 'is-six-steps'; ?>" aria-label="SEO Workflow Lab steps">
                     <li data-step="research"><span>1</span><small>Research</small></li>
                     <li data-step="brief"><span>2</span><small>Brief & Outline</small></li>
-                    <li data-step="content"><span>3</span><small>Content</small></li>
-                    <li data-step="seo"><span>4</span><small>SEO</small></li>
-                    <li data-step="quality"><span>5</span><small><?php _e('Links & QA', 'azevent-seo-content'); ?></small></li>
-                    <li data-step="finalize"><span>6</span><small><?php _e('Ảnh & Draft', 'azevent-seo-content'); ?></small></li>
+                    <li data-step="outline_validation" <?php echo absint(get_option('azevent_lab_validate_outline', 0)) === 1 ? '' : 'hidden'; ?>><span>3</span><small><?php _e('Kiểm định Outline', 'azevent-seo-content'); ?></small></li>
+                    <li data-step="content"><span>4</span><small>Content</small></li>
+                    <li data-step="seo"><span>5</span><small>SEO</small></li>
+                    <li data-step="quality"><span>6</span><small><?php _e('Links & QA', 'azevent-seo-content'); ?></small></li>
+                    <li data-step="finalize"><span>7</span><small><?php _e('Ảnh & Draft', 'azevent-seo-content'); ?></small></li>
                 </ol>
 
                 <div id="azlab-processing" class="azlab-processing" hidden>

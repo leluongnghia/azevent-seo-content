@@ -20,6 +20,32 @@ class AzEvent_Workflow_Lab_Pipeline
         return require AZEVENT_SEO_PATH . 'includes/class-azevent-workflow-lab-prompt-templates-en.php';
     }
 
+    public static function normalize_outline_validation_context(array $context)
+    {
+        if (array_key_exists('outline_validation_enabled', $context)) {
+            return $context;
+        }
+
+        $has_validation = !empty($context['outline_validation']);
+        $context['outline_validation_enabled'] = $has_validation || absint(get_option('azevent_lab_validate_outline', 0)) === 1;
+        if (($context['last_completed_step'] ?? '') !== 'brief' || ($context['next_step'] ?? '') !== 'content') {
+            return $context;
+        }
+
+        if ($has_validation) {
+            if (!isset($context['results']) || !is_array($context['results'])) {
+                $context['results'] = array();
+            }
+            $context['results']['outline_validation'] = (string) ($context['results']['brief'] ?? '');
+            $context['current_step'] = 'outline_validation';
+            $context['last_completed_step'] = 'outline_validation';
+        } elseif ($context['outline_validation_enabled']) {
+            $context['next_step'] = 'outline_validation';
+        }
+
+        return $context;
+    }
+
     public function create_session(array $input, $author_id)
     {
         $keyword = sanitize_text_field($input['keyword'] ?? '');
@@ -43,6 +69,7 @@ class AzEvent_Workflow_Lab_Pipeline
             'current_step' => 'setup',
             'last_completed_step' => 'setup',
             'next_step' => 'research',
+            'outline_validation_enabled' => absint(get_option('azevent_lab_validate_outline', 0)) === 1,
             'language' => sanitize_text_field(get_option('azevent_seo_default_language', 'Vietnamese')),
             'input' => array(
                 'keyword' => $keyword,
@@ -77,11 +104,12 @@ class AzEvent_Workflow_Lab_Pipeline
     {
         $post_id = absint($post_id);
         $step = sanitize_key($step);
-        $allowed_steps = array('research', 'brief', 'content', 'seo', 'quality', 'finalize');
+        $allowed_steps = array('research', 'brief', 'outline_validation', 'content', 'seo', 'quality', 'finalize');
         if (!in_array($step, $allowed_steps, true)) {
             return new WP_Error('azevent_lab_invalid_step', 'Bước SEO Workflow Lab không hợp lệ.');
         }
 
+        $context = self::normalize_outline_validation_context($context);
         $context = $this->apply_edits($context, $edits);
         $context['current_step'] = $step;
         $context['status'] = 'processing';
@@ -164,10 +192,11 @@ class AzEvent_Workflow_Lab_Pipeline
     {
         $post_id = absint($post_id);
         $step = sanitize_key($step);
-        $allowed_steps = array('research', 'brief', 'content', 'seo', 'quality', 'finalize');
+        $allowed_steps = array('research', 'brief', 'outline_validation', 'content', 'seo', 'quality', 'finalize');
         if (!in_array($step, $allowed_steps, true)) {
             return new WP_Error('azevent_lab_invalid_step', 'Bước SEO Workflow Lab không hợp lệ.');
         }
+        $context = self::normalize_outline_validation_context($context);
         if (in_array(($context['status'] ?? ''), array('queued', 'processing'), true)) {
             return new WP_Error('azevent_lab_step_busy', 'Phiên đang có một bước chạy nền. Vui lòng chờ bước đó hoàn tất.');
         }
@@ -310,65 +339,109 @@ class AzEvent_Workflow_Lab_Pipeline
 
         $draft_brief = trim($result);
         $context['results']['brief'] = $draft_brief;
-        if (absint(get_option('azevent_lab_validate_outline', 0)) === 1) {
-            $sections_before = count($this->extract_outline_sections($draft_brief));
-            $validation_options = array(
-                'auto_continue' => true,
-                'max_continuations' => 1,
-                'model_option' => 'azevent_lab_outline_validation_model',
-            );
-            $request = $this->resolve_text_request('brief', $validation_options['model_option']);
+        unset($context['results']['outline_validation'], $context['outline_validation']);
+        $context['outline_validation_enabled'] = $this->is_outline_validation_enabled($context);
+        return $this->complete_step(
+            $context,
+            'brief',
+            $context['outline_validation_enabled'] ? 'outline_validation' : 'content'
+        );
+    }
+
+    private function run_outline_validation($post_id, array &$context)
+    {
+        $draft_brief = trim((string) ($context['results']['brief'] ?? ''));
+        if ($draft_brief === '') {
+            return new WP_Error('azevent_lab_missing_brief', 'Chưa có Content Brief & Outline để kiểm định.');
+        }
+
+        $context['outline_validation_enabled'] = $this->is_outline_validation_enabled($context);
+        if (!$context['outline_validation_enabled']) {
+            $context['results']['outline_validation'] = $draft_brief;
             $context['outline_validation'] = array(
-                'enabled' => true,
-                'status' => 'processing',
-                'model' => sanitize_text_field($request['model'] ?? ''),
+                'enabled' => false,
+                'status' => 'skipped',
                 'original_brief' => $draft_brief,
-                'sections_before' => $sections_before,
-                'started_at' => time(),
+                'completed_at' => time(),
             );
+            $this->append_log($post_id, $context, 'info', 'outline_validation', 'Kiểm định Outline bằng AI đang tắt; plugin giữ nguyên Brief và chuyển sang bước Content.');
+            return $this->complete_step($context, 'outline_validation', 'content');
+        }
+
+        $previous_validation = isset($context['outline_validation']) && is_array($context['outline_validation'])
+            ? $context['outline_validation']
+            : array();
+        $original_brief = trim((string) ($previous_validation['original_brief'] ?? $draft_brief));
+        if ($original_brief === '') {
+            $original_brief = $draft_brief;
+        }
+        $candidates = isset($context['internal_link_candidates']) && is_array($context['internal_link_candidates'])
+            ? $context['internal_link_candidates']
+            : $this->find_internal_link_candidates($context['input']['keyword'], $post_id);
+        $context['internal_link_candidates'] = $candidates;
+        $sections_before = count($this->extract_outline_sections($original_brief));
+        $validation_options = array(
+            'auto_continue' => true,
+            'max_continuations' => 1,
+        );
+        $request = $this->resolve_text_request('outline_validation');
+        $context['outline_validation'] = array(
+            'enabled' => true,
+            'status' => 'processing',
+            'model' => sanitize_text_field($request['model'] ?? ''),
+            'original_brief' => $original_brief,
+            'sections_before' => $sections_before,
+            'attempts' => absint($previous_validation['attempts'] ?? 0) + 1,
+            'started_at' => time(),
+        );
+        $this->append_log(
+            $post_id,
+            $context,
+            'info',
+            'outline_validation',
+            sprintf('Bắt đầu kiểm định Outline độc lập với %d H2 từ Brief đã duyệt.', $sections_before)
+        );
+        $validation_prompts = $this->build_outline_validation_prompts($context, $original_brief, $candidates);
+        $this->log_ai_request($post_id, $context, 'outline_validation', 6144, $validation_options, $validation_prompts);
+        $validated_result = $this->call_text('outline_validation', $validation_prompts['user'], $validation_prompts['system'], 6144, $validation_options);
+        $this->record_ai_metrics($post_id, $context, 'outline_validation', $validation_prompts, $validated_result);
+
+        if (is_wp_error($validated_result)) {
+            $context['results']['outline_validation'] = $original_brief;
+            $context['results']['brief'] = $original_brief;
+            $context['outline_validation']['status'] = 'fallback';
+            $context['outline_validation']['error'] = $validated_result->get_error_message();
+            $context['outline_validation']['completed_at'] = time();
+            $this->append_log($post_id, $context, 'info', 'outline_validation', 'Kiểm định Outline bị lỗi; plugin giữ nguyên Brief lượt đầu. Bạn có thể dùng nút Chạy lại bước này.');
+            return $this->complete_step($context, 'outline_validation', 'content');
+        }
+
+        $validated_brief = trim(preg_replace('/^\s*(?:```|~~~)(?:markdown)?\s*|\s*(?:```|~~~)\s*$/iu', '', (string) $validated_result));
+        $sections_after = count($this->extract_outline_sections($validated_brief));
+        if ($sections_after >= 2) {
+            $context['results']['outline_validation'] = $validated_brief;
+            $context['results']['brief'] = $validated_brief;
+            $context['outline_validation']['status'] = 'completed';
+            $context['outline_validation']['sections_after'] = $sections_after;
+            $context['outline_validation']['completed_at'] = time();
             $this->append_log(
                 $post_id,
                 $context,
-                'info',
-                'brief',
-                sprintf('Đã hoàn thành lượt tạo Brief với %d H2. Bắt đầu lượt AI thứ hai để kiểm định Outline.', $sections_before)
+                'success',
+                'outline_validation',
+                sprintf('Đã kiểm định Outline: %d H2 ban đầu → %d H2 xuất bản sau khi gộp, loại và bổ sung.', $sections_before, $sections_after)
             );
-            $validation_prompts = $this->build_outline_validation_prompts($context, $draft_brief, $candidates);
-            $this->log_ai_request($post_id, $context, 'brief', 6144, $validation_options, $validation_prompts);
-            $validated_result = $this->call_text('brief', $validation_prompts['user'], $validation_prompts['system'], 6144, $validation_options);
-            $this->record_ai_metrics($post_id, $context, 'brief', $validation_prompts, $validated_result);
-            if (is_wp_error($validated_result)) {
-                $context['outline_validation']['status'] = 'fallback';
-                $context['outline_validation']['error'] = $validated_result->get_error_message();
-                $context['outline_validation']['completed_at'] = time();
-                $this->append_log($post_id, $context, 'info', 'brief', 'Lượt kiểm định Outline bị lỗi; plugin giữ nguyên Brief của lượt đầu để quy trình không bị dừng.');
-            } else {
-                $validated_brief = trim(preg_replace('/^\s*(?:```|~~~)(?:markdown)?\s*|\s*(?:```|~~~)\s*$/iu', '', (string) $validated_result));
-                $sections_after = count($this->extract_outline_sections($validated_brief));
-                if ($sections_after >= 2) {
-                    $context['results']['brief'] = $validated_brief;
-                    $context['outline_validation']['status'] = 'completed';
-                    $context['outline_validation']['sections_after'] = $sections_after;
-                    $context['outline_validation']['completed_at'] = time();
-                    $this->append_log(
-                        $post_id,
-                        $context,
-                        'success',
-                        'brief',
-                        sprintf('Đã kiểm định Outline: %d H2 ban đầu → %d H2 xuất bản sau khi gộp, loại và bổ sung.', $sections_before, $sections_after)
-                    );
-                } else {
-                    $context['outline_validation']['status'] = 'fallback';
-                    $context['outline_validation']['sections_after'] = $sections_after;
-                    $context['outline_validation']['error'] = 'Kết quả kiểm định không nhận diện được ít nhất 2 H2 xuất bản.';
-                    $context['outline_validation']['completed_at'] = time();
-                    $this->append_log($post_id, $context, 'info', 'brief', 'Kết quả kiểm định không có đủ 2 H2 hợp lệ; plugin giữ nguyên Brief của lượt đầu.');
-                }
-            }
         } else {
-            unset($context['outline_validation']);
+            $context['results']['outline_validation'] = $original_brief;
+            $context['results']['brief'] = $original_brief;
+            $context['outline_validation']['status'] = 'fallback';
+            $context['outline_validation']['sections_after'] = $sections_after;
+            $context['outline_validation']['error'] = 'Kết quả kiểm định không nhận diện được ít nhất 2 H2 xuất bản.';
+            $context['outline_validation']['completed_at'] = time();
+            $this->append_log($post_id, $context, 'info', 'outline_validation', 'Kết quả kiểm định không có đủ 2 H2 hợp lệ; plugin giữ nguyên Brief lượt đầu.');
         }
-        return $this->complete_step($context, 'brief', 'content');
+
+        return $this->complete_step($context, 'outline_validation', 'content');
     }
 
     private function build_outline_validation_prompts(array $context, $draft_brief, array $internal_link_candidates)
@@ -872,6 +945,7 @@ PROMPT;
 
     private function apply_edits(array $context, array $edits)
     {
+        $brief_changed = false;
         if (!isset($context['results']) || !is_array($context['results'])) {
             $context['results'] = array();
         }
@@ -881,9 +955,36 @@ PROMPT;
         if (isset($edits['brief'])) {
             $brief = wp_kses_post((string) $edits['brief']);
             if ((string) ($context['results']['brief'] ?? '') !== $brief) {
-                unset($context['content_split'], $context['results']['content'], $context['outline_validation']);
+                $brief_changed = true;
+                unset(
+                    $context['content_split'],
+                    $context['results']['content'],
+                    $context['results']['seo'],
+                    $context['results']['quality'],
+                    $context['results']['outline_validation'],
+                    $context['outline_validation']
+                );
             }
             $context['results']['brief'] = $brief;
+        }
+        if (isset($edits['outline_validation']) && (!$brief_changed || (string) $edits['outline_validation'] === (string) ($edits['brief'] ?? ''))) {
+            $validated_brief = wp_kses_post((string) $edits['outline_validation']);
+            if ((string) ($context['results']['outline_validation'] ?? '') !== $validated_brief) {
+                unset(
+                    $context['content_split'],
+                    $context['results']['content'],
+                    $context['results']['seo'],
+                    $context['results']['quality']
+                );
+                if (!isset($context['outline_validation']) || !is_array($context['outline_validation'])) {
+                    $context['outline_validation'] = array();
+                }
+                $context['outline_validation']['status'] = 'edited';
+                $context['outline_validation']['original_brief'] = $validated_brief;
+                $context['outline_validation']['edited_at'] = time();
+            }
+            $context['results']['outline_validation'] = $validated_brief;
+            $context['results']['brief'] = $validated_brief;
         }
         if (isset($edits['content'])) {
             $context['results']['content'] = $this->clean_html(wp_kses_post((string) $edits['content']));
@@ -969,6 +1070,7 @@ PROMPT;
         $model_map = array(
             'research' => 'intent',
             'brief' => 'outline',
+            'outline_validation' => 'outline',
             'content' => 'content',
             'seo' => 'seo',
             'quality' => 'content',
@@ -981,6 +1083,10 @@ PROMPT;
         $fallback_model = sanitize_text_field(get_option("azevent_seo_{$model_step}_model", $default_model));
         if ($fallback_model === '') {
             $fallback_model = $default_model;
+        }
+        if ($step === 'outline_validation') {
+            $brief_model = sanitize_text_field(get_option('azevent_lab_brief_model', $fallback_model));
+            $fallback_model = $brief_model !== '' ? $brief_model : $fallback_model;
         }
         $model = sanitize_text_field(get_option("azevent_lab_{$step}_model", $fallback_model));
         if ($model === '') {
@@ -1162,12 +1268,21 @@ PROMPT;
         $labels = array(
             'research' => 'Research',
             'brief' => 'Content Brief & Outline',
+            'outline_validation' => 'Kiểm định Outline',
             'content' => 'Content',
             'seo' => 'SEO Metadata',
             'quality' => 'Links & Quality Gate',
             'finalize' => 'Ảnh & Draft',
         );
         return $labels[$step] ?? sanitize_text_field($step);
+    }
+
+    private function is_outline_validation_enabled(array $context)
+    {
+        if (array_key_exists('outline_validation_enabled', $context)) {
+            return !empty($context['outline_validation_enabled']);
+        }
+        return absint(get_option('azevent_lab_validate_outline', 0)) === 1;
     }
 
     private function format_duration($seconds)

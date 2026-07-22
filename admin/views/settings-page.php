@@ -978,7 +978,7 @@ $lab_prompt_tokens = array(
                                 <input id="azevent_lab_validate_outline" type="checkbox" name="azevent_lab_validate_outline" value="1" <?php checked($azevent_lab_validate_outline, 1); ?>>
                                 <span>
                                     <strong><?php _e('Kiểm định Outline bằng AI lần hai', 'azevent-seo-content'); ?></strong>
-                                    <span><?php _e('Sau khi tạo Content Brief & Outline, AI rà soát intent, loại heading biên tập nội bộ, gộp mục trùng và trả lại Outline hoàn chỉnh trước khi viết Content.', 'azevent-seo-content'); ?></span>
+                                    <span><?php _e('Thêm bước Kiểm định Outline độc lập sau Brief & Outline để AI rà soát intent, loại heading biên tập nội bộ và gộp mục trùng trước khi viết Content.', 'azevent-seo-content'); ?></span>
                                 </span>
                             </label>
                             <div class="azevent-field azevent-outline-validator-model">
@@ -999,7 +999,7 @@ $lab_prompt_tokens = array(
                                 </select>
                                 <p class="azevent-help"><?php _e('Để trống để dùng cùng model của bước Brief. Chọn riêng nếu muốn lượt kiểm định dùng model mạnh hơn.', 'azevent-seo-content'); ?></p>
                             </div>
-                            <p class="azevent-help"><?php _e('Mặc định tắt. Lượt kiểm định làm bước Brief lâu hơn và phát sinh thêm một lượt API. Nếu lượt hai lỗi hoặc không đủ H2 hợp lệ, plugin giữ kết quả lượt đầu.', 'azevent-seo-content'); ?></p>
+                            <p class="azevent-help"><?php _e('Mặc định tắt. Khi bật, Workflow Lab có thêm bước duyệt riêng và một lượt API. Nếu kiểm định lỗi hoặc không đủ H2 hợp lệ, plugin giữ kết quả Brief ban đầu để bạn xem và chạy lại bước này.', 'azevent-seo-content'); ?></p>
                         </div>
                         <div class="azevent-serp-box">
                             <h3><?php _e('Cách viết nội dung từ Outline', 'azevent-seo-content'); ?></h3>

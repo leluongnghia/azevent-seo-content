@@ -58,6 +58,7 @@ class AzEvent_SEO_Workflow_Lab
             'section_image_nonce' => wp_create_nonce('azevent_section_image'),
             'post_id' => absint($_GET['azevent_lab_post'] ?? 0),
             'default_language' => get_option('azevent_seo_default_language', 'Vietnamese'),
+            'outline_validation_enabled' => absint(get_option('azevent_lab_validate_outline', 0)) === 1,
             'edit_url_base' => admin_url('post.php?action=edit&post='),
         ));
     }
@@ -127,6 +128,12 @@ class AzEvent_SEO_Workflow_Lab
         if (!is_array($context)) {
             wp_send_json_error(array('message' => 'Checkpoint SEO Workflow Lab không hợp lệ.'));
         }
+        $context_changed = false;
+        $normalized_context = AzEvent_Workflow_Lab_Pipeline::normalize_outline_validation_context($context);
+        if ($normalized_context !== $context) {
+            $context = $normalized_context;
+            $context_changed = true;
+        }
         if (($context['status'] ?? '') === 'completed' && empty($context['featured_image'])) {
             $attachment_id = get_post_thumbnail_id($post_id);
             if ($attachment_id) {
@@ -137,15 +144,19 @@ class AzEvent_SEO_Workflow_Lab
                     'full_url' => esc_url_raw(wp_get_attachment_image_url($attachment_id, 'full')),
                     'alt' => sanitize_text_field(get_post_meta($attachment_id, '_wp_attachment_image_alt', true)),
                 );
-                update_post_meta($post_id, AzEvent_Workflow_Lab_Pipeline::SESSION_META, $context);
+                $context_changed = true;
             }
         }
         if (($context['status'] ?? '') === 'completed') {
             $section_images = get_post_meta($post_id, AzEvent_Section_Images::META_KEY, true);
             if (is_array($section_images) && !empty($section_images['items'])) {
                 $context['section_images'] = $section_images;
-                update_post_meta($post_id, AzEvent_Workflow_Lab_Pipeline::SESSION_META, $context);
+                $context_changed = true;
             }
+        }
+        if ($context_changed) {
+            update_post_meta($post_id, AzEvent_Workflow_Lab_Pipeline::SESSION_META, $context);
+            $context_changed = false;
         }
         $pending = isset($context['pending_job']) && is_array($context['pending_job']) ? $context['pending_job'] : array();
         if (($context['status'] ?? '') === 'queued' && !empty($pending['id'])) {
@@ -164,6 +175,9 @@ class AzEvent_SEO_Workflow_Lab
             );
             unset($context['pending_job']);
             $context['updated_at'] = time();
+            $context_changed = true;
+        }
+        if ($context_changed) {
             update_post_meta($post_id, AzEvent_Workflow_Lab_Pipeline::SESSION_META, $context);
         }
         wp_send_json_success(array(
