@@ -129,7 +129,7 @@ $recent_query = new WP_Query(array(
                         <div class="azlab-preview-shell"><iframe id="azlab-quality-preview" sandbox="allow-same-origin" title="<?php esc_attr_e('Xem trước nội dung sau QA', 'azevent-seo-content'); ?>"></iframe></div>
                     </div>
 
-                    <div id="azlab-final-result" class="azlab-result" hidden>
+                    <div id="azlab-final-result" class="azlab-result azlab-final-result" hidden>
                         <div class="azlab-complete-icon"><span class="dashicons dashicons-yes-alt"></span></div>
                         <h2><?php _e('Draft đã sẵn sàng', 'azevent-seo-content'); ?></h2>
                         <p><?php _e('Nội dung, SEO metadata, Rank Math và ảnh đại diện (nếu chọn) đã được lưu.', 'azevent-seo-content'); ?></p>
@@ -138,7 +138,10 @@ $recent_query = new WP_Query(array(
                             <figcaption><?php _e('Ảnh đại diện đã tạo và gắn vào bài Draft', 'azevent-seo-content'); ?></figcaption>
                         </figure>
                         <p id="azlab-featured-image-empty" class="azlab-featured-image-empty" hidden><?php _e('Phiên này đã lưu Draft không có ảnh đại diện.', 'azevent-seo-content'); ?></p>
-                        <a id="azlab-edit-post" class="button button-primary azlab-primary" href="#"><?php _e('Mở Draft để kiểm tra', 'azevent-seo-content'); ?></a>
+                        <div class="azlab-final-result-actions">
+                            <button id="azlab-regenerate-image" type="button" class="button" hidden><span class="dashicons dashicons-update"></span> <?php _e('Tạo lại ảnh đại diện', 'azevent-seo-content'); ?></button>
+                            <a id="azlab-edit-post" class="button button-primary azlab-primary" href="#"><?php _e('Mở Draft để kiểm tra', 'azevent-seo-content'); ?></a>
+                        </div>
                     </div>
                     <div id="azlab-final-confirmation" class="azlab-result" hidden>
                         <div class="azlab-quality-summary"><div><strong><?php _e('Đã sẵn sàng lưu Draft', 'azevent-seo-content'); ?></strong><p><?php _e('Nội dung chỉ được ghi vào bài sau khi bạn duyệt bước này.', 'azevent-seo-content'); ?></p></div></div>

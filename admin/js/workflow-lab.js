@@ -74,6 +74,7 @@
         featuredImageCard: document.getElementById('azlab-featured-image-card'),
         featuredImage: document.getElementById('azlab-featured-image'),
         featuredImageEmpty: document.getElementById('azlab-featured-image-empty'),
+        regenerateImage: document.getElementById('azlab-regenerate-image'),
         editPost: document.getElementById('azlab-edit-post'),
         reviewActions: document.getElementById('azlab-review-actions'),
         finalActions: document.getElementById('azlab-final-actions'),
@@ -122,7 +123,7 @@
 
     function setBusy(value, step) {
         busy = value;
-        [elements.start, elements.back, elements.rerun, elements.next, elements.backQuality, elements.saveNoImage, elements.finalize].forEach(function (button) {
+        [elements.start, elements.back, elements.rerun, elements.next, elements.backQuality, elements.saveNoImage, elements.finalize, elements.regenerateImage].forEach(function (button) {
             if (button) {
                 button.disabled = value;
             }
@@ -546,6 +547,7 @@
                 const featuredImageUrl = featuredImage.url || featuredImage.full_url || '';
                 elements.featuredImageCard.hidden = !featuredImageUrl;
                 elements.featuredImageEmpty.hidden = !!featuredImageUrl || context.image_status !== 'skipped';
+                elements.regenerateImage.hidden = !featuredImageUrl;
                 if (featuredImageUrl) {
                     elements.featuredImage.src = featuredImageUrl;
                     elements.featuredImage.alt = featuredImage.alt || 'Ảnh đại diện bài viết';
@@ -749,6 +751,12 @@
         processStep('finalize', true);
     });
     elements.finalize.addEventListener('click', function () {
+        processStep('finalize', false);
+    });
+    elements.regenerateImage.addEventListener('click', function () {
+        if (!window.confirm('Tạo một ảnh đại diện mới bằng Image Prompt hiện tại và thay ảnh đang gắn cho Draft? Ảnh cũ vẫn được giữ trong Media Library.')) {
+            return;
+        }
         processStep('finalize', false);
     });
     elements.copyLog.addEventListener('click', copyLogs);
