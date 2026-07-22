@@ -554,8 +554,10 @@
         const furthest = stepOrder.indexOf(context.last_completed_step || 'research');
         elements.back.disabled = index <= 0;
         elements.rerun.hidden = step === 'finalize';
-        elements.next.hidden = step === 'quality' || step === 'finalize';
-        elements.next.textContent = index < furthest ? 'Xem bước tiếp theo' : 'Tiếp tục';
+        elements.next.hidden = step === 'finalize';
+        elements.next.textContent = step === 'quality'
+            ? 'Tiếp tục sang Ảnh & Draft'
+            : (index < furthest ? 'Xem bước tiếp theo' : 'Tiếp tục');
     }
 
     function showContentTab(tab) {
@@ -704,6 +706,10 @@
     });
     elements.next.addEventListener('click', function () {
         captureCurrentEdits();
+        if (viewStep === 'quality' && context && context.results && context.results.quality) {
+            renderReview('finalize');
+            return;
+        }
         const index = stepOrder.indexOf(viewStep);
         const furthest = stepOrder.indexOf(context.last_completed_step || 'research');
         if (index < furthest) {
