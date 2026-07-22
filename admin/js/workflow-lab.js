@@ -369,10 +369,28 @@
 
     function updateStepper(step) {
         const activeIndex = stepOrder.indexOf(step);
+        const completedIndex = context && context.status === 'completed'
+            ? stepOrder.length - 1
+            : stepOrder.indexOf(context && context.last_completed_step ? context.last_completed_step : '');
         document.querySelectorAll('.azlab-stepper li').forEach(function (item, index) {
+            const isComplete = index <= completedIndex;
             item.classList.toggle('is-active', index === activeIndex);
-            item.classList.toggle('is-complete', index < activeIndex || (context && context.status === 'completed'));
+            item.classList.toggle('is-complete', isComplete);
+            item.classList.toggle('is-clickable', isComplete);
+            item.setAttribute('aria-current', index === activeIndex ? 'step' : 'false');
+            item.setAttribute('aria-disabled', isComplete ? 'false' : 'true');
+            item.tabIndex = isComplete ? 0 : -1;
         });
+    }
+
+    function openCompletedStep(item) {
+        if (busy || !context || !item.classList.contains('is-clickable')) {
+            return;
+        }
+        const step = item.dataset.step || '';
+        if (step && stepOrder.indexOf(step) !== -1) {
+            renderReview(step);
+        }
     }
 
     function hideResults() {
@@ -702,6 +720,17 @@
         processStep('finalize', false);
     });
     elements.copyLog.addEventListener('click', copyLogs);
+    document.querySelectorAll('.azlab-stepper li').forEach(function (item) {
+        item.addEventListener('click', function () {
+            openCompletedStep(item);
+        });
+        item.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                openCompletedStep(item);
+            }
+        });
+    });
     document.querySelectorAll('.azlab-delete-session').forEach(function (button) {
         button.addEventListener('click', function () {
             const sessionId = parseInt(button.dataset.sessionId, 10) || 0;
