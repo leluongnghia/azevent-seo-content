@@ -149,12 +149,13 @@ class AzEvent_API_Client
         $continuation_count = 0;
         $request_count = 0;
         $attempt_count = 0;
+        $truncation_reasons = array();
         $usage = array('input_tokens' => 0, 'output_tokens' => 0, 'total_tokens' => 0, 'reported' => false);
 
         while (true) {
             $completion = $this->request_text_completion($body, $use_stream, $model);
             if (is_wp_error($completion)) {
-                $this->finish_text_metrics($started_at, $model, $usage, $request_count, $attempt_count, 'error');
+                $this->finish_text_metrics($started_at, $model, $usage, $request_count, $attempt_count, 'error', $continuation_count, $truncation_reasons);
                 return $completion;
             }
             $request_count++;
@@ -163,22 +164,28 @@ class AzEvent_API_Client
 
             $segment = (string) $completion['content'];
             if (trim($segment) === '') {
-                $this->finish_text_metrics($started_at, $model, $usage, $request_count, $attempt_count, 'error');
+                $this->finish_text_metrics($started_at, $model, $usage, $request_count, $attempt_count, 'error', $continuation_count, $truncation_reasons);
                 return new WP_Error('azevent_empty_text_response', 'AzEvent API không trả về nội dung.');
             }
             $combined_content = $this->append_text_segment($combined_content, $segment);
 
             $truncated = $this->is_truncated_finish_reason($completion['finish_reason']);
+            $truncation_reason = $truncated ? sanitize_key((string) $completion['finish_reason']) : '';
             if (!$truncated && $detect_incomplete_ending) {
                 $truncated = $this->looks_like_incomplete_content($combined_content);
+                if ($truncated) {
+                    $truncation_reason = 'incomplete_ending';
+                }
             }
             if (!$truncated) {
-                $this->finish_text_metrics($started_at, $model, $usage, $request_count, $attempt_count, 'success');
+                $this->finish_text_metrics($started_at, $model, $usage, $request_count, $attempt_count, 'success', $continuation_count, $truncation_reasons);
                 return trim($combined_content);
             }
 
+            $truncation_reasons[] = $truncation_reason !== '' ? $truncation_reason : 'unknown';
+
             if (!$auto_continue || $continuation_count >= $max_continuations) {
-                $this->finish_text_metrics($started_at, $model, $usage, $request_count, $attempt_count, 'error');
+                $this->finish_text_metrics($started_at, $model, $usage, $request_count, $attempt_count, 'error', $continuation_count, $truncation_reasons);
                 return new WP_Error(
                     'azevent_text_truncated',
                     'AI đã dừng vì hết giới hạn token trước khi hoàn tất nội dung. Plugin không chuyển sang bước SEO để tránh lưu bài bị cắt. Hãy thử lại bằng model có output dài hơn hoặc rút gọn Outline.'
@@ -447,7 +454,7 @@ class AzEvent_API_Client
         return $total;
     }
 
-    private function finish_text_metrics($started_at, $model, array $usage, $requests, $attempts, $status)
+    private function finish_text_metrics($started_at, $model, array $usage, $requests, $attempts, $status, $continuations = 0, array $truncation_reasons = array())
     {
         $this->last_text_metrics = array_merge($usage, array(
             'provider' => self::get_provider_label($this->base_url),
@@ -455,6 +462,9 @@ class AzEvent_API_Client
             'duration_seconds' => round(max(0, microtime(true) - $started_at), 3),
             'requests' => absint($requests),
             'attempts' => absint($attempts),
+            'continuations' => absint($continuations),
+            'truncations' => count($truncation_reasons),
+            'truncation_reasons' => array_values(array_map('sanitize_key', $truncation_reasons)),
             'status' => sanitize_key($status),
         ));
     }

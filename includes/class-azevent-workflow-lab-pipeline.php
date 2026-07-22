@@ -964,6 +964,28 @@ class AzEvent_Workflow_Lab_Pipeline
         $current['last_status'] = is_wp_error($result) ? 'error' : 'success';
         $context['metrics']['steps'][$step] = $current;
 
+        $truncations = absint($metrics['truncations'] ?? 0);
+        if ($truncations > 0) {
+            $reasons = isset($metrics['truncation_reasons']) && is_array($metrics['truncation_reasons'])
+                ? array_values(array_unique(array_filter(array_map('sanitize_key', $metrics['truncation_reasons']))))
+                : array();
+            $reason_label = !empty($reasons) ? implode(', ', $reasons) : 'không xác định';
+            $continuations = absint($metrics['continuations'] ?? 0);
+            $this->append_log(
+                $post_id,
+                $context,
+                is_wp_error($result) ? 'error' : 'warning',
+                $step,
+                sprintf(
+                    'Phát hiện AI trả nội dung bị cắt %d lần (lý do: %s). Plugin đã gọi tiếp %d lần%s.',
+                    $truncations,
+                    $reason_label,
+                    $continuations,
+                    is_wp_error($result) ? ' nhưng nội dung vẫn chưa hoàn tất' : ' và đã ghép phần nối tiếp thành công'
+                )
+            );
+        }
+
         $this->append_log(
             $post_id,
             $context,
