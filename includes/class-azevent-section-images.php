@@ -53,6 +53,7 @@ class AzEvent_Section_Images
         $user .= 'Ảnh ngang 16:9, professional realistic event photography, natural lighting, no text, no logo, no watermark.\n';
         $user .= "ALT phải mô tả cảnh nhìn thấy một cách tự nhiên trong 6-18 từ, duy nhất cho từng ảnh; không mở đầu bằng \"ảnh/hình minh họa\", không nhồi từ khóa và không nhắc thương hiệu nếu thương hiệu không xuất hiện trong ảnh.\n";
         $user .= 'JSON: {"images":[{"key":"section key","prompt":"English image prompt","alt":"Vietnamese descriptive alt text"}]}\n';
+        $user .= 'Bối cảnh toàn bài: ' . self::truncate(preg_replace('/\s+/u', ' ', wp_strip_all_tags($content)), 6000) . "\n";
         $user .= 'Sections: ' . wp_json_encode($candidate_payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
         $provider = sanitize_key(get_option('azevent_seo_text_provider', 'azevent'));
@@ -127,6 +128,8 @@ class AzEvent_Section_Images
         $item = $items[$index];
         $item['keyword'] = sanitize_text_field($item['keyword'] ?? get_the_title($post_id));
         $item['alt'] = self::normalize_alt($item['alt'] ?? '', $item['title'] ?? '', $item['keyword']);
+        $item['prompt_excerpt'] = sanitize_text_field($item['prompt_excerpt'] ?? self::truncate(preg_replace('/\s+/u', ' ', $item['prompt'] ?? ''), 180));
+        $item['position'] = self::normalize_position($item);
         $image_result = self::generate_with_retry($item['prompt']);
         $item['attempts'] = absint($image_result['attempts'] ?? 1);
         if (is_wp_error($image_result['result'])) {
@@ -147,6 +150,7 @@ class AzEvent_Section_Images
                 $item['error'] = $attachment_id->get_error_message();
             } else {
                 $image = self::attachment_data($attachment_id, $item['alt']);
+                $was_replacement = self::has_marker($content, $item['key']);
                 $updated_content = self::insert_or_replace($content, $item, $image);
                 if ($updated_content === $content) {
                     wp_delete_attachment($attachment_id, true);
@@ -156,6 +160,10 @@ class AzEvent_Section_Images
                     $content = $updated_content;
                     $item['status'] = 'created';
                     $item['attachment'] = $image;
+                    $item['attachment_id'] = absint($attachment_id);
+                    $item['position']['action'] = $was_replacement ? 'replaced' : 'inserted';
+                    $item['position']['attachment_id'] = absint($attachment_id);
+                    $item['position']['updated_at'] = time();
                     $item['error'] = '';
                 }
             }
@@ -193,6 +201,8 @@ class AzEvent_Section_Images
             }
             $item['keyword'] = sanitize_text_field($item['keyword'] ?? get_the_title($post_id));
             $item['alt'] = self::normalize_alt($item['alt'] ?? '', $item['title'] ?? '', $item['keyword']);
+            $item['prompt_excerpt'] = sanitize_text_field($item['prompt_excerpt'] ?? self::truncate(preg_replace('/\s+/u', ' ', $item['prompt'] ?? ''), 180));
+            $item['position'] = self::normalize_position($item);
             $generated = self::generate_with_retry($item['prompt']);
             if (is_wp_error($generated['result'])) {
                 return $generated['result'];
@@ -218,14 +228,14 @@ class AzEvent_Section_Images
                 wp_delete_attachment($attachment_id, true);
                 return $updated;
             }
-            $previous_attachment_id = absint($item['attachment']['id'] ?? 0);
-            if ($previous_attachment_id && $previous_attachment_id !== $attachment_id) {
-                wp_delete_attachment($previous_attachment_id, true);
-            }
             $item['status'] = 'created';
             $item['model'] = sanitize_text_field($generated['result']['model'] ?? get_option('aprg_seo_default_cliproxy_image_model', ''));
             $item['provider'] = sanitize_text_field($generated['result']['provider'] ?? AzEvent_API_Client::get_provider_label());
             $item['attachment'] = $image;
+            $item['attachment_id'] = absint($attachment_id);
+            $item['position']['action'] = 'replaced';
+            $item['position']['attachment_id'] = absint($attachment_id);
+            $item['position']['updated_at'] = time();
             $item['attempts'] = absint($generated['attempts'] ?? 1);
             $item['error'] = '';
             $item['completed_at'] = time();
@@ -245,8 +255,16 @@ class AzEvent_Section_Images
             'key' => $section['key'],
             'title' => $section['title'],
             'prompt' => $prompt,
+            'prompt_excerpt' => self::truncate(preg_replace('/\s+/u', ' ', $prompt), 180),
             'alt' => self::normalize_alt($alt, $section['title'], $keyword),
             'keyword' => sanitize_text_field($keyword),
+            'position' => array(
+                'strategy' => 'after_first_paragraph',
+                'label' => 'Sau đoạn mở đầu của H2',
+                'section_key' => $section['key'],
+                'section_order' => absint($section['order'] ?? 0),
+                'marker' => 'data-azevent-h2-key="' . $section['key'] . '"',
+            ),
             'status' => 'pending',
             'attempts' => 0,
             'error' => '',
@@ -266,6 +284,7 @@ class AzEvent_Section_Images
                 'key' => 'h2-' . substr(md5(self::normalize($title)), 0, 12),
                 'title' => $title,
                 'html' => $match[2],
+                'order' => count($sections) + 1,
             );
         }
         return $sections;
@@ -297,6 +316,26 @@ class AzEvent_Section_Images
             return $match[1] . $match[2] . $match[3] . $body;
         }, (string) $content);
         return $changed ? $result : $content;
+    }
+
+    private static function has_marker($content, $section_key)
+    {
+        return (bool) preg_match(
+            '/<figure\b[^>]*data-azevent-h2-key=["\']' . preg_quote($section_key, '/') . '["\'][^>]*>/iu',
+            (string) $content
+        );
+    }
+
+    private static function normalize_position(array $item)
+    {
+        $position = isset($item['position']) && is_array($item['position']) ? $item['position'] : array();
+        return array_merge(array(
+            'strategy' => 'after_first_paragraph',
+            'label' => 'Sau đoạn mở đầu của H2',
+            'section_key' => sanitize_key($item['key'] ?? ''),
+            'section_order' => 0,
+            'marker' => 'data-azevent-h2-key="' . sanitize_key($item['key'] ?? '') . '"',
+        ), $position);
     }
 
     private static function generate_with_retry($prompt)

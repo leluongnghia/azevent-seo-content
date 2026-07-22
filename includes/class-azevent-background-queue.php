@@ -186,6 +186,8 @@ class AzEvent_Background_Queue
             $section_images = is_array($job_context) && isset($job_context['section_images']) && is_array($job_context['section_images'])
                 ? $job_context['section_images']
                 : array();
+            $job['auto_background'] = !empty($job_context['background_delivery_approved'])
+                && in_array($job['step'], array('section_images', 'image', 'finalize'), true);
             if ($job['step'] === 'section_images' && !empty($section_images['items'])) {
                 $image_index = max(0, absint($section_images['current_index'] ?? 0));
                 $image_items = array_values($section_images['items']);
@@ -208,7 +210,7 @@ class AzEvent_Background_Queue
         }
         unset($job);
 
-        if ($this->has_pending_jobs()) {
+        if ($this->has_pending_jobs() || $this->has_auto_background_jobs()) {
             $this->dispatch_worker();
         }
 
@@ -304,6 +306,7 @@ class AzEvent_Background_Queue
         }
 
         $has_more = false;
+        $dispatch_delay = 15;
 
         try {
             global $wpdb;
@@ -330,11 +333,28 @@ class AzEvent_Background_Queue
             );
 
             if (!$job) {
-                return;
+                $resume_before = gmdate('Y-m-d H:i:s', current_time('timestamp') - 20);
+                $browser_jobs = $wpdb->get_results(
+                    $wpdb->prepare(
+                        "SELECT * FROM {$this->table_name} WHERE workflow_type = 'browser' AND status = 'paused' AND step IN ('section_images','image','finalize') AND updated_at <= %s ORDER BY updated_at ASC LIMIT 10",
+                        $resume_before
+                    ),
+                    ARRAY_A
+                );
+                foreach ((array) $browser_jobs as $browser_job) {
+                    $browser_context = json_decode((string) $browser_job['context'], true);
+                    if (is_array($browser_context) && !empty($browser_context['background_delivery_approved'])) {
+                        $job = $browser_job;
+                        break;
+                    }
+                }
+                if (!$job) {
+                    return;
+                }
             }
 
             $now = current_time('mysql');
-            $wpdb->update(
+            $claimed = $wpdb->update(
                 $this->table_name,
                 array(
                     'status' => 'processing',
@@ -342,10 +362,14 @@ class AzEvent_Background_Queue
                     'started_at' => $job['started_at'] ?: $now,
                     'updated_at' => $now,
                 ),
-                array('id' => $job['id']),
+                array('id' => $job['id'], 'status' => $job['status']),
                 array('%s', '%d', '%s', '%s'),
-                array('%d')
+                array('%d', '%s')
             );
+            if (!$claimed) {
+                $has_more = true;
+                return;
+            }
 
             $context = json_decode((string) $job['context'], true);
             $context = is_array($context) ? $context : array();
@@ -379,8 +403,8 @@ class AzEvent_Background_Queue
                     'language' => $job['language'],
                     'post_id' => absint($job_post_id),
                     'step' => $job['step'],
-                    'mode' => 'create',
-                    'regenerate_image' => true,
+                    'mode' => in_array(($job['content_mode'] ?? ''), array('create', 'rewrite'), true) ? $job['content_mode'] : 'create',
+                    'regenerate_image' => array_key_exists('regenerate_image', $context) ? !empty($context['regenerate_image']) : true,
                     'context' => $context,
                     'author_id' => absint($job['user_id']),
                 ));
@@ -388,7 +412,9 @@ class AzEvent_Background_Queue
 
             if (is_wp_error($result)) {
                 $attempts = absint($job['attempts']) + 1;
-                $status = $attempts >= 3 ? 'failed' : 'pending';
+                $status = $attempts >= 3
+                    ? 'failed'
+                    : (($job['workflow_type'] ?? 'background') === 'browser' ? 'paused' : 'pending');
                 $error_data = $result->get_error_data();
                 $error_context = isset($error_data['context']) && is_array($error_data['context'])
                     ? $error_data['context']
@@ -406,7 +432,10 @@ class AzEvent_Background_Queue
                     array('%s', '%s', '%s', '%d', '%s'),
                     array('%d')
                 );
-                $has_more = $status === 'pending' || $this->has_pending_jobs();
+                $has_more = in_array($status, array('pending', 'paused'), true) || $this->has_pending_jobs();
+                if ($status === 'paused') {
+                    $dispatch_delay = 20;
+                }
             } elseif ($result['status'] === 'completed') {
                 $wpdb->update(
                     $this->table_name,
@@ -424,12 +453,13 @@ class AzEvent_Background_Queue
                     array('%s', '%s', '%d', '%s', '%s', '%d', '%s', '%s'),
                     array('%d')
                 );
-                $has_more = $this->has_pending_jobs();
+                $has_more = $this->has_pending_jobs() || $this->has_auto_background_jobs();
             } else {
+                $next_status = ($job['workflow_type'] ?? 'background') === 'browser' ? 'paused' : 'pending';
                 $wpdb->update(
                     $this->table_name,
                     array(
-                        'status' => 'pending',
+                        'status' => $next_status,
                         'step' => sanitize_key($result['next_step']),
                         'post_id' => absint($result['post_id']),
                         'context' => wp_json_encode($result['context']),
@@ -442,13 +472,16 @@ class AzEvent_Background_Queue
                     array('%d')
                 );
                 $has_more = true;
+                if ($next_status === 'paused') {
+                    $dispatch_delay = 20;
+                }
             }
         } finally {
             $this->release_lock();
         }
 
         if ($has_more) {
-            $this->dispatch_worker();
+            $this->dispatch_worker($dispatch_delay);
         }
     }
 
@@ -489,15 +522,24 @@ class AzEvent_Background_Queue
             'error' => !empty($checkpoint['error']) ? sanitize_textarea_field($checkpoint['error']) : null,
             'updated_at' => current_time('mysql'),
         );
+        $should_continue_background = $status === 'paused'
+            && !empty($checkpoint['context']['background_delivery_approved'])
+            && in_array($step, array('section_images', 'image', 'finalize'), true);
 
         if ($existing_id > 0) {
             $wpdb->update($table_name, $data, array('id' => $existing_id));
+            if ($should_continue_background) {
+                self::dispatch_async(20);
+            }
             return $existing_id;
         }
 
         $data['created_at'] = current_time('mysql');
         $data['started_at'] = $status === 'processing' ? current_time('mysql') : null;
         $inserted = $wpdb->insert($table_name, $data);
+        if ($inserted !== false && $should_continue_background) {
+            self::dispatch_async(20);
+        }
         return $inserted === false ? 0 : absint($wpdb->insert_id);
     }
 
@@ -603,6 +645,26 @@ class AzEvent_Background_Queue
         return (bool) $wpdb->get_var("SELECT id FROM {$this->table_name} WHERE workflow_type = 'background' AND status = 'pending' LIMIT 1");
     }
 
+    private function has_auto_background_jobs($minimum_age = 20)
+    {
+        global $wpdb;
+        $resume_before = gmdate('Y-m-d H:i:s', current_time('timestamp') - max(0, absint($minimum_age)));
+        $jobs = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT context FROM {$this->table_name} WHERE workflow_type = 'browser' AND status = 'paused' AND step IN ('section_images','image','finalize') AND updated_at <= %s ORDER BY updated_at ASC LIMIT 20",
+                $resume_before
+            ),
+            ARRAY_A
+        );
+        foreach ((array) $jobs as $job) {
+            $context = json_decode((string) ($job['context'] ?? ''), true);
+            if (is_array($context) && !empty($context['background_delivery_approved'])) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private function acquire_lock()
     {
         $now = time();
@@ -624,9 +686,16 @@ class AzEvent_Background_Queue
         delete_option(self::LOCK_OPTION);
     }
 
-    private function dispatch_worker()
+    private function dispatch_worker($delay = 15)
     {
-        $this->schedule_cron_fallback(15);
+        self::dispatch_async($delay);
+    }
+
+    private static function dispatch_async($delay = 15)
+    {
+        if (!wp_next_scheduled(self::CRON_HOOK)) {
+            wp_schedule_single_event(time() + max(1, absint($delay)), self::CRON_HOOK);
+        }
         wp_remote_post(admin_url('admin-ajax.php'), array(
             'timeout' => 0.5,
             'blocking' => false,

@@ -828,6 +828,20 @@ jQuery(function($) {
                 $('<div class="azevent-section-image-error">').text(item.error || 'Ảnh này đã được bỏ qua.').appendTo($card);
             }
             $('<strong>').text(item.title || 'H2').appendTo($card);
+            $('<span class="azevent-section-image-status">')
+                .addClass('is-' + (item.status || 'pending'))
+                .text(item.status === 'created' ? 'Đã tạo' : (item.status === 'skipped' ? 'Đã bỏ qua' : 'Đang chờ'))
+                .appendTo($card);
+            $('<p class="azevent-section-image-prompt">')
+                .text('Prompt: ' + (item.prompt_excerpt || item.prompt || 'Chưa có'))
+                .appendTo($card);
+            $('<small class="azevent-section-image-meta">')
+                .text([
+                    item.attachment_id || attachment.id ? 'Attachment #' + (item.attachment_id || attachment.id) : '',
+                    item.position && item.position.label ? item.position.label : 'Sau đoạn mở đầu của H2',
+                    item.attempts ? item.attempts + ' lần gọi' : ''
+                ].filter(Boolean).join(' · '))
+                .appendTo($card);
             $('<button type="button" class="button azevent-regenerate-section-image">')
                 .attr({ 'data-post-id': postId, 'data-section-key': item.key || '' })
                 .text(item.status === 'created' ? 'Tạo lại ảnh' : 'Thử tạo ảnh')
@@ -901,6 +915,10 @@ jQuery(function($) {
         const splitSections = Array.isArray(splitState.sections) ? splitState.sections : [];
         const splitIndex = parseInt(splitState.current_index || 0, 10);
         const splitTitle = splitSections[splitIndex] && splitSections[splitIndex].title ? ': ' + splitSections[splitIndex].title : '';
+        const imageState = context && context.section_images ? context.section_images : {};
+        const imageItems = Array.isArray(imageState.items) ? imageState.items : [];
+        const imageIndex = parseInt(imageState.current_index || 0, 10);
+        const imageTitle = imageItems[imageIndex] && imageItems[imageIndex].title ? ': ' + imageItems[imageIndex].title : '';
         const stepMessages = {
             start: 'Đang phân tích Search Intent...',
             search_intent: 'Đang phân tích Search Intent...',
@@ -909,7 +927,9 @@ jQuery(function($) {
                 ? 'Đang viết H2 ' + (splitIndex + 1) + '/' + splitSections.length + splitTitle + '...'
                 : 'Đang viết nội dung hoàn chỉnh...',
             seo: 'Đang tối ưu SEO Metadata...',
-            section_images: 'Đang tạo ảnh minh họa theo H2...',
+            section_images: imageItems.length
+                ? 'Đang tạo ảnh H2 ' + (imageIndex + 1) + '/' + imageItems.length + imageTitle + '...'
+                : 'Đang lập kế hoạch ảnh minh họa theo H2...',
             image: 'Đang tạo ảnh đại diện và lưu Draft...',
             finalize: 'Đang lưu nội dung vào Draft...'
         };
@@ -1024,13 +1044,13 @@ jQuery(function($) {
 
             const $status = $('<span class="azevent-status-pill">')
                 .addClass('is-' + job.status)
-                .text(statusLabels[job.status] || job.status);
+                .text(job.auto_background && job.status === 'paused' ? 'Đang chạy nền' : (statusLabels[job.status] || job.status));
             const $actionCell = $('<td>');
 
             if (job.workflow_type === 'browser' && job.resume_url && job.status !== 'completed') {
                 $('<a class="button button-primary azevent-job-action">')
                     .attr('href', job.resume_url)
-                    .text(job.status === 'processing' ? 'Mở tiến trình' : 'Tiếp tục')
+                    .text(job.status === 'processing' || job.auto_background ? 'Mở tiến trình' : 'Tiếp tục')
                     .appendTo($actionCell);
             } else if (job.status === 'completed' && job.post_url) {
                 $('<a class="button azevent-job-action">')

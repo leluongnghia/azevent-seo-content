@@ -638,6 +638,22 @@
             const title = document.createElement('strong');
             title.textContent = item.title || 'H2';
             card.appendChild(title);
+            const status = document.createElement('span');
+            status.className = 'azevent-section-image-status is-' + (item.status || 'pending');
+            status.textContent = item.status === 'created' ? 'Đã tạo' : (item.status === 'skipped' ? 'Đã bỏ qua' : 'Đang chờ');
+            card.appendChild(status);
+            const prompt = document.createElement('p');
+            prompt.className = 'azevent-section-image-prompt';
+            prompt.textContent = 'Prompt: ' + (item.prompt_excerpt || item.prompt || 'Chưa có');
+            card.appendChild(prompt);
+            const meta = document.createElement('small');
+            meta.className = 'azevent-section-image-meta';
+            meta.textContent = [
+                item.attachment_id || attachment.id ? 'Attachment #' + (item.attachment_id || attachment.id) : '',
+                item.position && item.position.label ? item.position.label : 'Sau đoạn mở đầu của H2',
+                item.attempts ? item.attempts + ' lần gọi' : ''
+            ].filter(Boolean).join(' · ');
+            card.appendChild(meta);
             const button = document.createElement('button');
             button.type = 'button';
             button.className = 'button azlab-regenerate-section-image';
@@ -816,7 +832,7 @@
         processStep('finalize', false);
     });
     elements.regenerateImage.addEventListener('click', function () {
-        if (!window.confirm('Tạo một ảnh đại diện mới bằng Image Prompt hiện tại và thay ảnh đang gắn cho Draft? Ảnh cũ vẫn được giữ trong Media Library.')) {
+        if (!window.confirm('Tạo ảnh đại diện mới và thay ảnh đang gắn cho Draft? Nếu ảnh cũ do plugin tạo, attachment cũ sẽ được xóa sau khi thay thành công.')) {
             return;
         }
         processStep('finalize', false);

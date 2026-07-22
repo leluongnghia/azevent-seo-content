@@ -426,6 +426,8 @@ class AzEvent_Content_Pipeline
                 );
 
             case 'section_images':
+                $context['background_delivery_approved'] = true;
+                $context['regenerate_image'] = $regenerate_image;
                 if (empty($context['content']) || empty($context['seo'])) {
                     return $this->attach_error_context(
                         new WP_Error('azevent_missing_section_image_context', 'Thiếu Content hoặc SEO để tạo ảnh H2.'),
@@ -480,13 +482,23 @@ class AzEvent_Content_Pipeline
                 $item = $processed['item'] ?? array();
                 $status_message = ($item['status'] ?? '') === 'created'
                     ? sprintf(
-                        'Đã tạo và chèn ảnh cho H2: %1$s · %4$s · %2$s giây · %3$d lần gọi.',
+                        'Đã tạo và chèn ảnh cho H2: %1$s · %4$s · %2$s giây · %3$d lần gọi · attachment #%5$d · %6$s · prompt: %7$s',
                         sanitize_text_field($item['title'] ?? ''),
                         round((float) ($item['duration_seconds'] ?? 0), 1),
                         absint($item['attempts'] ?? 1),
-                        sanitize_text_field($item['model'] ?? $item['provider'] ?? 'AI Image')
+                        sanitize_text_field($item['model'] ?? $item['provider'] ?? 'AI Image'),
+                        absint($item['attachment_id'] ?? ($item['attachment']['id'] ?? 0)),
+                        sanitize_text_field($item['position']['label'] ?? 'Sau đoạn mở đầu của H2'),
+                        sanitize_text_field($item['prompt_excerpt'] ?? '')
                     )
-                    : 'Đã bỏ qua ảnh H2 ' . sanitize_text_field($item['title'] ?? '') . ': ' . sanitize_text_field($item['error'] ?? 'Không xác định.') . '.';
+                    : sprintf(
+                        'Đã bỏ qua ảnh H2 %1$s sau %2$d lần gọi · %3$s · prompt: %4$s · lỗi: %5$s.',
+                        sanitize_text_field($item['title'] ?? ''),
+                        absint($item['attempts'] ?? 1),
+                        sanitize_text_field($item['position']['label'] ?? 'Sau đoạn mở đầu của H2'),
+                        sanitize_text_field($item['prompt_excerpt'] ?? ''),
+                        sanitize_text_field($item['error'] ?? 'Không xác định')
+                    );
                 if (empty($processed['done'])) {
                     $next_index = absint($context['section_images']['current_index'] ?? 0);
                     $total_images = count($context['section_images']['items'] ?? array());

@@ -105,7 +105,7 @@ if (!current_user_can('edit_posts')) {
             var empty = document.getElementById('azq-empty');
             var notice = document.getElementById('azq-notice');
             var statusLabels = { pending: 'Đang chờ', processing: 'Đang chạy', paused: 'Chờ tiếp tục', completed: 'Hoàn tất', failed: 'Lỗi' };
-            var stepLabels = { start: 'Search Intent', search_intent: 'Search Intent', outline: 'Outline', content: 'Content', seo: 'SEO Metadata', image: 'Tạo ảnh', finalize: 'Lưu Draft', completed: 'Đã hoàn tất' };
+            var stepLabels = { start: 'Search Intent', search_intent: 'Search Intent', outline: 'Outline', content: 'Content', seo: 'SEO Metadata', section_images: 'Ảnh H2', image: 'Tạo ảnh', finalize: 'Lưu Draft', completed: 'Đã hoàn tất' };
 
             function request(action, data) {
                 var body = new URLSearchParams(Object.assign({ action: action, nonce: nonce }, data || {}));
@@ -124,14 +124,14 @@ if (!current_user_can('edit_posts')) {
                     var keyword = document.createElement('span'); keyword.className = 'azq-keyword'; keyword.textContent = job.keyword; content.appendChild(keyword);
                     var type = document.createElement('span'); type.className = 'azq-type'; type.textContent = job.workflow_type === 'browser' ? 'Content Studio' : 'Tự động'; content.appendChild(type);
                     if (job.error) { var error = document.createElement('span'); error.className = 'azq-error'; error.textContent = job.error; content.appendChild(error); }
-                    var statusCell = document.createElement('td'); var status = document.createElement('span'); status.className = 'azq-status is-' + job.status; status.textContent = statusLabels[job.status] || job.status; statusCell.appendChild(status);
+                    var statusCell = document.createElement('td'); var status = document.createElement('span'); status.className = 'azq-status is-' + job.status; status.textContent = job.auto_background && job.status === 'paused' ? 'Đang chạy nền' : (statusLabels[job.status] || job.status); statusCell.appendChild(status);
                     var actions = document.createElement('td'); actions.className = 'azq-actions';
-                    if (job.workflow_type === 'browser' && job.resume_url && job.status !== 'completed') addButton(actions, job.status === 'processing' ? 'Mở tiến trình' : 'Tiếp tục', job.resume_url, 'button-primary');
+                    if (job.workflow_type === 'browser' && job.resume_url && job.status !== 'completed') addButton(actions, job.status === 'processing' || job.auto_background ? 'Mở tiến trình' : 'Tiếp tục', job.resume_url, 'button-primary');
                     else if (job.status === 'completed' && job.post_url) addButton(actions, 'Mở Draft', job.post_url, '');
                     else if (job.status === 'failed') addButton(actions, 'Thử lại', '', 'azq-retry', job.id);
                     if (job.status !== 'processing') addButton(actions, 'Xóa', '', 'azq-delete', job.id);
                     row.appendChild(content); row.appendChild(statusCell);
-                    var step = document.createElement('td'); step.textContent = stepLabels[job.step] || job.step; row.appendChild(step);
+                    var step = document.createElement('td'); step.textContent = job.section_progress || stepLabels[job.step] || job.step; row.appendChild(step);
                     var updated = document.createElement('td'); updated.textContent = job.updated_at || job.created_at || ''; row.appendChild(updated); row.appendChild(actions); rows.appendChild(row);
                 });
             }

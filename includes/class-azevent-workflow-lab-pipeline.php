@@ -643,13 +643,23 @@ class AzEvent_Workflow_Lab_Pipeline
                 $item = $processed['item'] ?? array();
                 $message = ($item['status'] ?? '') === 'created'
                     ? sprintf(
-                        'Đã tạo và chèn ảnh H2: %1$s · %4$s · %2$s giây · %3$d lần gọi.',
+                        'Đã tạo và chèn ảnh H2: %1$s · %4$s · %2$s giây · %3$d lần gọi · attachment #%5$d · %6$s · prompt: %7$s',
                         sanitize_text_field($item['title'] ?? ''),
                         round((float) ($item['duration_seconds'] ?? 0), 1),
                         absint($item['attempts'] ?? 1),
-                        sanitize_text_field($item['model'] ?? $item['provider'] ?? 'AI Image')
+                        sanitize_text_field($item['model'] ?? $item['provider'] ?? 'AI Image'),
+                        absint($item['attachment_id'] ?? ($item['attachment']['id'] ?? 0)),
+                        sanitize_text_field($item['position']['label'] ?? 'Sau đoạn mở đầu của H2'),
+                        sanitize_text_field($item['prompt_excerpt'] ?? '')
                     )
-                    : 'Đã bỏ qua ảnh H2 ' . sanitize_text_field($item['title'] ?? '') . ': ' . sanitize_text_field($item['error'] ?? '') . '.';
+                    : sprintf(
+                        'Đã bỏ qua ảnh H2 %1$s sau %2$d lần gọi · %3$s · prompt: %4$s · lỗi: %5$s.',
+                        sanitize_text_field($item['title'] ?? ''),
+                        absint($item['attempts'] ?? 1),
+                        sanitize_text_field($item['position']['label'] ?? 'Sau đoạn mở đầu của H2'),
+                        sanitize_text_field($item['prompt_excerpt'] ?? ''),
+                        sanitize_text_field($item['error'] ?? 'Không xác định')
+                    );
                 $this->append_log($post_id, $context, ($item['status'] ?? '') === 'created' ? 'success' : 'warning', 'finalize', $message);
                 $context['next_step'] = 'finalize';
                 return array(
