@@ -27,6 +27,7 @@ foreach (array('research', 'brief', 'content', 'seo', 'quality') as $lab_step) {
 }
 $azevent_lab_split_content = absint(get_option('azevent_lab_split_content_by_outline', 0));
 $azevent_lab_validate_outline = absint(get_option('azevent_lab_validate_outline', 0));
+$azevent_lab_outline_validation_model = get_option('azevent_lab_outline_validation_model', '');
 $azevent_studio_split_content = absint(get_option('azevent_seo_split_content_by_outline', 0));
 $azevent_generate_h2_images = absint(get_option('azevent_seo_generate_h2_images', 0));
 $azevent_h2_image_limit = min(10, max(1, absint(get_option('azevent_seo_h2_image_limit', 6))));
@@ -90,7 +91,7 @@ foreach ($azevent_step_models as $step_model) {
         $azevent_text_models[$step_model] = $step_model . ' (Current)';
     }
 }
-foreach ($azevent_lab_step_models as $step_model) {
+foreach (array_merge(array_values($azevent_lab_step_models), array($azevent_lab_outline_validation_model)) as $step_model) {
     if (AzEvent_CKey_Client::is_model_reference($step_model)) {
         $ckey_model = AzEvent_CKey_Client::strip_model_prefix($step_model);
         if ($ckey_model !== '' && !isset($azevent_ckey_models[$ckey_model])) {
@@ -192,6 +193,29 @@ $lab_prompt_sections = array(
         'description' => __('Chấm điểm intent, trust, originality, spam risk và link thật.', 'azevent-seo-content'),
         'fallback_step' => 'content',
     ),
+);
+$azevent_model_display_label = function ($model) use ($azevent_text_models, $azevent_base_url) {
+    $model = sanitize_text_field($model);
+    if (AzEvent_CKey_Client::is_model_reference($model)) {
+        return 'CKEY.VN — ' . AzEvent_CKey_Client::strip_model_prefix($model);
+    }
+    return AzEvent_API_Client::get_provider_label($azevent_base_url) . ' — ' . ($azevent_text_models[$model] ?? $model);
+};
+$azevent_lab_fallback_labels = array();
+$azevent_lab_effective_labels = array();
+foreach ($lab_prompt_sections as $lab_step => $lab_section) {
+    $fallback_model = $azevent_step_models[$lab_section['fallback_step']] ?? '';
+    $fallback_label = $fallback_model === '' ? $azevent_default_text_label : $azevent_model_display_label($fallback_model);
+    $azevent_lab_fallback_labels[$lab_step] = $fallback_label;
+    $lab_model = $azevent_lab_step_models[$lab_step] ?? '';
+    $azevent_lab_effective_labels[$lab_step] = $lab_model === '' ? $fallback_label : $azevent_model_display_label($lab_model);
+}
+$azevent_lab_step_hints = array(
+    'research' => __('Phân tích intent và SERP', 'azevent-seo-content'),
+    'brief' => __('Lập Brief và Outline', 'azevent-seo-content'),
+    'content' => __('Viết nội dung HTML', 'azevent-seo-content'),
+    'seo' => __('Tạo metadata và schema', 'azevent-seo-content'),
+    'quality' => __('Kiểm tra và chèn liên kết', 'azevent-seo-content'),
 );
 $lab_prompt_tokens = array(
     '{language}' => __('Ngôn ngữ mặc định của plugin.', 'azevent-seo-content'),
@@ -385,6 +409,21 @@ $lab_prompt_tokens = array(
         .azevent-step-model label { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
         .azevent-step-model small { color: #818cf8; font-size: 10px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
         .azevent-step-model select { margin-top: 8px; }
+        .azevent-lab-model-routing { margin-bottom: 18px; padding: 18px; border: 1px solid #c7d2fe; border-radius: 14px; background: linear-gradient(145deg, #f8fafc, #eef2ff); }
+        .azevent-lab-model-toolbar { display: grid; grid-template-columns: minmax(260px, 1fr) auto auto; gap: 9px; align-items: end; margin: 14px 0; padding: 12px; border: 1px solid #dbe4f3; border-radius: 11px; background: rgba(255,255,255,.78); }
+        .azevent-lab-model-toolbar .azevent-field { margin: 0; }
+        .azevent-lab-model-toolbar .button { min-height: 39px; padding: 0 14px; border-radius: 8px; font-weight: 700; }
+        .azevent-lab-model-status { grid-column: 1/-1; min-height: 16px; color: #047857; font-size: 11px; }
+        .azevent-lab-model-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+        .azevent-lab-model-card { min-width: 0; padding: 13px; border: 1px solid #dbe4f3; border-radius: 11px; background: #fff; }
+        .azevent-lab-model-card-head { display: flex; align-items: flex-start; gap: 9px; margin-bottom: 9px; }
+        .azevent-lab-model-number { display: inline-grid; place-items: center; width: 25px; height: 25px; flex: 0 0 auto; border-radius: 8px; background: #4f46e5; color: #fff; font-size: 10px; font-weight: 800; }
+        .azevent-lab-model-card strong, .azevent-lab-model-card span { display: block; }
+        .azevent-lab-model-card strong { color: #172554; font-size: 12px; line-height: 1.35; }
+        .azevent-lab-model-card-head span:last-child { margin-top: 2px; color: #64748b; font-size: 10px; line-height: 1.35; }
+        .azevent-lab-model-card select { width: 100%; }
+        .azevent-lab-model-state { overflow: hidden; margin-top: 7px; color: #64748b; font-size: 10px; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
+        .azevent-outline-validator-model { max-width: 720px; margin-top: 13px; padding-top: 13px; border-top: 1px solid #dbeafe; }
         .azevent-model-tools input { flex: 1; min-width: 0; }
         .azevent-model-add { flex: 0 0 auto; padding: 0 12px; border: 1px solid #c7d2fe; border-radius: 8px; background: #eef2ff; color: #4338ca; cursor: pointer; font-size: 12px; font-weight: 700; }
         .azevent-model-add:hover { background: #e0e7ff; }
@@ -435,8 +474,6 @@ $lab_prompt_tokens = array(
         .azevent-prompt-description { display: block; color: #64748b; font-size: 11px; font-weight: 400; }
         .azevent-prompt-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding: 17px 15px; }
         .azevent-prompt-body .azevent-field { margin: 0; }
-        .azevent-lab-prompt-model { padding: 15px 15px 0; border-top: 1px solid #eef2f7; }
-        .azevent-lab-prompt-model .azevent-field { margin: 0; }
         .azevent-lab-reset-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 16px; }
         .azevent-lab-reset-status { color: #64748b; font-size: 11px; }
         .azevent-lab-reset-status.is-ready { color: #047857; }
@@ -448,13 +485,16 @@ $lab_prompt_tokens = array(
         @media (max-width: 800px) {
             .azevent-settings-page { margin-right: 12px; }
             .azevent-tabs { margin-bottom: 14px; }
-            .azevent-grid, .azevent-prompt-body, .azevent-step-model-grid { grid-template-columns: 1fr; }
+            .azevent-grid, .azevent-prompt-body, .azevent-step-model-grid, .azevent-lab-model-grid, .azevent-lab-model-toolbar { grid-template-columns: 1fr; }
             .azevent-tabs { top: 10px; }
             .azevent-tab { justify-content: flex-start; }
             .azevent-version { position: static; display: inline-block; margin-top: 18px; }
             .azevent-flow { overflow-x: auto; }
             .azevent-card-header { flex-direction: column; }
             .azevent-legacy-actions { align-items: flex-start; flex-direction: column; }
+        }
+        @media (min-width: 801px) and (max-width: 1200px) {
+            .azevent-lab-model-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
     </style>
 
@@ -831,6 +871,63 @@ $lab_prompt_tokens = array(
                                 </div>
                             </div>
                         </div>
+                        <div class="azevent-lab-model-routing" id="azevent-lab-model-routing">
+                            <div class="azevent-model-routing-header">
+                                <div>
+                                    <h3><?php _e('Chọn nhanh model cho Workflow Lab', 'azevent-seo-content'); ?></h3>
+                                    <p><?php _e('Toàn bộ 5 bước được đặt cạnh nhau. Bạn có thể đổi riêng từng bước hoặc áp dụng một model cho tất cả.', 'azevent-seo-content'); ?></p>
+                                </div>
+                                <span class="azevent-model-routing-badge"><?php _e('5 bước', 'azevent-seo-content'); ?></span>
+                            </div>
+                            <div class="azevent-lab-model-toolbar">
+                                <div class="azevent-field">
+                                    <label for="azevent-lab-bulk-model"><?php _e('Áp dụng nhanh một model', 'azevent-seo-content'); ?></label>
+                                    <select id="azevent-lab-bulk-model" class="azevent-lab-model-select">
+                                        <option value=""><?php _e('Chọn model để áp dụng…', 'azevent-seo-content'); ?></option>
+                                        <optgroup label="<?php echo esc_attr(AzEvent_API_Client::get_provider_label($azevent_base_url)); ?>">
+                                            <?php foreach ($azevent_text_models as $model_id => $model_label) : ?>
+                                                <option value="<?php echo esc_attr($model_id); ?>"><?php echo esc_html($model_label); ?></option>
+                                            <?php endforeach; ?>
+                                        </optgroup>
+                                        <optgroup label="CKEY.VN">
+                                            <?php foreach ($azevent_ckey_models as $model_id => $model_label) : ?>
+                                                <option value="<?php echo esc_attr(AzEvent_CKey_Client::model_reference($model_id)); ?>"><?php echo esc_html($model_label); ?></option>
+                                            <?php endforeach; ?>
+                                        </optgroup>
+                                    </select>
+                                </div>
+                                <button type="button" class="button button-primary" id="azevent-apply-lab-model"><?php _e('Áp dụng cho 5 bước', 'azevent-seo-content'); ?></button>
+                                <button type="button" class="button" id="azevent-reset-lab-models"><?php _e('Đặt về kế thừa', 'azevent-seo-content'); ?></button>
+                                <span class="azevent-lab-model-status" id="azevent-lab-model-status" aria-live="polite"></span>
+                            </div>
+                            <div class="azevent-lab-model-grid">
+                                <?php $lab_step_number = 0; ?>
+                                <?php foreach ($lab_prompt_sections as $key => $section) : ?>
+                                    <?php $lab_step_number++; ?>
+                                    <div class="azevent-lab-model-card">
+                                        <div class="azevent-lab-model-card-head">
+                                            <span class="azevent-lab-model-number"><?php echo esc_html($lab_step_number); ?></span>
+                                            <span><strong><?php echo esc_html($section['label']); ?></strong><span><?php echo esc_html($azevent_lab_step_hints[$key] ?? ''); ?></span></span>
+                                        </div>
+                                        <select class="azevent-lab-step-model-select azevent-lab-model-select" id="azevent_lab_<?php echo esc_attr($key); ?>_model" name="azevent_lab_<?php echo esc_attr($key); ?>_model" data-inherit-label="<?php echo esc_attr($azevent_lab_fallback_labels[$key]); ?>">
+                                            <option value="" <?php selected($azevent_lab_step_models[$key], ''); ?>><?php _e('Kế thừa cấu hình hiện tại', 'azevent-seo-content'); ?></option>
+                                            <optgroup label="<?php echo esc_attr(AzEvent_API_Client::get_provider_label($azevent_base_url)); ?>">
+                                                <?php foreach ($azevent_text_models as $model_id => $model_label) : ?>
+                                                    <option value="<?php echo esc_attr($model_id); ?>" <?php selected($azevent_lab_step_models[$key], $model_id); ?>><?php echo esc_html($model_label); ?></option>
+                                                <?php endforeach; ?>
+                                            </optgroup>
+                                            <optgroup label="CKEY.VN">
+                                                <?php foreach ($azevent_ckey_models as $model_id => $model_label) : ?>
+                                                    <?php $model_reference = AzEvent_CKey_Client::model_reference($model_id); ?>
+                                                    <option value="<?php echo esc_attr($model_reference); ?>" <?php selected($azevent_lab_step_models[$key], $model_reference); ?>><?php echo esc_html($model_label); ?></option>
+                                                <?php endforeach; ?>
+                                            </optgroup>
+                                        </select>
+                                        <span class="azevent-lab-model-state"></span>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
                         <div class="azevent-serp-box">
                             <h3><?php _e('Tự động nghiên cứu đối thủ bằng SERP thật', 'azevent-seo-content'); ?></h3>
                             <p><?php _e('Khi ô “Dữ liệu đối thủ / SERP thực tế” trong Workflow Lab để trống, plugin dùng SerpApi để lấy kết quả Google, loại domain của website hiện tại và đọc có giới hạn title, meta, H1–H3 của các trang đầu. Snapshot được cache 6 giờ và lưu trong checkpoint.', 'azevent-seo-content'); ?></p>
@@ -882,7 +979,25 @@ $lab_prompt_tokens = array(
                                     <span><?php _e('Sau khi tạo Content Brief & Outline, AI rà soát intent, loại heading biên tập nội bộ, gộp mục trùng và trả lại Outline hoàn chỉnh trước khi viết Content.', 'azevent-seo-content'); ?></span>
                                 </span>
                             </label>
-                            <p class="azevent-help"><?php _e('Mặc định tắt. Lượt kiểm định dùng cùng model đã chọn cho bước Brief & Outline, làm bước này lâu hơn và phát sinh thêm một lượt API. Nếu lượt hai lỗi hoặc không đủ H2 hợp lệ, plugin giữ kết quả lượt đầu.', 'azevent-seo-content'); ?></p>
+                            <div class="azevent-field azevent-outline-validator-model">
+                                <label for="azevent_lab_outline_validation_model"><?php _e('Model kiểm định Outline', 'azevent-seo-content'); ?></label>
+                                <select id="azevent_lab_outline_validation_model" class="azevent-lab-model-select" name="azevent_lab_outline_validation_model" data-inherit-label="<?php echo esc_attr($azevent_lab_effective_labels['brief']); ?>">
+                                    <option value="" <?php selected($azevent_lab_outline_validation_model, ''); ?>><?php printf(esc_html__('Dùng cùng model Brief & Outline — %s', 'azevent-seo-content'), esc_html($azevent_lab_effective_labels['brief'])); ?></option>
+                                    <optgroup label="<?php echo esc_attr(AzEvent_API_Client::get_provider_label($azevent_base_url)); ?>">
+                                        <?php foreach ($azevent_text_models as $model_id => $model_label) : ?>
+                                            <option value="<?php echo esc_attr($model_id); ?>" <?php selected($azevent_lab_outline_validation_model, $model_id); ?>><?php echo esc_html($model_label); ?></option>
+                                        <?php endforeach; ?>
+                                    </optgroup>
+                                    <optgroup label="CKEY.VN">
+                                        <?php foreach ($azevent_ckey_models as $model_id => $model_label) : ?>
+                                            <?php $model_reference = AzEvent_CKey_Client::model_reference($model_id); ?>
+                                            <option value="<?php echo esc_attr($model_reference); ?>" <?php selected($azevent_lab_outline_validation_model, $model_reference); ?>><?php echo esc_html($model_label); ?></option>
+                                        <?php endforeach; ?>
+                                    </optgroup>
+                                </select>
+                                <p class="azevent-help"><?php _e('Để trống để dùng cùng model của bước Brief. Chọn riêng nếu muốn lượt kiểm định dùng model mạnh hơn.', 'azevent-seo-content'); ?></p>
+                            </div>
+                            <p class="azevent-help"><?php _e('Mặc định tắt. Lượt kiểm định làm bước Brief lâu hơn và phát sinh thêm một lượt API. Nếu lượt hai lỗi hoặc không đủ H2 hợp lệ, plugin giữ kết quả lượt đầu.', 'azevent-seo-content'); ?></p>
                         </div>
                         <div class="azevent-serp-box">
                             <h3><?php _e('Cách viết nội dung từ Outline', 'azevent-seo-content'); ?></h3>
@@ -914,38 +1029,10 @@ $lab_prompt_tokens = array(
                             <p class="azevent-token-description"><?php _e('Plugin tự thay các biến khi chạy. Dữ liệu bước trước chỉ có giá trị sau khi bước đó đã hoàn tất hoặc được bạn chỉnh sửa và tiếp tục.', 'azevent-seo-content'); ?></p>
                         </div>
                         <?php foreach ($lab_prompt_sections as $key => $section) : ?>
-                            <?php
-                            $lab_model = $azevent_lab_step_models[$key] ?? '';
-                            $fallback_model = $azevent_step_models[$section['fallback_step']] ?? '';
-                            $fallback_label = $fallback_model === ''
-                                ? $azevent_default_text_label
-                                : (AzEvent_CKey_Client::is_model_reference($fallback_model)
-                                    ? 'CKEY.VN — ' . AzEvent_CKey_Client::strip_model_prefix($fallback_model)
-                                    : AzEvent_API_Client::get_provider_label($azevent_base_url) . ' — ' . $fallback_model);
-                            ?>
                             <details class="azevent-prompt" <?php echo $key === 'content' ? 'open' : ''; ?>>
                                 <summary>
                                     <span><span class="azevent-prompt-title"><?php echo esc_html($section['label']); ?></span><span class="azevent-prompt-description"><?php echo esc_html($section['description']); ?></span></span>
                                 </summary>
-                                <div class="azevent-lab-prompt-model">
-                                    <div class="azevent-field">
-                                        <label for="azevent_lab_<?php echo esc_attr($key); ?>_model"><?php _e('Model riêng cho bước này', 'azevent-seo-content'); ?></label>
-                                        <select id="azevent_lab_<?php echo esc_attr($key); ?>_model" name="azevent_lab_<?php echo esc_attr($key); ?>_model">
-                                            <option value="" <?php selected($lab_model, ''); ?>><?php printf(esc_html__('Kế thừa cấu hình hiện tại — %s', 'azevent-seo-content'), esc_html($fallback_label)); ?></option>
-                                            <optgroup label="<?php echo esc_attr(AzEvent_API_Client::get_provider_label($azevent_base_url)); ?>">
-                                                <?php foreach ($azevent_text_models as $model_id => $model_label) : ?>
-                                                    <option value="<?php echo esc_attr($model_id); ?>" <?php selected($lab_model, $model_id); ?>><?php echo esc_html($model_label); ?></option>
-                                                <?php endforeach; ?>
-                                            </optgroup>
-                                            <optgroup label="CKEY.VN">
-                                                <?php foreach ($azevent_ckey_models as $model_id => $model_label) : ?>
-                                                    <?php $model_reference = AzEvent_CKey_Client::model_reference($model_id); ?>
-                                                    <option value="<?php echo esc_attr($model_reference); ?>" <?php selected($lab_model, $model_reference); ?>><?php echo esc_html($model_label); ?></option>
-                                                <?php endforeach; ?>
-                                            </optgroup>
-                                        </select>
-                                    </div>
-                                </div>
                                 <div class="azevent-prompt-body">
                                     <div class="azevent-field">
                                         <label for="azevent_lab_<?php echo esc_attr($key); ?>_system">System Prompt</label>
@@ -1063,7 +1150,72 @@ $lab_prompt_tokens = array(
                 }
             }
 
-            var stepModelSelects = Array.prototype.slice.call(document.querySelectorAll('.azevent-step-model-select'));
+            var stepModelSelects = Array.prototype.slice.call(document.querySelectorAll('.azevent-step-model-select, .azevent-lab-model-select'));
+            var labStepModelSelects = Array.prototype.slice.call(document.querySelectorAll('.azevent-lab-step-model-select'));
+            var labBulkModel = document.getElementById('azevent-lab-bulk-model');
+            var applyLabModelButton = document.getElementById('azevent-apply-lab-model');
+            var resetLabModelsButton = document.getElementById('azevent-reset-lab-models');
+            var labModelStatus = document.getElementById('azevent-lab-model-status');
+            var outlineValidationModel = document.getElementById('azevent_lab_outline_validation_model');
+
+            function selectedModelLabel(select) {
+                if (!select || !select.value) {
+                    return select ? (select.dataset.inheritLabel || '<?php echo esc_js(__('cấu hình mặc định', 'azevent-seo-content')); ?>') : '';
+                }
+                var option = select.options[select.selectedIndex];
+                var group = option && option.parentElement && option.parentElement.tagName === 'OPTGROUP'
+                    ? option.parentElement.label + ' — '
+                    : '';
+                return group + (option ? option.textContent : select.value);
+            }
+
+            function updateLabModelStates() {
+                labStepModelSelects.forEach(function (select) {
+                    var state = select.parentElement.querySelector('.azevent-lab-model-state');
+                    if (state) {
+                        state.textContent = select.value
+                            ? '<?php echo esc_js(__('Dùng riêng: ', 'azevent-seo-content')); ?>' + selectedModelLabel(select)
+                            : '<?php echo esc_js(__('Kế thừa: ', 'azevent-seo-content')); ?>' + selectedModelLabel(select);
+                        state.title = state.textContent;
+                    }
+                });
+                var briefSelect = document.getElementById('azevent_lab_brief_model');
+                if (briefSelect && outlineValidationModel && outlineValidationModel.options.length) {
+                    var briefLabel = selectedModelLabel(briefSelect);
+                    outlineValidationModel.dataset.inheritLabel = briefLabel;
+                    outlineValidationModel.options[0].textContent = '<?php echo esc_js(__('Dùng cùng model Brief & Outline — ', 'azevent-seo-content')); ?>' + briefLabel;
+                }
+            }
+
+            labStepModelSelects.forEach(function (select) {
+                select.addEventListener('change', updateLabModelStates);
+            });
+            if (applyLabModelButton) {
+                applyLabModelButton.addEventListener('click', function () {
+                    if (!labBulkModel || !labBulkModel.value) {
+                        labModelStatus.style.color = '#b91c1c';
+                        labModelStatus.textContent = '<?php echo esc_js(__('Hãy chọn một model trước khi áp dụng.', 'azevent-seo-content')); ?>';
+                        return;
+                    }
+                    labStepModelSelects.forEach(function (select) {
+                        select.value = labBulkModel.value;
+                    });
+                    updateLabModelStates();
+                    labModelStatus.style.color = '#047857';
+                    labModelStatus.textContent = '<?php echo esc_js(__('Đã áp dụng model cho 5 bước. Nhấn Lưu cấu hình để hoàn tất.', 'azevent-seo-content')); ?>';
+                });
+            }
+            if (resetLabModelsButton) {
+                resetLabModelsButton.addEventListener('click', function () {
+                    labStepModelSelects.forEach(function (select) {
+                        select.value = '';
+                    });
+                    updateLabModelStates();
+                    labModelStatus.style.color = '#047857';
+                    labModelStatus.textContent = '<?php echo esc_js(__('Đã đặt 5 bước về chế độ kế thừa. Nhấn Lưu cấu hình để hoàn tất.', 'azevent-seo-content')); ?>';
+                });
+            }
+            updateLabModelStates();
 
             function addCKeyModelOption(model, custom) {
                 if (!model) {
@@ -1133,6 +1285,7 @@ $lab_prompt_tokens = array(
                             });
                         });
                         syncCKeyCustomModels();
+                        updateLabModelStates();
                     });
                     chip.appendChild(remove);
                     ckeyModelList.appendChild(chip);
@@ -1235,6 +1388,7 @@ $lab_prompt_tokens = array(
                             modelSelect.value = modelSelect.options[0] ? modelSelect.options[0].value : '';
                         }
                         syncCustomModels();
+                        updateLabModelStates();
                     });
                     chip.appendChild(remove);
                     modelList.appendChild(chip);

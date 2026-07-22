@@ -156,6 +156,9 @@ class AzEvent_Admin
         register_setting('azevent_seo_settings_group', 'azevent_lab_validate_outline', array(
             'sanitize_callback' => 'absint',
         ));
+        register_setting('azevent_seo_settings_group', 'azevent_lab_outline_validation_model', array(
+            'sanitize_callback' => 'sanitize_text_field',
+        ));
 
         // Prompts
         $prompts = array('intent', 'outline', 'content', 'seo');

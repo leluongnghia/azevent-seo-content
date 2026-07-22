@@ -307,7 +307,12 @@ class AzEvent_Workflow_Lab_Pipeline
         $context['results']['brief'] = $draft_brief;
         if (absint(get_option('azevent_lab_validate_outline', 0)) === 1) {
             $sections_before = count($this->extract_outline_sections($draft_brief));
-            $request = $this->resolve_text_request('brief');
+            $validation_options = array(
+                'auto_continue' => true,
+                'max_continuations' => 1,
+                'model_option' => 'azevent_lab_outline_validation_model',
+            );
+            $request = $this->resolve_text_request('brief', $validation_options['model_option']);
             $context['outline_validation'] = array(
                 'enabled' => true,
                 'status' => 'processing',
@@ -324,8 +329,8 @@ class AzEvent_Workflow_Lab_Pipeline
                 sprintf('Đã hoàn thành lượt tạo Brief với %d H2. Bắt đầu lượt AI thứ hai để kiểm định Outline.', $sections_before)
             );
             $validation_prompts = $this->build_outline_validation_prompts($context, $draft_brief, $candidates);
-            $this->log_ai_request($post_id, $context, 'brief', 6144, array('auto_continue' => true, 'max_continuations' => 1), $validation_prompts);
-            $validated_result = $this->call_text('brief', $validation_prompts['user'], $validation_prompts['system'], 6144, array('auto_continue' => true, 'max_continuations' => 1));
+            $this->log_ai_request($post_id, $context, 'brief', 6144, $validation_options, $validation_prompts);
+            $validated_result = $this->call_text('brief', $validation_prompts['user'], $validation_prompts['system'], 6144, $validation_options);
             $this->record_ai_metrics($post_id, $context, 'brief', $validation_prompts, $validated_result);
             if (is_wp_error($validated_result)) {
                 $context['outline_validation']['status'] = 'fallback';
@@ -938,10 +943,12 @@ PROMPT;
 
     private function call_text($step, $user_prompt, $system_prompt, $max_tokens, array $options = array())
     {
-        $request = $this->resolve_text_request($step);
+        $request = $this->resolve_text_request($step, sanitize_key($options['model_option'] ?? ''));
+        $generation_options = $options;
+        unset($generation_options['model_option']);
         $started_at = microtime(true);
         $service = new AzEvent_AI_Service();
-        $result = $service->call_anthropic($user_prompt, $system_prompt, $request['model'], $max_tokens, $options);
+        $result = $service->call_anthropic($user_prompt, $system_prompt, $request['model'], $max_tokens, $generation_options);
         $this->last_ai_metrics = $service->get_last_text_metrics();
         if (empty($this->last_ai_metrics['duration_seconds'])) {
             $this->last_ai_metrics['duration_seconds'] = round(max(0, microtime(true) - $started_at), 3);
@@ -952,7 +959,7 @@ PROMPT;
         return $result;
     }
 
-    private function resolve_text_request($step)
+    private function resolve_text_request($step, $model_option = '')
     {
         $model_map = array(
             'research' => 'intent',
@@ -973,6 +980,13 @@ PROMPT;
         $model = sanitize_text_field(get_option("azevent_lab_{$step}_model", $fallback_model));
         if ($model === '') {
             $model = $fallback_model;
+        }
+        $model_option = sanitize_key($model_option);
+        if ($model_option !== '') {
+            $override_model = sanitize_text_field(get_option($model_option, ''));
+            if ($override_model !== '') {
+                $model = $override_model;
+            }
         }
 
         if (AzEvent_CKey_Client::is_model_reference($model)) {
@@ -998,7 +1012,7 @@ PROMPT;
 
     private function log_ai_request($post_id, array &$context, $step, $max_tokens, array $options = array(), array $prompts = array())
     {
-        $request = $this->resolve_text_request($step);
+        $request = $this->resolve_text_request($step, sanitize_key($options['model_option'] ?? ''));
         $continuations = !empty($options['auto_continue'])
             ? min(3, max(1, absint($options['max_continuations'] ?? 2)))
             : 0;
