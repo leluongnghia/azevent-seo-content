@@ -363,6 +363,7 @@ $lab_prompt_tokens = array(
         .azevent-field input[type="text"], .azevent-field input[type="password"], .azevent-field select { height: 39px; padding: 0 11px; }
         .azevent-field textarea { min-height: 105px; padding: 10px 11px; resize: vertical; line-height: 1.55; }
         .azevent-field input:focus, .azevent-field select:focus, .azevent-field textarea:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,.12); outline: none; }
+        .azevent-endpoint-key[hidden] { display: none; }
         .azevent-help { margin: 6px 0 0; color: #94a3b8; font-size: 11px; line-height: 1.5; }
         .azevent-field label.azevent-workflow-option { display: flex; align-items: flex-start; gap: 13px; margin-bottom: 0; padding: 15px; border: 1px solid #dbe4f3; border-radius: 11px; background: #f8fafc; }
         .azevent-workflow-option input[type="checkbox"] { width: 18px; height: 18px; margin: 2px 0 0; accent-color: #4f46e5; }
@@ -506,11 +507,6 @@ $lab_prompt_tokens = array(
                                 <p class="azevent-help"><?php _e('Áp dụng khi một bước để ở chế độ dùng model mặc định.', 'azevent-seo-content'); ?></p>
                             </div>
                             <div class="azevent-field">
-                                <label for="aprg_cliproxy_api_key"><?php _e('AzEvent API Key', 'azevent-seo-content'); ?></label>
-                                <input id="aprg_cliproxy_api_key" type="password" name="aprg_cliproxy_api_key" value="<?php echo esc_attr(get_option('aprg_cliproxy_api_key')); ?>" autocomplete="off">
-                                <p class="azevent-help"><?php _e('Key được lưu ở server và không đưa vào JavaScript frontend.', 'azevent-seo-content'); ?></p>
-                            </div>
-                            <div class="azevent-field">
                                 <label for="aprg_cliproxy_base_url"><?php _e('Môi trường API', 'azevent-seo-content'); ?></label>
                                 <select id="aprg_cliproxy_base_url" name="aprg_cliproxy_base_url">
                                     <option value="<?php echo esc_attr(AzEvent_API_Client::DEFAULT_BASE_URL); ?>" <?php selected($azevent_base_url, AzEvent_API_Client::DEFAULT_BASE_URL); ?>>CLI API — cliapi.azevent.vn (Mặc định)</option>
@@ -521,6 +517,23 @@ $lab_prompt_tokens = array(
                                 </select>
                                 <p class="azevent-help"><?php _e('Plugin tự gọi endpoint /v1. Cấu hình Local cũ vẫn được giữ nếu website đang sử dụng.', 'azevent-seo-content'); ?></p>
                             </div>
+                            <div class="azevent-field azevent-endpoint-key" data-endpoint="<?php echo esc_attr(AzEvent_API_Client::DEFAULT_BASE_URL); ?>">
+                                <label for="azevent_cliapi_api_key"><?php _e('CLI API Key — cliapi.azevent.vn', 'azevent-seo-content'); ?></label>
+                                <input id="azevent_cliapi_api_key" type="password" name="azevent_cliapi_api_key" value="<?php echo esc_attr(get_option('azevent_cliapi_api_key', get_option('aprg_cliproxy_api_key', ''))); ?>" autocomplete="off" placeholder="sk-...">
+                                <p class="azevent-help"><?php _e('Key dùng riêng cho https://cliapi.azevent.vn/v1.', 'azevent-seo-content'); ?></p>
+                            </div>
+                            <div class="azevent-field azevent-endpoint-key" data-endpoint="<?php echo esc_attr(AzEvent_API_Client::REMOTE_BASE_URL); ?>">
+                                <label for="azevent_remote_api_key"><?php _e('AzEvent API Key — api.azevent.vn', 'azevent-seo-content'); ?></label>
+                                <input id="azevent_remote_api_key" type="password" name="azevent_remote_api_key" value="<?php echo esc_attr(get_option('azevent_remote_api_key', get_option('aprg_cliproxy_api_key', ''))); ?>" autocomplete="off" placeholder="sk-...">
+                                <p class="azevent-help"><?php _e('Key dùng riêng cho https://api.azevent.vn/v1.', 'azevent-seo-content'); ?></p>
+                            </div>
+                            <?php if ($azevent_base_url === AzEvent_API_Client::LEGACY_LOCAL_BASE_URL) : ?>
+                                <div class="azevent-field azevent-endpoint-key" data-endpoint="<?php echo esc_attr(AzEvent_API_Client::LEGACY_LOCAL_BASE_URL); ?>">
+                                    <label for="aprg_cliproxy_api_key"><?php _e('Local API Key — 192.168.1.5', 'azevent-seo-content'); ?></label>
+                                    <input id="aprg_cliproxy_api_key" type="password" name="aprg_cliproxy_api_key" value="<?php echo esc_attr(get_option('aprg_cliproxy_api_key', '')); ?>" autocomplete="off">
+                                    <p class="azevent-help"><?php _e('Chỉ dùng để duy trì cấu hình Local cũ.', 'azevent-seo-content'); ?></p>
+                                </div>
+                            <?php endif; ?>
                             <div class="azevent-field">
                                 <label for="aprg_cliproxy_model"><?php _e('Text Model', 'azevent-seo-content'); ?></label>
                                 <select id="aprg_cliproxy_model" name="aprg_cliproxy_model">
@@ -917,6 +930,23 @@ $lab_prompt_tokens = array(
             var ckeyModelInput = document.getElementById('azevent-new-ckey-model');
             var ckeyAddModelButton = document.getElementById('azevent-add-ckey-model');
             var ckeyModelList = document.getElementById('azevent-ckey-model-list');
+            var apiEndpointSelect = document.getElementById('aprg_cliproxy_base_url');
+            var endpointKeyFields = Array.prototype.slice.call(document.querySelectorAll('.azevent-endpoint-key'));
+
+            function syncEndpointKeyField() {
+                if (!apiEndpointSelect) {
+                    return;
+                }
+                endpointKeyFields.forEach(function (field) {
+                    field.hidden = field.dataset.endpoint !== apiEndpointSelect.value;
+                });
+            }
+
+            if (apiEndpointSelect) {
+                apiEndpointSelect.addEventListener('change', syncEndpointKeyField);
+                syncEndpointKeyField();
+            }
+
             function replaceLegacyModels(select, models) {
                 if (!select || !Array.isArray(models) || !models.length) {
                     return;

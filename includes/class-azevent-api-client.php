@@ -20,8 +20,8 @@ class AzEvent_API_Client
 
     public function __construct($api_key = '', $base_url = '', $model = '')
     {
-        $this->api_key = $api_key !== '' ? $api_key : get_option('aprg_cliproxy_api_key', '');
         $this->base_url = self::get_base_url($base_url);
+        $this->api_key = $api_key !== '' ? $api_key : self::get_api_key($this->base_url);
         $this->model = $model !== '' ? $model : get_option('aprg_cliproxy_model', 'claude-sonnet-4-6');
     }
 
@@ -51,7 +51,23 @@ class AzEvent_API_Client
 
     public static function is_configured()
     {
-        return (string) get_option('aprg_cliproxy_api_key', '') !== '';
+        return self::get_api_key() !== '';
+    }
+
+    public static function get_api_key($base_url = '')
+    {
+        $base_url = self::get_base_url($base_url);
+        $legacy_key = trim((string) get_option('aprg_cliproxy_api_key', ''));
+
+        if ($base_url === self::DEFAULT_BASE_URL) {
+            return trim((string) get_option('azevent_cliapi_api_key', $legacy_key));
+        }
+
+        if ($base_url === self::REMOTE_BASE_URL) {
+            return trim((string) get_option('azevent_remote_api_key', $legacy_key));
+        }
+
+        return $legacy_key;
     }
 
     public function get_last_text_metrics()
