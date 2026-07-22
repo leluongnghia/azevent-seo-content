@@ -49,6 +49,18 @@ class AzEvent_API_Client
         return self::get_base_url($base_url) . '/v1';
     }
 
+    public static function get_provider_label($base_url = '')
+    {
+        $base_url = self::get_base_url($base_url);
+        if ($base_url === self::DEFAULT_BASE_URL) {
+            return 'AzEvent CLI API';
+        }
+        if ($base_url === self::REMOTE_BASE_URL) {
+            return 'AzEvent API';
+        }
+        return 'AzEvent Local API';
+    }
+
     public static function is_configured()
     {
         return self::get_api_key() !== '';
@@ -235,7 +247,7 @@ class AzEvent_API_Client
             return $this->generate_gemini_via_chat($prompt, $model);
         }
 
-        return $this->api_error('AzEvent API Image', $result, $model);
+        return $this->api_error(self::get_provider_label($this->base_url) . ' Image', $result, $model);
     }
 
     private function generate_gemini_via_chat($prompt, $model)
@@ -255,7 +267,7 @@ class AzEvent_API_Client
         }
 
         if ($result['status'] < 200 || $result['status'] >= 300) {
-            return $this->api_error('AzEvent API Gemini Image', $result, $model);
+            return $this->api_error(self::get_provider_label($this->base_url) . ' Gemini Image', $result, $model);
         }
 
         $image = $this->find_chat_image($result['data']);
@@ -338,7 +350,7 @@ class AzEvent_API_Client
         }
 
         if ($result['status'] < 200 || $result['status'] >= 300) {
-            return $this->api_error('AzEvent API Text', $result, $model);
+            return $this->api_error(self::get_provider_label($this->base_url) . ' Text', $result, $model);
         }
 
         $completion = $use_stream
@@ -438,7 +450,7 @@ class AzEvent_API_Client
     private function finish_text_metrics($started_at, $model, array $usage, $requests, $attempts, $status)
     {
         $this->last_text_metrics = array_merge($usage, array(
-            'provider' => 'AzEvent API',
+            'provider' => self::get_provider_label($this->base_url),
             'model' => sanitize_text_field($model),
             'duration_seconds' => round(max(0, microtime(true) - $started_at), 3),
             'requests' => absint($requests),

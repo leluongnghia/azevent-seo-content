@@ -882,10 +882,13 @@ class AzEvent_Workflow_Lab_Pipeline
 
         if (AzEvent_CKey_Client::is_model_reference($model)) {
             $effective_provider = 'CKey';
+            $is_azevent_provider = false;
         } elseif (AzEvent_API_Client::is_configured()) {
-            $effective_provider = 'AzEvent API';
+            $effective_provider = AzEvent_API_Client::get_provider_label();
+            $is_azevent_provider = true;
         } else {
             $effective_provider = 'Anthropic trực tiếp';
+            $is_azevent_provider = false;
             if ($model === '') {
                 $model = sanitize_text_field(get_option('azevent_seo_anthropic_model', 'claude-3-5-sonnet-20240620'));
             }
@@ -894,6 +897,7 @@ class AzEvent_Workflow_Lab_Pipeline
         return array(
             'provider' => $effective_provider,
             'model' => $model,
+            'is_azevent_provider' => $is_azevent_provider,
         );
     }
 
@@ -912,7 +916,7 @@ class AzEvent_Workflow_Lab_Pipeline
             number_format_i18n($prompt_length),
             number_format_i18n(absint($max_tokens))
         );
-        if ($request['provider'] === 'AzEvent API') {
+        if (!empty($request['is_azevent_provider'])) {
             $message .= ' · endpoint ' . AzEvent_API_Client::get_base_url();
         }
         if ($continuations > 0) {

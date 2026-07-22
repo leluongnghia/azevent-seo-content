@@ -100,7 +100,7 @@ $azevent_api_ready = AzEvent_API_Client::is_configured();
 $azevent_ckey_ready = AzEvent_CKey_Client::is_configured();
 $azevent_default_text_label = $azevent_text_provider === 'ckey'
     ? ($azevent_ckey_model !== '' ? 'CKEY.VN — ' . ($azevent_ckey_models[$azevent_ckey_model] ?? $azevent_ckey_model) : 'CKEY.VN — chưa chọn model')
-    : 'AzEvent API — ' . ($azevent_text_models[$azevent_text_model] ?? $azevent_text_model);
+    : AzEvent_API_Client::get_provider_label($azevent_base_url) . ' — ' . ($azevent_text_models[$azevent_text_model] ?? $azevent_text_model);
 $azevent_default_language = get_option('azevent_seo_default_language', 'Vietnamese');
 $azevent_browser_auto_advance = absint(get_option('azevent_seo_browser_auto_advance', 0));
 $azevent_step_model_fields = array(
@@ -490,8 +490,8 @@ $lab_prompt_tokens = array(
                             <div class="azevent-card-title">
                                 <span class="azevent-section-icon">⚡</span>
                                 <div>
-                                <h2><?php _e('AzEvent API / CLIProxyAPI', 'azevent-seo-content'); ?></h2>
-                                <p class="azevent-card-description"><?php _e('AzEvent API được tích hợp trực tiếp; không cần cài thêm plugin khác.', 'azevent-seo-content'); ?></p>
+                                <h2><?php _e('AzEvent API / AzEvent CLI API', 'azevent-seo-content'); ?></h2>
+                                <p class="azevent-card-description"><?php _e('Hai endpoint AzEvent được tích hợp trực tiếp; không cần cài thêm plugin khác.', 'azevent-seo-content'); ?></p>
                                 </div>
                             </div>
                             <div class="azevent-status <?php echo $azevent_api_ready ? 'is-ready' : 'is-pending'; ?>"><span class="azevent-status-dot"></span><?php echo $azevent_api_ready ? esc_html__('Đã cấu hình', 'azevent-seo-content') : esc_html__('Chưa cấu hình', 'azevent-seo-content'); ?></div>
@@ -501,7 +501,7 @@ $lab_prompt_tokens = array(
                             <div class="azevent-field">
                                 <label for="azevent_seo_text_provider"><?php _e('Provider text mặc định', 'azevent-seo-content'); ?></label>
                                 <select id="azevent_seo_text_provider" name="azevent_seo_text_provider">
-                                    <option value="azevent" <?php selected($azevent_text_provider, 'azevent'); ?>>AzEvent API / CLIProxyAPI</option>
+                                    <option value="azevent" <?php selected($azevent_text_provider, 'azevent'); ?>>AzEvent API / AzEvent CLI API</option>
                                     <option value="ckey" <?php selected($azevent_text_provider, 'ckey'); ?>>CKEY.VN</option>
                                 </select>
                                 <p class="azevent-help"><?php _e('Áp dụng khi một bước để ở chế độ dùng model mặc định.', 'azevent-seo-content'); ?></p>
@@ -616,7 +616,7 @@ $lab_prompt_tokens = array(
                                         </label>
                                         <select class="azevent-step-model-select" id="azevent_seo_<?php echo esc_attr($step_key); ?>_model" name="azevent_seo_<?php echo esc_attr($step_key); ?>_model">
                                             <option value="" <?php selected($azevent_step_models[$step_key], ''); ?>><?php printf(esc_html__('Dùng provider mặc định — %s', 'azevent-seo-content'), esc_html($azevent_default_text_label)); ?></option>
-                                            <optgroup label="AzEvent API / CLIProxyAPI">
+                                            <optgroup label="<?php echo esc_attr(AzEvent_API_Client::get_provider_label($azevent_base_url)); ?>">
                                                 <?php foreach ($azevent_text_models as $model_id => $model_label) : ?>
                                                     <option value="<?php echo esc_attr($model_id); ?>" <?php selected($azevent_step_models[$step_key], $model_id); ?>><?php echo esc_html($model_label); ?></option>
                                                 <?php endforeach; ?>
@@ -869,7 +869,7 @@ $lab_prompt_tokens = array(
                                 ? $azevent_default_text_label
                                 : (AzEvent_CKey_Client::is_model_reference($fallback_model)
                                     ? 'CKEY.VN — ' . AzEvent_CKey_Client::strip_model_prefix($fallback_model)
-                                    : 'AzEvent API — ' . $fallback_model);
+                                    : AzEvent_API_Client::get_provider_label($azevent_base_url) . ' — ' . $fallback_model);
                             ?>
                             <details class="azevent-prompt" <?php echo $key === 'content' ? 'open' : ''; ?>>
                                 <summary>
@@ -880,7 +880,7 @@ $lab_prompt_tokens = array(
                                         <label for="azevent_lab_<?php echo esc_attr($key); ?>_model"><?php _e('Model riêng cho bước này', 'azevent-seo-content'); ?></label>
                                         <select id="azevent_lab_<?php echo esc_attr($key); ?>_model" name="azevent_lab_<?php echo esc_attr($key); ?>_model">
                                             <option value="" <?php selected($lab_model, ''); ?>><?php printf(esc_html__('Kế thừa cấu hình hiện tại — %s', 'azevent-seo-content'), esc_html($fallback_label)); ?></option>
-                                            <optgroup label="AzEvent API / CLIProxyAPI">
+                                            <optgroup label="<?php echo esc_attr(AzEvent_API_Client::get_provider_label($azevent_base_url)); ?>">
                                                 <?php foreach ($azevent_text_models as $model_id => $model_label) : ?>
                                                     <option value="<?php echo esc_attr($model_id); ?>" <?php selected($lab_model, $model_id); ?>><?php echo esc_html($model_label); ?></option>
                                                 <?php endforeach; ?>
