@@ -496,7 +496,7 @@ $lab_prompt_tokens = array(
                             </div>
                             <div class="azevent-status <?php echo $azevent_api_ready ? 'is-ready' : 'is-pending'; ?>"><span class="azevent-status-dot"></span><?php echo $azevent_api_ready ? esc_html__('Đã cấu hình', 'azevent-seo-content') : esc_html__('Chưa cấu hình', 'azevent-seo-content'); ?></div>
                         </div>
-                        <p class="azevent-note"><?php _e('Provider text mặc định điều khiển bốn bước nội dung. Ảnh đại diện luôn dùng AzEvent API khi key này đã được cấu hình.', 'azevent-seo-content'); ?></p>
+                        <p class="azevent-note"><?php printf(esc_html__('Provider text mặc định điều khiển bốn bước nội dung. Ảnh đại diện dùng %s khi key của endpoint này đã được cấu hình.', 'azevent-seo-content'), esc_html(AzEvent_API_Client::get_provider_label($azevent_base_url))); ?></p>
                         <div class="azevent-grid">
                             <div class="azevent-field">
                                 <label for="azevent_seo_text_provider"><?php _e('Provider text mặc định', 'azevent-seo-content'); ?></label>
@@ -509,7 +509,7 @@ $lab_prompt_tokens = array(
                             <div class="azevent-field">
                                 <label for="aprg_cliproxy_base_url"><?php _e('Môi trường API', 'azevent-seo-content'); ?></label>
                                 <select id="aprg_cliproxy_base_url" name="aprg_cliproxy_base_url">
-                                    <option value="<?php echo esc_attr(AzEvent_API_Client::DEFAULT_BASE_URL); ?>" <?php selected($azevent_base_url, AzEvent_API_Client::DEFAULT_BASE_URL); ?>>CLI API — cliapi.azevent.vn (Mặc định)</option>
+                                    <option value="<?php echo esc_attr(AzEvent_API_Client::DEFAULT_BASE_URL); ?>" <?php selected($azevent_base_url, AzEvent_API_Client::DEFAULT_BASE_URL); ?>>AzEvent CLI API — cliapi.azevent.vn (Mặc định)</option>
                                     <option value="<?php echo esc_attr(AzEvent_API_Client::REMOTE_BASE_URL); ?>" <?php selected($azevent_base_url, AzEvent_API_Client::REMOTE_BASE_URL); ?>>AzEvent API — api.azevent.vn</option>
                                     <?php if ($azevent_base_url === AzEvent_API_Client::LEGACY_LOCAL_BASE_URL) : ?>
                                         <option value="<?php echo esc_attr(AzEvent_API_Client::LEGACY_LOCAL_BASE_URL); ?>" selected>Local cũ — 192.168.1.5:8317</option>
@@ -518,7 +518,7 @@ $lab_prompt_tokens = array(
                                 <p class="azevent-help"><?php _e('Plugin tự gọi endpoint /v1. Cấu hình Local cũ vẫn được giữ nếu website đang sử dụng.', 'azevent-seo-content'); ?></p>
                             </div>
                             <div class="azevent-field azevent-endpoint-key" data-endpoint="<?php echo esc_attr(AzEvent_API_Client::DEFAULT_BASE_URL); ?>">
-                                <label for="azevent_cliapi_api_key"><?php _e('CLI API Key — cliapi.azevent.vn', 'azevent-seo-content'); ?></label>
+                                <label for="azevent_cliapi_api_key"><?php _e('AzEvent CLI API Key — cliapi.azevent.vn', 'azevent-seo-content'); ?></label>
                                 <input id="azevent_cliapi_api_key" type="password" name="azevent_cliapi_api_key" value="<?php echo esc_attr(get_option('azevent_cliapi_api_key', get_option('aprg_cliproxy_api_key', ''))); ?>" autocomplete="off" placeholder="sk-...">
                                 <p class="azevent-help"><?php _e('Key dùng riêng cho https://cliapi.azevent.vn/v1.', 'azevent-seo-content'); ?></p>
                             </div>
@@ -547,7 +547,7 @@ $lab_prompt_tokens = array(
                                     <button type="button" class="azevent-model-add" id="azevent-add-text-model"><?php _e('＋ Thêm model', 'azevent-seo-content'); ?></button>
                                 </div>
                                 <div class="azevent-model-list" id="azevent-custom-model-list"></div>
-                                <p class="azevent-help"><?php _e('Thêm model ID thủ công để dùng với AzEvent API. Nhấn Lưu cấu hình để lưu danh sách.', 'azevent-seo-content'); ?></p>
+                                <p class="azevent-help"><?php printf(esc_html__('Thêm model ID thủ công để dùng với %s. Nhấn Lưu cấu hình để lưu danh sách.', 'azevent-seo-content'), esc_html(AzEvent_API_Client::get_provider_label($azevent_base_url))); ?></p>
                             </div>
                             <div class="azevent-field">
                                 <label for="aprg_seo_default_cliproxy_image_model"><?php _e('Image Model', 'azevent-seo-content'); ?></label>
@@ -636,7 +636,7 @@ $lab_prompt_tokens = array(
                             <summary>
                                 <span class="azevent-legacy-title">
                                     <span class="azevent-legacy-icon">↻</span>
-                                    <span><?php _e('Fallback API cũ', 'azevent-seo-content'); ?><span class="azevent-legacy-description"><?php _e('Dùng khi AzEvent API không được cấu hình.', 'azevent-seo-content'); ?></span></span>
+                                    <span><?php _e('Fallback API cũ', 'azevent-seo-content'); ?><span class="azevent-legacy-description"><?php printf(esc_html__('Dùng khi %s không được cấu hình.', 'azevent-seo-content'), esc_html(AzEvent_API_Client::get_provider_label($azevent_base_url))); ?></span></span>
                                 </span>
                                 <span class="azevent-legacy-badge"><?php _e('Tuỳ chọn', 'azevent-seo-content'); ?></span>
                             </summary>
