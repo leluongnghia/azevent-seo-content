@@ -167,6 +167,7 @@ $prompt_tokens = array(
     '{rewrite_goal}' => __('Mục tiêu tự động theo chế độ Create/Rewrite.', 'azevent-seo-content'),
 );
 $lab_prompt_defaults = AzEvent_Workflow_Lab_Pipeline::get_default_prompts();
+$lab_prompt_english = AzEvent_Workflow_Lab_Pipeline::get_english_prompts();
 $lab_prompt_sections = array(
     'research' => array(
         'label' => __('Research & Search Intent', 'azevent-seo-content'),
@@ -475,6 +476,7 @@ $lab_prompt_tokens = array(
         .azevent-prompt-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding: 17px 15px; }
         .azevent-prompt-body .azevent-field { margin: 0; }
         .azevent-lab-reset-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 16px; }
+        .azevent-lab-reset-actions { display: flex; flex-wrap: wrap; gap: 9px; }
         .azevent-lab-reset-status { color: #64748b; font-size: 11px; }
         .azevent-lab-reset-status.is-ready { color: #047857; }
         .azevent-serp-box { margin-bottom: 18px; padding: 17px; border: 1px solid #bfdbfe; border-radius: 13px; background: linear-gradient(135deg, #eff6ff, #f8fafc); }
@@ -1013,7 +1015,10 @@ $lab_prompt_tokens = array(
                         </div>
                         <p class="azevent-note"><?php _e('Bộ mặc định ưu tiên people-first content, intent, information gain, bằng chứng thương hiệu, internal link thật và kiểm soát spam. Không prompt nào có thể đảm bảo thứ hạng; kết quả còn phụ thuộc website, cạnh tranh, kỹ thuật, backlink và dữ liệu thực tế.', 'azevent-seo-content'); ?></p>
                         <div class="azevent-lab-reset-row">
-                            <button type="button" class="azevent-legacy-refresh" id="azevent-reset-lab-prompts"><?php _e('↺ Khôi phục bộ prompt SEO nâng cao', 'azevent-seo-content'); ?></button>
+                            <div class="azevent-lab-reset-actions">
+                                <button type="button" class="azevent-legacy-refresh" id="azevent-load-english-lab-prompts"><?php _e('EN Nạp Prompt tiếng Anh & lưu', 'azevent-seo-content'); ?></button>
+                                <button type="button" class="azevent-legacy-refresh" id="azevent-reset-lab-prompts"><?php _e('↺ Khôi phục bộ prompt SEO nâng cao', 'azevent-seo-content'); ?></button>
+                            </div>
                             <span class="azevent-lab-reset-status" id="azevent-lab-reset-status" aria-live="polite"></span>
                         </div>
                         <div class="azevent-token-card">
@@ -1446,24 +1451,51 @@ $lab_prompt_tokens = array(
             }
 
             var labPromptDefaults = <?php echo wp_json_encode($lab_prompt_defaults); ?>;
+            var labPromptEnglish = <?php echo wp_json_encode($lab_prompt_english); ?>;
+            var labPromptEnglishButton = document.getElementById('azevent-load-english-lab-prompts');
             var labPromptResetButton = document.getElementById('azevent-reset-lab-prompts');
             var labPromptResetStatus = document.getElementById('azevent-lab-reset-status');
+
+            function fillLabPrompts(promptSet) {
+                Object.keys(promptSet).forEach(function (step) {
+                    ['system', 'user'].forEach(function (type) {
+                        var field = document.getElementById('azevent_lab_' + step + '_' + type);
+                        if (!field || !promptSet[step] || typeof promptSet[step][type] !== 'string') {
+                            return;
+                        }
+                        field.value = promptSet[step][type];
+                        field.dispatchEvent(new Event('input', { bubbles: true }));
+                        field.dispatchEvent(new Event('change', { bubbles: true }));
+                    });
+                });
+            }
+
+            if (labPromptEnglishButton) {
+                labPromptEnglishButton.addEventListener('click', function () {
+                    if (!window.confirm('<?php echo esc_js(__('Thay toàn bộ 5 System Prompt và 5 User Prompt của Workflow Lab bằng bản tiếng Anh rồi lưu ngay? Model và các cài đặt khác đang hiển thị cũng sẽ được lưu.', 'azevent-seo-content')); ?>')) {
+                        return;
+                    }
+                    fillLabPrompts(labPromptEnglish);
+                    labPromptResetStatus.className = 'azevent-lab-reset-status is-ready';
+                    labPromptResetStatus.textContent = '<?php echo esc_js(__('Đang lưu toàn bộ Prompt tiếng Anh…', 'azevent-seo-content')); ?>';
+                    labPromptEnglishButton.disabled = true;
+                    var settingsForm = labPromptEnglishButton.closest('form');
+                    if (settingsForm) {
+                        if (typeof settingsForm.requestSubmit === 'function') {
+                            settingsForm.requestSubmit();
+                        } else {
+                            settingsForm.submit();
+                        }
+                    }
+                });
+            }
+
             if (labPromptResetButton) {
                 labPromptResetButton.addEventListener('click', function () {
                     if (!window.confirm('<?php echo esc_js(__('Khôi phục toàn bộ System Prompt và User Prompt của Workflow Lab về bộ SEO nâng cao mặc định? Model đã chọn sẽ được giữ nguyên.', 'azevent-seo-content')); ?>')) {
                         return;
                     }
-                    Object.keys(labPromptDefaults).forEach(function (step) {
-                        ['system', 'user'].forEach(function (type) {
-                            var field = document.getElementById('azevent_lab_' + step + '_' + type);
-                            if (!field || !labPromptDefaults[step] || typeof labPromptDefaults[step][type] !== 'string') {
-                                return;
-                            }
-                            field.value = labPromptDefaults[step][type];
-                            field.dispatchEvent(new Event('input', { bubbles: true }));
-                            field.dispatchEvent(new Event('change', { bubbles: true }));
-                        });
-                    });
+                    fillLabPrompts(labPromptDefaults);
                     labPromptResetStatus.className = 'azevent-lab-reset-status is-ready';
                     labPromptResetStatus.textContent = '<?php echo esc_js(__('Đã nạp bộ prompt mặc định. Hãy bấm Lưu cấu hình.', 'azevent-seo-content')); ?>';
                 });

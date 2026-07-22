@@ -15,6 +15,11 @@ class AzEvent_Workflow_Lab_Pipeline
         return require AZEVENT_SEO_PATH . 'includes/class-azevent-workflow-lab-prompt-templates.php';
     }
 
+    public static function get_english_prompts()
+    {
+        return require AZEVENT_SEO_PATH . 'includes/class-azevent-workflow-lab-prompt-templates-en.php';
+    }
+
     public function create_session(array $input, $author_id)
     {
         $keyword = sanitize_text_field($input['keyword'] ?? '');
