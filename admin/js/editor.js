@@ -228,6 +228,20 @@ jQuery(function($) {
         }
     }
 
+    function restoreSplitHistory(context) {
+        const splitState = context && context.content_split ? context.content_split : {};
+        const history = splitState.history && typeof splitState.history === 'object' ? splitState.history : {};
+        Object.keys(history).sort(function(a, b) { return parseInt(a, 10) - parseInt(b, 10); }).forEach(function(index) {
+            const item = history[index] || {};
+            const tokens = parseInt(item.input_tokens || 0, 10) + '/' + parseInt(item.output_tokens || 0, 10) + ' token';
+            updateStatus(
+                'Đã khôi phục H2 ' + (parseInt(index, 10) + 1) + ': ' + (item.title || 'Không có tiêu đề')
+                + ' · ' + (item.provider || 'AI') + (item.model ? ' (' + item.model + ')' : '')
+                + ' · ' + parseFloat(item.duration_seconds || 0).toFixed(1) + ' giây · ' + tokens
+            );
+        });
+    }
+
     function setActiveStep(step) {
         const activeIndex = stepOrder.indexOf(step);
         $('.azevent-stepper li').each(function(index) {
@@ -540,6 +554,11 @@ jQuery(function($) {
         }
 
         updateStatus(response.data.message || 'Đã hoàn tất bước hiện tại.');
+        const splitState = responseContext.content_split || {};
+        if (response.data.next_step === 'content' && splitState.enabled && !splitState.completed) {
+            runStep('content', responseContext);
+            return;
+        }
         if (!azevent_seo.auto_advance) {
             if (response.data.next_step === 'outline') {
                 showIntentReview(responseContext);
@@ -651,6 +670,7 @@ jQuery(function($) {
         $resumeCard.prop('hidden', true);
         $log.empty();
         updateStatus('Đã khôi phục checkpoint cho từ khóa ' + keywordQueue[0] + '.');
+        restoreSplitHistory(currentContext);
 
         if (checkpoint.status === 'processing') {
             setActiveStep(getStepFromRequest(lastRequestStep));
@@ -669,6 +689,11 @@ jQuery(function($) {
         }
 
         const nextStep = checkpoint.next_step || lastRequestStep;
+        const splitState = currentContext.content_split || {};
+        if (nextStep === 'content' && splitState.enabled && !splitState.completed) {
+            runStep('content', currentContext);
+            return;
+        }
         if (nextStep === 'outline' && currentContext.search_intent && !azevent_seo.auto_advance) {
             showIntentReview(currentContext);
             return;
@@ -793,11 +818,17 @@ jQuery(function($) {
         $errorActions.prop('hidden', true);
         setActiveStep(getStepFromRequest(step));
 
+        const splitState = context && context.content_split ? context.content_split : {};
+        const splitSections = Array.isArray(splitState.sections) ? splitState.sections : [];
+        const splitIndex = parseInt(splitState.current_index || 0, 10);
+        const splitTitle = splitSections[splitIndex] && splitSections[splitIndex].title ? ': ' + splitSections[splitIndex].title : '';
         const stepMessages = {
             start: 'Đang phân tích Search Intent...',
             search_intent: 'Đang phân tích Search Intent...',
             outline: 'Đang xây dựng Outline...',
-            content: 'Đang viết nội dung hoàn chỉnh...',
+            content: splitState.enabled && !splitState.completed
+                ? 'Đang viết H2 ' + (splitIndex + 1) + '/' + splitSections.length + splitTitle + '...'
+                : 'Đang viết nội dung hoàn chỉnh...',
             seo: 'Đang tối ưu SEO Metadata...',
             image: 'Đang tạo ảnh đại diện và lưu Draft...',
             finalize: 'Đang lưu nội dung vào Draft...'
@@ -943,7 +974,7 @@ jQuery(function($) {
             $row.append(
                 $keywordCell,
                 $('<td>').append($status),
-                $('<td>').text(stepLabels[job.step] || job.step),
+                $('<td>').text(job.section_progress || stepLabels[job.step] || job.step),
                 $('<td>').text(job.updated_at || job.created_at || ''),
                 $actionCell
             );

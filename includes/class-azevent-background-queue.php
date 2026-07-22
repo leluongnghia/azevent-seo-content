@@ -166,6 +166,23 @@ class AzEvent_Background_Queue
             if (isset($counts[$job['status']])) {
                 $counts[$job['status']]++;
             }
+            $job_context = json_decode((string) $job['context'], true);
+            $split_state = is_array($job_context) && isset($job_context['content_split']) && is_array($job_context['content_split'])
+                ? $job_context['content_split']
+                : array();
+            $job['section_progress'] = '';
+            if ($job['step'] === 'content' && !empty($split_state['enabled']) && empty($split_state['completed'])) {
+                $sections = array_values($split_state['sections'] ?? array());
+                $section_index = max(0, absint($split_state['current_index'] ?? 0));
+                if (isset($sections[$section_index])) {
+                    $job['section_progress'] = sprintf(
+                        'H2 %1$d/%2$d: %3$s',
+                        $section_index + 1,
+                        count($sections),
+                        sanitize_text_field($sections[$section_index]['title'] ?? '')
+                    );
+                }
+            }
             unset($job['context']);
             $job['post_url'] = $job['post_id'] > 0
                 ? admin_url('post.php?post=' . absint($job['post_id']) . '&action=edit')
@@ -357,16 +374,21 @@ class AzEvent_Background_Queue
             if (is_wp_error($result)) {
                 $attempts = absint($job['attempts']) + 1;
                 $status = $attempts >= 3 ? 'failed' : 'pending';
+                $error_data = $result->get_error_data();
+                $error_context = isset($error_data['context']) && is_array($error_data['context'])
+                    ? $error_data['context']
+                    : $context;
                 $wpdb->update(
                     $this->table_name,
                     array(
                         'status' => $status,
                         'error' => $result->get_error_message(),
+                        'context' => wp_json_encode($error_context),
                         'attempts' => $attempts,
                         'updated_at' => current_time('mysql'),
                     ),
                     array('id' => $job['id']),
-                    array('%s', '%s', '%d', '%s'),
+                    array('%s', '%s', '%s', '%d', '%s'),
                     array('%d')
                 );
                 $has_more = $status === 'pending' || $this->has_pending_jobs();

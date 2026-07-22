@@ -26,6 +26,7 @@ foreach (array('research', 'brief', 'content', 'seo', 'quality') as $lab_step) {
     $azevent_lab_step_models[$lab_step] = get_option("azevent_lab_{$lab_step}_model", '');
 }
 $azevent_lab_split_content = absint(get_option('azevent_lab_split_content_by_outline', 0));
+$azevent_studio_split_content = absint(get_option('azevent_seo_split_content_by_outline', 0));
 $azevent_brand_defaults = AzEvent_SEO_Content::get_default_brand_profile();
 $azevent_brand_profile = AzEvent_SEO_Content::get_brand_profile();
 $azevent_custom_models = json_decode(get_option('aprg_cliproxy_custom_models', '[]'), true);
@@ -763,6 +764,18 @@ $lab_prompt_tokens = array(
                                 <?php endforeach; ?>
                             </div>
                             <p class="azevent-token-description"><?php _e('Bạn không cần tự thay các biến này. Khi chạy, plugin sẽ tự lấy dữ liệu tương ứng. Các biến {existing_*} chỉ có giá trị ở chế độ Viết lại bài hiện tại.', 'azevent-seo-content'); ?></p>
+                        </div>
+                        <div class="azevent-serp-box">
+                            <h3><?php _e('Cách viết Content trong Content Studio', 'azevent-seo-content'); ?></h3>
+                            <input type="hidden" name="azevent_seo_split_content_by_outline" value="0">
+                            <label class="azevent-workflow-option" for="azevent_seo_split_content_by_outline">
+                                <input id="azevent_seo_split_content_by_outline" type="checkbox" name="azevent_seo_split_content_by_outline" value="1" <?php checked($azevent_studio_split_content, 1); ?>>
+                                <span>
+                                    <strong><?php _e('Tách Content và viết lần lượt theo từng H2', 'azevent-seo-content'); ?></strong>
+                                    <span><?php _e('Áp dụng riêng cho Tạo bài mới, Viết lại bài hiện tại và Background Queue của Content Studio. Mỗi H2 lưu một checkpoint.', 'azevent-seo-content'); ?></span>
+                                </span>
+                            </label>
+                            <p class="azevent-help"><?php _e('Nếu Outline không có ít nhất 2 H2, plugin tự viết toàn bài trong một request như trước.', 'azevent-seo-content'); ?></p>
                         </div>
                         <?php foreach ($prompt_sections as $key => $section) : ?>
                             <details class="azevent-prompt" <?php echo $key === 'content' ? 'open' : ''; ?>>
