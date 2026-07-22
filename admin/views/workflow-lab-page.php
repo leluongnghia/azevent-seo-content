@@ -102,7 +102,7 @@ $recent_query = new WP_Query(array(
                             <button type="button" data-content-tab="preview" class="is-active"><?php _e('Xem trước', 'azevent-seo-content'); ?></button>
                             <button type="button" data-content-tab="html"><?php _e('Chỉnh HTML', 'azevent-seo-content'); ?></button>
                         </div>
-                        <iframe id="azlab-content-preview" sandbox=""></iframe>
+                        <iframe id="azlab-content-preview" sandbox="allow-same-origin" title="<?php esc_attr_e('Xem trước nội dung bài viết', 'azevent-seo-content'); ?>"></iframe>
                         <textarea id="azlab-content-html" rows="30" hidden></textarea>
                     </div>
 
@@ -126,7 +126,7 @@ $recent_query = new WP_Query(array(
                             <div><h3><?php _e('Cảnh báo', 'azevent-seo-content'); ?></h3><ul id="azlab-warning-list"></ul></div>
                             <div><h3><?php _e('Internal link đã dùng', 'azevent-seo-content'); ?></h3><ul id="azlab-link-list"></ul></div>
                         </div>
-                        <div class="azlab-preview-shell"><iframe id="azlab-quality-preview" sandbox=""></iframe></div>
+                        <div class="azlab-preview-shell"><iframe id="azlab-quality-preview" sandbox="allow-same-origin" title="<?php esc_attr_e('Xem trước nội dung sau QA', 'azevent-seo-content'); ?>"></iframe></div>
                     </div>
 
                     <div id="azlab-final-result" class="azlab-result" hidden>

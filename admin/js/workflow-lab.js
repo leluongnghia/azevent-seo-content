@@ -364,7 +364,19 @@
     }
 
     function setIframeContent(iframe, content) {
-        iframe.srcdoc = buildPreviewDocument(content);
+        const previewDocument = buildPreviewDocument(content);
+        try {
+            const documentRef = iframe.contentDocument || (iframe.contentWindow && iframe.contentWindow.document);
+            if (!documentRef) {
+                iframe.srcdoc = previewDocument;
+                return;
+            }
+            documentRef.open();
+            documentRef.write(previewDocument);
+            documentRef.close();
+        } catch (error) {
+            iframe.srcdoc = previewDocument;
+        }
     }
 
     function updateStepper(step) {
