@@ -26,6 +26,7 @@ foreach (array('research', 'brief', 'content', 'seo', 'quality') as $lab_step) {
     $azevent_lab_step_models[$lab_step] = get_option("azevent_lab_{$lab_step}_model", '');
 }
 $azevent_lab_split_content = absint(get_option('azevent_lab_split_content_by_outline', 0));
+$azevent_lab_validate_outline = absint(get_option('azevent_lab_validate_outline', 0));
 $azevent_studio_split_content = absint(get_option('azevent_seo_split_content_by_outline', 0));
 $azevent_generate_h2_images = absint(get_option('azevent_seo_generate_h2_images', 0));
 $azevent_h2_image_limit = min(10, max(1, absint(get_option('azevent_seo_h2_image_limit', 6))));
@@ -870,6 +871,18 @@ $lab_prompt_tokens = array(
                                     <p class="azevent-help"><?php _e('Chỉ lưu title, meta và tối đa 24 heading; không sao chép toàn bộ nội dung.', 'azevent-seo-content'); ?></p>
                                 </div>
                             </div>
+                        </div>
+                        <div class="azevent-serp-box">
+                            <h3><?php _e('Kiểm định Outline bằng AI', 'azevent-seo-content'); ?></h3>
+                            <input type="hidden" name="azevent_lab_validate_outline" value="0">
+                            <label class="azevent-workflow-option" for="azevent_lab_validate_outline">
+                                <input id="azevent_lab_validate_outline" type="checkbox" name="azevent_lab_validate_outline" value="1" <?php checked($azevent_lab_validate_outline, 1); ?>>
+                                <span>
+                                    <strong><?php _e('Kiểm định Outline bằng AI lần hai', 'azevent-seo-content'); ?></strong>
+                                    <span><?php _e('Sau khi tạo Content Brief & Outline, AI rà soát intent, loại heading biên tập nội bộ, gộp mục trùng và trả lại Outline hoàn chỉnh trước khi viết Content.', 'azevent-seo-content'); ?></span>
+                                </span>
+                            </label>
+                            <p class="azevent-help"><?php _e('Mặc định tắt. Lượt kiểm định dùng cùng model đã chọn cho bước Brief & Outline, làm bước này lâu hơn và phát sinh thêm một lượt API. Nếu lượt hai lỗi hoặc không đủ H2 hợp lệ, plugin giữ kết quả lượt đầu.', 'azevent-seo-content'); ?></p>
                         </div>
                         <div class="azevent-serp-box">
                             <h3><?php _e('Cách viết nội dung từ Outline', 'azevent-seo-content'); ?></h3>

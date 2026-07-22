@@ -303,8 +303,121 @@ class AzEvent_Workflow_Lab_Pipeline
             return $result;
         }
 
-        $context['results']['brief'] = trim($result);
+        $draft_brief = trim($result);
+        $context['results']['brief'] = $draft_brief;
+        if (absint(get_option('azevent_lab_validate_outline', 0)) === 1) {
+            $sections_before = count($this->extract_outline_sections($draft_brief));
+            $request = $this->resolve_text_request('brief');
+            $context['outline_validation'] = array(
+                'enabled' => true,
+                'status' => 'processing',
+                'model' => sanitize_text_field($request['model'] ?? ''),
+                'original_brief' => $draft_brief,
+                'sections_before' => $sections_before,
+                'started_at' => time(),
+            );
+            $this->append_log(
+                $post_id,
+                $context,
+                'info',
+                'brief',
+                sprintf('Đã hoàn thành lượt tạo Brief với %d H2. Bắt đầu lượt AI thứ hai để kiểm định Outline.', $sections_before)
+            );
+            $validation_prompts = $this->build_outline_validation_prompts($context, $draft_brief, $candidates);
+            $this->log_ai_request($post_id, $context, 'brief', 6144, array('auto_continue' => true, 'max_continuations' => 1), $validation_prompts);
+            $validated_result = $this->call_text('brief', $validation_prompts['user'], $validation_prompts['system'], 6144, array('auto_continue' => true, 'max_continuations' => 1));
+            $this->record_ai_metrics($post_id, $context, 'brief', $validation_prompts, $validated_result);
+            if (is_wp_error($validated_result)) {
+                $context['outline_validation']['status'] = 'fallback';
+                $context['outline_validation']['error'] = $validated_result->get_error_message();
+                $context['outline_validation']['completed_at'] = time();
+                $this->append_log($post_id, $context, 'info', 'brief', 'Lượt kiểm định Outline bị lỗi; plugin giữ nguyên Brief của lượt đầu để quy trình không bị dừng.');
+            } else {
+                $validated_brief = trim(preg_replace('/^\s*(?:```|~~~)(?:markdown)?\s*|\s*(?:```|~~~)\s*$/iu', '', (string) $validated_result));
+                $sections_after = count($this->extract_outline_sections($validated_brief));
+                if ($sections_after >= 2) {
+                    $context['results']['brief'] = $validated_brief;
+                    $context['outline_validation']['status'] = 'completed';
+                    $context['outline_validation']['sections_after'] = $sections_after;
+                    $context['outline_validation']['completed_at'] = time();
+                    $this->append_log(
+                        $post_id,
+                        $context,
+                        'success',
+                        'brief',
+                        sprintf('Đã kiểm định Outline: %d H2 ban đầu → %d H2 xuất bản sau khi gộp, loại và bổ sung.', $sections_before, $sections_after)
+                    );
+                } else {
+                    $context['outline_validation']['status'] = 'fallback';
+                    $context['outline_validation']['sections_after'] = $sections_after;
+                    $context['outline_validation']['error'] = 'Kết quả kiểm định không nhận diện được ít nhất 2 H2 xuất bản.';
+                    $context['outline_validation']['completed_at'] = time();
+                    $this->append_log($post_id, $context, 'info', 'brief', 'Kết quả kiểm định không có đủ 2 H2 hợp lệ; plugin giữ nguyên Brief của lượt đầu.');
+                }
+            }
+        } else {
+            unset($context['outline_validation']);
+        }
         return $this->complete_step($context, 'brief', 'content');
+    }
+
+    private function build_outline_validation_prompts(array $context, $draft_brief, array $internal_link_candidates)
+    {
+        $brand = AzEvent_SEO_Content::get_brand_profile();
+        $input = isset($context['input']) && is_array($context['input']) ? $context['input'] : array();
+        $research = (string) ($context['results']['research'] ?? '');
+        $system = <<<'PROMPT'
+Bạn là Senior SEO Content Architect và biên tập viên kiểm định Outline. Nhiệm vụ là rà soát Content Brief đã được tạo, sửa cấu trúc nhưng không viết bài hoàn chỉnh.
+
+Nguyên tắc bắt buộc:
+- Hoàn thành đúng search intent và nhiệm vụ thực tế của người đọc; không để lời hứa ở tiêu đề hoặc brief thiếu phần nội dung tương ứng.
+- Gộp H2 trùng ý, loại mục chung chung và loại các heading biên tập nội bộ khỏi Outline xuất bản.
+- Các mục như mục tiêu bài viết, intent, audience, information gain, evidence map, chỉ dẫn copywriter và kế hoạch internal link chỉ là metadata của Brief, không được biến thành H2 của bài viết.
+- Outline xuất bản phải có ít nhất 2 H2, theo đúng hành trình đọc; mỗi H2 phải tạo giá trị riêng và đủ thông tin để copywriter triển khai.
+- Nếu intent cần mẫu, checklist, bảng, quy trình, ví dụ hoặc hướng dẫn dùng ngay thì phải tạo H2/H3 cụ thể tương ứng.
+- Không bịa claim, giá, khách hàng, số liệu, case study hoặc URL. Chỉ giữ internal link từ danh sách được cung cấp.
+- Không dùng Markdown heading #, ## hoặc ### cho metadata. Chỉ dùng tiền tố H2: và H3: trong khối Outline xuất bản.
+
+Chỉ trả về toàn bộ Content Brief đã kiểm định, không giải thích quá trình sửa.
+PROMPT;
+        $user = "Kiểm định Content Brief & Outline bằng " . sanitize_text_field($context['language'] ?? 'Vietnamese') . ".\n\n";
+        $user .= "TỪ KHÓA CHÍNH: " . sanitize_text_field($input['keyword'] ?? '') . "\n";
+        $user .= "TỪ KHÓA PHỤ: " . implode(', ', array_map('sanitize_text_field', (array) ($input['secondary_keywords'] ?? array()))) . "\n";
+        $user .= "ĐỐI TƯỢNG: " . sanitize_textarea_field($input['audience'] ?? '') . "\n\n";
+        $user .= "RESEARCH ĐÃ DUYỆT:\n" . $research . "\n\n";
+        $user .= "CONTENT BRIEF LƯỢT ĐẦU:\n" . $draft_brief . "\n\n";
+        $user .= "THÔNG TIN THƯƠNG HIỆU ĐÃ XÁC THỰC:\n" . $brand['azevent_seo_brand_info'] . "\n" . $brand['azevent_seo_brand_solution'] . "\n\n";
+        $user .= "INTERNAL LINK CANDIDATES THẬT:\n" . wp_json_encode($internal_link_candidates, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n\n";
+        $user .= <<<'PROMPT'
+ĐỊNH DẠNG ĐẦU RA BẮT BUỘC:
+CONTENT BRIEF ĐÃ KIỂM ĐỊNH
+Mục tiêu: ...
+Intent ưu tiên: ...
+Đối tượng và hành động mong muốn: ...
+Information gain: ...
+Evidence Map:
+- ...
+
+OUTLINE H2/H3 ĐỂ XUẤT BẢN
+H2: [Tiêu đề phần thực sự xuất hiện trong bài]
+- Câu hỏi cần trả lời: ...
+- Nội dung và bằng chứng cần dùng: ...
+- Định dạng phù hợp: ...
+H3: [Tiêu đề phụ nếu thật sự cần]
+- Phạm vi triển khai: ...
+
+Lặp lại H2/H3 theo nhu cầu thực tế, không theo số lượng cố định.
+
+CHỈ DẪN MỞ BÀI
+...
+
+CTA VÀ KẾ HOẠCH INTERNAL LINK
+...
+
+CẢNH BÁO VÀ THÔNG TIN CẦN XÁC MINH
+...
+PROMPT;
+        return array('system' => $system, 'user' => $user);
     }
 
     private function run_content($post_id, array &$context)
@@ -758,7 +871,7 @@ class AzEvent_Workflow_Lab_Pipeline
         if (isset($edits['brief'])) {
             $brief = wp_kses_post((string) $edits['brief']);
             if ((string) ($context['results']['brief'] ?? '') !== $brief) {
-                unset($context['content_split'], $context['results']['content']);
+                unset($context['content_split'], $context['results']['content'], $context['outline_validation']);
             }
             $context['results']['brief'] = $brief;
         }
