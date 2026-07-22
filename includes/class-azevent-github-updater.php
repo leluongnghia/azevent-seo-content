@@ -136,6 +136,22 @@ class AzEvent_GitHub_Updater
             }
         }
 
+        if ($is_our_plugin) {
+            if (!is_dir($plugin_dir) || !wp_is_writable($plugin_dir)) {
+                return new WP_Error(
+                    'azevent_plugin_directory_not_writable',
+                    'Không thể cập nhật AzEvent SEO vì thư mục plugin không tồn tại hoặc không có quyền ghi: ' . $plugin_dir
+                );
+            }
+
+            if (!wp_is_writable(WP_PLUGIN_DIR)) {
+                return new WP_Error(
+                    'azevent_plugins_directory_not_writable',
+                    'Không thể cập nhật AzEvent SEO vì thư mục plugins không có quyền ghi: ' . WP_PLUGIN_DIR
+                );
+            }
+        }
+
         return $response;
     }
 
@@ -487,7 +503,13 @@ class AzEvent_GitHub_Updater
         // This handles cases where $hook_extra['plugin'] might not be set properly yet
         $plugin_file_name = basename($this->basename);
         if (!file_exists(trailingslashit($source) . $plugin_file_name)) {
-            return $source; // Not our plugin file inside, skip
+            if (isset($hook_extra['plugin']) && $hook_extra['plugin'] === $this->basename) {
+                return new WP_Error(
+                    'azevent_invalid_update_package',
+                    'Gói cập nhật AzEvent SEO không chứa file plugin chính. Bản hiện tại được giữ nguyên để tránh plugin bị mất sau cập nhật.'
+                );
+            }
+            return $source;
         }
 
         $source_dir_name = basename(untrailingslashit($source));
