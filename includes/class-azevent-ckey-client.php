@@ -49,6 +49,14 @@ class AzEvent_CKey_Client
         return trim($model);
     }
 
+    public static function uses_anthropic_format($api_format, $model)
+    {
+        $api_format = sanitize_key((string) $api_format);
+        $model = self::strip_model_prefix($model);
+        return $api_format === 'messages'
+            || ($api_format === 'auto' && preg_match('/(?:^|[\/:_-])claude(?:[\/:_.-]|$)/i', $model));
+    }
+
     public function generate_text($prompt, $system_prompt = '', array $options = array())
     {
         $started_at = microtime(true);
@@ -70,8 +78,7 @@ class AzEvent_CKey_Client
         if (!in_array($api_format, array('messages', 'auto', 'chat'), true)) {
             $api_format = 'messages';
         }
-        $anthropic_format = $api_format === 'messages'
-            || ($api_format === 'auto' && strpos($model, '/') !== false && stripos($model, 'claude') !== false);
+        $anthropic_format = self::uses_anthropic_format($api_format, $model);
         $max_tokens = max(1024, absint($options['max_tokens'] ?? 8192));
         $temperature = isset($options['temperature']) ? (float) $options['temperature'] : 0.7;
         $messages = array(array('role' => 'user', 'content' => $prompt));
@@ -187,12 +194,14 @@ class AzEvent_CKey_Client
     private function request($path, array $body, $timeout, $anthropic_format)
     {
         $headers = array(
-            'Authorization' => 'Bearer ' . $this->api_key,
             'Content-Type' => 'application/json',
             'Accept' => 'application/json',
         );
         if ($anthropic_format) {
+            $headers['x-api-key'] = $this->api_key;
             $headers['anthropic-version'] = '2023-06-01';
+        } else {
+            $headers['Authorization'] = 'Bearer ' . $this->api_key;
         }
 
         $attempt = 0;

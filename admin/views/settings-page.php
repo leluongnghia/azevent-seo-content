@@ -582,7 +582,7 @@ $lab_prompt_tokens = array(
                                     </select>
                                     <input type="hidden" id="azevent_seo_ckey_custom_models" name="azevent_seo_ckey_custom_models" value="<?php echo esc_attr(wp_json_encode($azevent_ckey_custom_models)); ?>">
                                     <div class="azevent-model-tools">
-                                        <input id="azevent-new-ckey-model" type="text" placeholder="owner/model-id">
+                                        <input id="azevent-new-ckey-model" type="text" placeholder="claude-opus-4.6">
                                         <button type="button" class="azevent-model-add" id="azevent-add-ckey-model"><?php _e('＋ Thêm model', 'azevent-seo-content'); ?></button>
                                     </div>
                                     <div class="azevent-model-list" id="azevent-ckey-model-list"></div>
@@ -595,7 +595,11 @@ $lab_prompt_tokens = array(
                                         <option value="auto" <?php selected($azevent_ckey_api_format, 'auto'); ?>>Tự nhận diện theo model</option>
                                         <option value="chat" <?php selected($azevent_ckey_api_format, 'chat'); ?>>OpenAI Chat — /v1/chat/completions</option>
                                     </select>
-                                    <p class="azevent-help"><?php _e('Giữ Claude Messages nếu bạn chủ yếu dùng model Claude từ CKey.', 'azevent-seo-content'); ?></p>
+                                    <p class="azevent-help"><?php _e('Claude Messages dùng x-api-key; OpenAI Chat dùng Bearer token. Auto tự chọn Messages cho model có tên Claude.', 'azevent-seo-content'); ?></p>
+                                    <div class="azevent-model-tools">
+                                        <button type="button" class="button" id="azevent-test-ckey" data-nonce="<?php echo esc_attr(wp_create_nonce('azevent_test_ckey_connection')); ?>"><?php _e('Kiểm tra kết nối CKey', 'azevent-seo-content'); ?></button>
+                                        <span id="azevent-test-ckey-result" class="azevent-help" aria-live="polite"></span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -930,6 +934,8 @@ $lab_prompt_tokens = array(
             var ckeyModelInput = document.getElementById('azevent-new-ckey-model');
             var ckeyAddModelButton = document.getElementById('azevent-add-ckey-model');
             var ckeyModelList = document.getElementById('azevent-ckey-model-list');
+            var ckeyTestButton = document.getElementById('azevent-test-ckey');
+            var ckeyTestResult = document.getElementById('azevent-test-ckey-result');
             var apiEndpointSelect = document.getElementById('aprg_cliproxy_base_url');
             var endpointKeyFields = Array.prototype.slice.call(document.querySelectorAll('.azevent-endpoint-key'));
 
@@ -1104,6 +1110,43 @@ $lab_prompt_tokens = array(
                     }
                 });
                 syncCKeyCustomModels();
+            }
+
+            if (ckeyTestButton) {
+                ckeyTestButton.addEventListener('click', function () {
+                    var apiKeyField = document.getElementById('azevent_seo_ckey_api_key');
+                    var apiFormatField = document.getElementById('azevent_seo_ckey_api_format');
+                    ckeyTestButton.disabled = true;
+                    ckeyTestResult.textContent = '<?php echo esc_js(__('Đang kiểm tra kết nối...', 'azevent-seo-content')); ?>';
+                    ckeyTestResult.style.color = '';
+
+                    var body = new URLSearchParams({
+                        action: 'azevent_test_ckey_connection',
+                        nonce: ckeyTestButton.dataset.nonce,
+                        api_key: apiKeyField ? apiKeyField.value : '',
+                        model: ckeyModelSelect ? ckeyModelSelect.value : '',
+                        api_format: apiFormatField ? apiFormatField.value : 'messages'
+                    });
+                    fetch(<?php echo wp_json_encode(admin_url('admin-ajax.php')); ?>, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+                        body: body.toString()
+                    }).then(function (response) {
+                        return response.json();
+                    }).then(function (response) {
+                        var data = response.data || {};
+                        if (!response.success) {
+                            throw new Error(data.message || '<?php echo esc_js(__('Không thể kết nối CKey.', 'azevent-seo-content')); ?>');
+                        }
+                        ckeyTestResult.style.color = '#15803d';
+                        ckeyTestResult.textContent = data.message;
+                    }).catch(function (error) {
+                        ckeyTestResult.style.color = '#b91c1c';
+                        ckeyTestResult.textContent = error.message;
+                    }).finally(function () {
+                        ckeyTestButton.disabled = false;
+                    });
+                });
             }
 
             var customModelsField = document.getElementById('aprg_cliproxy_custom_models');

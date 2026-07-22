@@ -15,6 +15,7 @@ class AzEvent_Admin
         add_action('admin_menu', array($this, 'add_menu_pages'));
         add_action('admin_init', array($this, 'register_settings'));
         add_action('wp_ajax_azevent_fetch_legacy_models', array($this, 'fetch_legacy_models'));
+        add_action('wp_ajax_azevent_test_ckey_connection', array($this, 'test_ckey_connection'));
     }
 
     /**
@@ -204,6 +205,41 @@ class AzEvent_Admin
     {
         $value = sanitize_key($value);
         return in_array($value, array('messages', 'auto', 'chat'), true) ? $value : 'messages';
+    }
+
+    public function test_ckey_connection()
+    {
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array('message' => __('Bạn không có quyền thực hiện thao tác này.', 'azevent-seo-content')), 403);
+        }
+
+        check_ajax_referer('azevent_test_ckey_connection', 'nonce');
+
+        $api_key = sanitize_text_field(wp_unslash($_POST['api_key'] ?? ''));
+        $model = sanitize_text_field(wp_unslash($_POST['model'] ?? ''));
+        $api_format = $this->sanitize_ckey_api_format(wp_unslash($_POST['api_format'] ?? 'messages'));
+        if ($api_key === '' || $model === '') {
+            wp_send_json_error(array('message' => __('Hãy nhập API Key và chọn model CKey trước khi kiểm tra.', 'azevent-seo-content')), 400);
+        }
+
+        $client = new AzEvent_CKey_Client($api_key, $model);
+        $result = $client->generate_text('Chỉ trả lời chính xác: CKEY_OK', '', array(
+            'model' => $model,
+            'api_format' => $api_format,
+            'max_tokens' => 1024,
+            'temperature' => 0,
+        ));
+        if (is_wp_error($result)) {
+            wp_send_json_error(array('message' => $result->get_error_message()), 502);
+        }
+
+        wp_send_json_success(array(
+            'message' => sprintf(
+                __('Kết nối CKey thành công qua %1$s với model %2$s.', 'azevent-seo-content'),
+                AzEvent_CKey_Client::uses_anthropic_format($api_format, $model) ? 'Claude Messages' : 'OpenAI Chat',
+                $model
+            ),
+        ));
     }
 
     public function fetch_legacy_models()
