@@ -9,7 +9,9 @@
 }
 
 .azevent-studio-admin-page {
-    max-width: 1180px;
+    width: auto;
+    max-width: none;
+    margin-right: 20px;
 }
 
 .azevent-studio-admin-page > .description {
@@ -154,8 +156,9 @@ body.azevent-modal-open {
     position: relative;
     display: flex;
     flex-direction: column;
-    width: min(1540px, calc(100vw - 24px));
-    max-height: calc(100vh - 24px);
+    width: calc(100vw - 12px);
+    max-width: none;
+    max-height: calc(100vh - 12px);
     overflow: hidden;
     border: 1px solid #dbe4f3;
     border-radius: 18px;

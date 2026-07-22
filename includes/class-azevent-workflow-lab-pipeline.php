@@ -869,7 +869,7 @@ class AzEvent_Workflow_Lab_Pipeline
         $model_step = $model_map[$step] ?? 'content';
         $provider = sanitize_key(get_option('azevent_seo_text_provider', 'azevent'));
         $default_model = $provider === 'ckey'
-            ? AzEvent_CKey_Client::model_reference(get_option('azevent_seo_ckey_model', 'sypham98/claude-sonnet-5'))
+            ? AzEvent_CKey_Client::model_reference(get_option('azevent_seo_ckey_model', ''))
             : sanitize_text_field(get_option('aprg_cliproxy_model', ''));
         $fallback_model = sanitize_text_field(get_option("azevent_seo_{$model_step}_model", $default_model));
         if ($fallback_model === '') {

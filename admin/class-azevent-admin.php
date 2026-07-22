@@ -15,7 +15,6 @@ class AzEvent_Admin
         add_action('admin_menu', array($this, 'add_menu_pages'));
         add_action('admin_init', array($this, 'register_settings'));
         add_action('wp_ajax_azevent_fetch_legacy_models', array($this, 'fetch_legacy_models'));
-        add_action('wp_ajax_azevent_fetch_ckey_models', array($this, 'fetch_ckey_models'));
     }
 
     /**
@@ -199,26 +198,6 @@ class AzEvent_Admin
     {
         $value = sanitize_key($value);
         return in_array($value, array('messages', 'auto', 'chat'), true) ? $value : 'messages';
-    }
-
-    public function fetch_ckey_models()
-    {
-        if (!current_user_can('manage_options')) {
-            wp_send_json_error(array('message' => __('Bạn không có quyền thực hiện thao tác này.', 'azevent-seo-content')), 403);
-        }
-
-        check_ajax_referer('azevent_fetch_ckey_models', 'nonce');
-        $client = new AzEvent_CKey_Client();
-        $models = $client->fetch_models();
-        if (is_wp_error($models)) {
-            wp_send_json_error(array('message' => $models->get_error_message()));
-        }
-
-        update_option('azevent_seo_ckey_models', wp_json_encode($models), false);
-        wp_send_json_success(array(
-            'models' => $models,
-            'message' => sprintf(__('Đã tải %d model mới nhất từ CKey.', 'azevent-seo-content'), count($models)),
-        ));
     }
 
     public function fetch_legacy_models()

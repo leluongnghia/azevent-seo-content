@@ -9,7 +9,7 @@ if (!current_user_can('edit_posts')) {
 ?>
 <div class="wrap azevent-queue-page">
     <style>
-        .azevent-queue-page { max-width: 1380px; margin: 24px 24px 0 2px; color: #0f172a; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+        .azevent-queue-page { width: auto; max-width: none; margin: 24px 24px 0 2px; color: #0f172a; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
         .azevent-queue-page * { box-sizing: border-box; }
         .azq-hero { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; padding: 24px 26px; border: 1px solid #1e3a8a; border-radius: 18px; background: radial-gradient(circle at 86% 8%, rgba(129,140,248,.34), transparent 26%), linear-gradient(135deg, #0f172a, #172554 58%, #312e81); color: #fff; box-shadow: 0 16px 38px rgba(15,23,42,.18); }
         .azq-eyebrow { display: block; margin-bottom: 7px; color: #c7d2fe; font-size: 10px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }

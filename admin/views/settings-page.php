@@ -13,7 +13,7 @@ $azevent_base_url = AzEvent_API_Client::get_base_url(
 $azevent_image_model = get_option('aprg_seo_default_cliproxy_image_model', 'gpt-image-2');
 $azevent_text_model = get_option('aprg_cliproxy_model', 'claude-sonnet-4-6');
 $azevent_text_provider = get_option('azevent_seo_text_provider', 'azevent');
-$azevent_ckey_model = get_option('azevent_seo_ckey_model', 'sypham98/claude-sonnet-5');
+$azevent_ckey_model = get_option('azevent_seo_ckey_model', '');
 $azevent_ckey_api_format = get_option('azevent_seo_ckey_api_format', 'messages');
 $azevent_step_models = array(
     'intent' => get_option('azevent_seo_intent_model', ''),
@@ -30,8 +30,6 @@ $azevent_brand_defaults = AzEvent_SEO_Content::get_default_brand_profile();
 $azevent_brand_profile = AzEvent_SEO_Content::get_brand_profile();
 $azevent_custom_models = json_decode(get_option('aprg_cliproxy_custom_models', '[]'), true);
 $azevent_custom_models = is_array($azevent_custom_models) ? array_values(array_filter(array_map('sanitize_text_field', $azevent_custom_models))) : array();
-$azevent_ckey_fetched_models = json_decode(get_option('azevent_seo_ckey_models', '[]'), true);
-$azevent_ckey_fetched_models = is_array($azevent_ckey_fetched_models) ? array_values(array_filter(array_map('sanitize_text_field', $azevent_ckey_fetched_models))) : array();
 $azevent_ckey_custom_models = json_decode(get_option('azevent_seo_ckey_custom_models', '[]'), true);
 $azevent_ckey_custom_models = is_array($azevent_ckey_custom_models) ? array_values(array_filter(array_map('sanitize_text_field', $azevent_ckey_custom_models))) : array();
 $azevent_legacy_openai_models = json_decode(get_option('azevent_seo_legacy_openai_models', '[]'), true);
@@ -57,11 +55,9 @@ $azevent_text_models = array(
     'gpt-5-mini' => 'GPT-5 Mini',
     'grok-4-1-fast-reasoning' => 'Grok 4.1 Fast Reasoning',
 );
-$azevent_ckey_models = AzEvent_CKey_Client::get_default_models();
-foreach (array_merge($azevent_ckey_fetched_models, $azevent_ckey_custom_models) as $ckey_model) {
-    if (!isset($azevent_ckey_models[$ckey_model])) {
-        $azevent_ckey_models[$ckey_model] = $ckey_model;
-    }
+$azevent_ckey_models = array();
+foreach ($azevent_ckey_custom_models as $ckey_model) {
+    $azevent_ckey_models[$ckey_model] = $ckey_model;
 }
 if ($azevent_ckey_model !== '' && !isset($azevent_ckey_models[$azevent_ckey_model])) {
     $azevent_ckey_models[$azevent_ckey_model] = $azevent_ckey_model . ' (Current)';
@@ -103,7 +99,7 @@ foreach ($azevent_lab_step_models as $step_model) {
 $azevent_api_ready = AzEvent_API_Client::is_configured();
 $azevent_ckey_ready = AzEvent_CKey_Client::is_configured();
 $azevent_default_text_label = $azevent_text_provider === 'ckey'
-    ? 'CKEY.VN — ' . ($azevent_ckey_models[$azevent_ckey_model] ?? $azevent_ckey_model)
+    ? ($azevent_ckey_model !== '' ? 'CKEY.VN — ' . ($azevent_ckey_models[$azevent_ckey_model] ?? $azevent_ckey_model) : 'CKEY.VN — chưa chọn model')
     : 'AzEvent API — ' . ($azevent_text_models[$azevent_text_model] ?? $azevent_text_model);
 $azevent_default_language = get_option('azevent_seo_default_language', 'Vietnamese');
 $azevent_browser_auto_advance = absint(get_option('azevent_seo_browser_auto_advance', 0));
@@ -213,7 +209,8 @@ $lab_prompt_tokens = array(
 <div class="wrap azevent-settings-page">
     <style>
         .azevent-settings-page {
-            max-width: 1180px;
+            width: auto;
+            max-width: none;
             margin-right: 24px;
             color: #0f172a;
             font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -565,6 +562,7 @@ $lab_prompt_tokens = array(
                                 <div class="azevent-field">
                                     <label for="azevent_seo_ckey_model"><?php _e('CKey Model mặc định', 'azevent-seo-content'); ?></label>
                                     <select id="azevent_seo_ckey_model" name="azevent_seo_ckey_model">
+                                        <option value="" <?php selected($azevent_ckey_model, ''); ?>><?php _e('Chưa chọn model — hãy thêm thủ công', 'azevent-seo-content'); ?></option>
                                         <?php foreach ($azevent_ckey_models as $model_id => $model_label) : ?>
                                             <option value="<?php echo esc_attr($model_id); ?>" <?php selected($azevent_ckey_model, $model_id); ?>><?php echo esc_html($model_label); ?></option>
                                         <?php endforeach; ?>
@@ -575,6 +573,7 @@ $lab_prompt_tokens = array(
                                         <button type="button" class="azevent-model-add" id="azevent-add-ckey-model"><?php _e('＋ Thêm model', 'azevent-seo-content'); ?></button>
                                     </div>
                                     <div class="azevent-model-list" id="azevent-ckey-model-list"></div>
+                                    <p class="azevent-help"><?php _e('Plugin không nạp sẵn hoặc tự tải model CKey. Hãy nhập chính xác model ID bạn muốn sử dụng.', 'azevent-seo-content'); ?></p>
                                 </div>
                                 <div class="azevent-field">
                                     <label for="azevent_seo_ckey_api_format"><?php _e('Định dạng gọi CKey API', 'azevent-seo-content'); ?></label>
@@ -585,10 +584,6 @@ $lab_prompt_tokens = array(
                                     </select>
                                     <p class="azevent-help"><?php _e('Giữ Claude Messages nếu bạn chủ yếu dùng model Claude từ CKey.', 'azevent-seo-content'); ?></p>
                                 </div>
-                            </div>
-                            <div class="azevent-legacy-actions">
-                                <button type="button" class="azevent-legacy-refresh" id="azevent-refresh-ckey-models"><?php _e('↻ Tải model mới nhất từ CKey', 'azevent-seo-content'); ?></button>
-                                <span class="azevent-legacy-status" id="azevent-ckey-model-status" aria-live="polite"><?php _e('Nhập API key, lưu cấu hình rồi tải danh sách model.', 'azevent-seo-content'); ?></span>
                             </div>
                         </div>
                         <div class="azevent-model-routing">
@@ -917,19 +912,11 @@ $lab_prompt_tokens = array(
                 url: <?php echo wp_json_encode(admin_url('admin-ajax.php')); ?>,
                 nonce: <?php echo wp_json_encode(wp_create_nonce('azevent_fetch_legacy_models')); ?>
             };
-            var ckeyRefreshButton = document.getElementById('azevent-refresh-ckey-models');
-            var ckeyStatus = document.getElementById('azevent-ckey-model-status');
-            var ckeyApiKey = document.getElementById('azevent_seo_ckey_api_key');
             var ckeyModelSelect = document.getElementById('azevent_seo_ckey_model');
             var ckeyCustomModelsField = document.getElementById('azevent_seo_ckey_custom_models');
             var ckeyModelInput = document.getElementById('azevent-new-ckey-model');
             var ckeyAddModelButton = document.getElementById('azevent-add-ckey-model');
             var ckeyModelList = document.getElementById('azevent-ckey-model-list');
-            var ckeyModelsAjax = {
-                url: <?php echo wp_json_encode(admin_url('admin-ajax.php')); ?>,
-                nonce: <?php echo wp_json_encode(wp_create_nonce('azevent_fetch_ckey_models')); ?>
-            };
-
             function replaceLegacyModels(select, models) {
                 if (!select || !Array.isArray(models) || !models.length) {
                     return;
@@ -1026,53 +1013,6 @@ $lab_prompt_tokens = array(
                     }
                     group.appendChild(option);
                 });
-            }
-
-            function refreshCKeyModels() {
-                if (!ckeyRefreshButton) {
-                    return;
-                }
-                if (!ckeyApiKey.value.trim()) {
-                    ckeyStatus.className = 'azevent-legacy-status is-error';
-                    ckeyStatus.textContent = '<?php echo esc_js(__('Hãy nhập và lưu CKey API Key trước.', 'azevent-seo-content')); ?>';
-                    return;
-                }
-                ckeyRefreshButton.disabled = true;
-                ckeyStatus.className = 'azevent-legacy-status';
-                ckeyStatus.textContent = '<?php echo esc_js(__('Đang tải model từ CKey...', 'azevent-seo-content')); ?>';
-                var body = new URLSearchParams({
-                    action: 'azevent_fetch_ckey_models',
-                    nonce: ckeyModelsAjax.nonce
-                });
-                fetch(ckeyModelsAjax.url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
-                    body: body.toString()
-                }).then(function (response) {
-                    return response.json();
-                }).then(function (response) {
-                    var data = response.data || {};
-                    if (!response.success) {
-                        throw new Error(data.message || '<?php echo esc_js(__('Không thể tải model CKey.', 'azevent-seo-content')); ?>');
-                    }
-                    (data.models || []).forEach(function (model) {
-                        addCKeyModelOption(model, false);
-                    });
-                    ckeyStatus.className = 'azevent-legacy-status is-success';
-                    ckeyStatus.textContent = data.message || '<?php echo esc_js(__('Đã cập nhật model CKey.', 'azevent-seo-content')); ?>';
-                }).catch(function (error) {
-                    ckeyStatus.className = 'azevent-legacy-status is-error';
-                    ckeyStatus.textContent = error.message;
-                }).finally(function () {
-                    ckeyRefreshButton.disabled = false;
-                });
-            }
-
-            if (ckeyRefreshButton) {
-                ckeyRefreshButton.addEventListener('click', refreshCKeyModels);
-                if (new URLSearchParams(window.location.search).get('settings-updated') === '1' && ckeyApiKey.value.trim()) {
-                    refreshCKeyModels();
-                }
             }
 
             var ckeyCustomModels = [];

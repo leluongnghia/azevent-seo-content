@@ -112,7 +112,7 @@ class AzEvent_Content_Pipeline
             'seo' => "\n\nĐây là chế độ viết lại. Hãy tạo metadata mới cho nội dung, nhưng giữ slug hiện tại '{existing_slug}' trừ khi có lý do SEO rõ ràng.",
         );
         $default_text_provider = sanitize_key(get_option('azevent_seo_text_provider', 'azevent'));
-        $default_ckey_model = AzEvent_CKey_Client::model_reference(get_option('azevent_seo_ckey_model', 'sypham98/claude-sonnet-5'));
+        $default_ckey_model = AzEvent_CKey_Client::model_reference(get_option('azevent_seo_ckey_model', ''));
         $default_step_model = $default_text_provider === 'ckey' ? $default_ckey_model : '';
         $uses_primary_api = AzEvent_API_Client::is_configured() || AzEvent_CKey_Client::is_configured();
         $step_models = array(

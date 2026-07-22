@@ -16,7 +16,7 @@ class AzEvent_CKey_Client
     public function __construct($api_key = '', $model = '')
     {
         $this->api_key = $api_key !== '' ? $api_key : get_option('azevent_seo_ckey_api_key', '');
-        $this->model = $model !== '' ? $model : get_option('azevent_seo_ckey_model', 'sypham98/claude-sonnet-5');
+        $this->model = $model !== '' ? $model : get_option('azevent_seo_ckey_model', '');
     }
 
     public static function is_configured()
@@ -27,14 +27,6 @@ class AzEvent_CKey_Client
     public function get_last_text_metrics()
     {
         return $this->last_text_metrics;
-    }
-
-    public static function get_default_models()
-    {
-        return array(
-            'thanhnhan9023/claude-opus-4.8' => 'Claude Opus 4.8 (thanhnhan9023)',
-            'sypham98/claude-sonnet-5' => 'Claude Sonnet 5 (sypham98)',
-        );
     }
 
     public static function model_reference($model)
@@ -55,54 +47,6 @@ class AzEvent_CKey_Client
             $model = substr($model, strlen(self::MODEL_PREFIX));
         }
         return trim($model);
-    }
-
-    public function fetch_models()
-    {
-        if ($this->api_key === '') {
-            return new WP_Error('azevent_ckey_missing_key', 'Thiếu CKey API Key.');
-        }
-
-        $response = wp_remote_get(self::API_BASE_URL . '/models', array(
-            'timeout' => 30,
-            'headers' => array(
-                'Authorization' => 'Bearer ' . $this->api_key,
-                'Accept' => 'application/json',
-            ),
-        ));
-        if (is_wp_error($response)) {
-            return $response;
-        }
-
-        $status = (int) wp_remote_retrieve_response_code($response);
-        $raw_body = (string) wp_remote_retrieve_body($response);
-        $data = json_decode($raw_body, true);
-        if ($status < 200 || $status >= 300 || !is_array($data)) {
-            return new WP_Error(
-                'azevent_ckey_models_error',
-                'CKey API Models: ' . $this->extract_error_message($data, $status, $raw_body)
-            );
-        }
-
-        $items = isset($data['data']) && is_array($data['data'])
-            ? $data['data']
-            : (isset($data['models']) && is_array($data['models']) ? $data['models'] : array());
-        $models = array();
-        foreach ($items as $item) {
-            $model = is_array($item) ? ($item['id'] ?? $item['name'] ?? '') : $item;
-            $model = self::strip_model_prefix($model);
-            if ($model !== '') {
-                $models[] = $model;
-            }
-        }
-
-        $models = array_values(array_unique($models));
-        sort($models, SORT_NATURAL | SORT_FLAG_CASE);
-        if (empty($models)) {
-            return new WP_Error('azevent_ckey_models_empty', 'CKey API không trả về model khả dụng.');
-        }
-
-        return $models;
     }
 
     public function generate_text($prompt, $system_prompt = '', array $options = array())
