@@ -705,12 +705,13 @@ class AzEvent_Workflow_Lab_Pipeline
 
         $seo = $context['results']['seo'];
         $image_status = 'skipped';
+        $featured_image = array();
         if (!$skip_image && !empty($context['input']['generate_image'])) {
             if (!AzEvent_API_Client::is_configured()) {
                 return new WP_Error('azevent_lab_image_api_missing', 'Chưa cấu hình AzEvent API tạo ảnh. Bạn có thể chọn “Lưu Draft không ảnh”.');
             }
             $prompt = $seo['image_prompt'] . ' Professional event photography, realistic lighting, high resolution, no text, no logo, no watermark.';
-            $this->append_log($post_id, $context, 'info', 'finalize', 'Đang gọi AzEvent API để tạo ảnh đại diện.');
+            $this->append_log($post_id, $context, 'info', 'finalize', 'Đang gọi ' . AzEvent_API_Client::get_provider_label() . ' để tạo ảnh đại diện.');
             $image_result = (new AzEvent_AI_Service())->generate_image($prompt, '', '1:1');
             if (is_wp_error($image_result)) {
                 return $image_result;
@@ -721,6 +722,12 @@ class AzEvent_Workflow_Lab_Pipeline
             }
             set_post_thumbnail($post_id, $attachment_id);
             $image_status = 'created';
+            $featured_image = array(
+                'id' => absint($attachment_id),
+                'url' => esc_url_raw(wp_get_attachment_image_url($attachment_id, 'large')),
+                'full_url' => esc_url_raw(wp_get_attachment_image_url($attachment_id, 'full')),
+                'alt' => sanitize_text_field(get_post_meta($attachment_id, '_wp_attachment_image_alt', true)),
+            );
             $this->append_log($post_id, $context, 'success', 'finalize', 'Đã tạo, tải lên và gắn ảnh đại diện.');
         } else {
             $this->append_log($post_id, $context, 'info', 'finalize', 'Bỏ qua tạo ảnh đại diện theo lựa chọn hiện tại.');
@@ -747,6 +754,7 @@ class AzEvent_Workflow_Lab_Pipeline
         $context['last_completed_step'] = 'finalize';
         $context['next_step'] = '';
         $context['image_status'] = $image_status;
+        $context['featured_image'] = $featured_image;
         $context['completed_at'] = time();
         $context['updated_at'] = time();
         unset($context['error']);

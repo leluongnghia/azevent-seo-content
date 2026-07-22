@@ -126,6 +126,19 @@ class AzEvent_SEO_Workflow_Lab
         if (!is_array($context)) {
             wp_send_json_error(array('message' => 'Checkpoint SEO Workflow Lab không hợp lệ.'));
         }
+        if (($context['status'] ?? '') === 'completed' && empty($context['featured_image'])) {
+            $attachment_id = get_post_thumbnail_id($post_id);
+            if ($attachment_id) {
+                $context['image_status'] = 'created';
+                $context['featured_image'] = array(
+                    'id' => absint($attachment_id),
+                    'url' => esc_url_raw(wp_get_attachment_image_url($attachment_id, 'large')),
+                    'full_url' => esc_url_raw(wp_get_attachment_image_url($attachment_id, 'full')),
+                    'alt' => sanitize_text_field(get_post_meta($attachment_id, '_wp_attachment_image_alt', true)),
+                );
+                update_post_meta($post_id, AzEvent_Workflow_Lab_Pipeline::SESSION_META, $context);
+            }
+        }
         $pending = isset($context['pending_job']) && is_array($context['pending_job']) ? $context['pending_job'] : array();
         if (($context['status'] ?? '') === 'queued' && !empty($pending['id'])) {
             $this->dispatch_background_step($post_id, $pending['id']);

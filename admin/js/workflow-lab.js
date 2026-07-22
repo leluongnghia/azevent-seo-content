@@ -71,6 +71,9 @@
         qualityPreview: document.getElementById('azlab-quality-preview'),
         finalResult: document.getElementById('azlab-final-result'),
         finalConfirmation: document.getElementById('azlab-final-confirmation'),
+        featuredImageCard: document.getElementById('azlab-featured-image-card'),
+        featuredImage: document.getElementById('azlab-featured-image'),
+        featuredImageEmpty: document.getElementById('azlab-featured-image-empty'),
         editPost: document.getElementById('azlab-edit-post'),
         reviewActions: document.getElementById('azlab-review-actions'),
         finalActions: document.getElementById('azlab-final-actions'),
@@ -539,6 +542,17 @@
             setIframeContent(elements.qualityPreview, context.results.content || '');
         } else if (step === 'finalize') {
             if (context.status === 'completed') {
+                const featuredImage = context.featured_image || {};
+                const featuredImageUrl = featuredImage.url || featuredImage.full_url || '';
+                elements.featuredImageCard.hidden = !featuredImageUrl;
+                elements.featuredImageEmpty.hidden = !!featuredImageUrl || context.image_status !== 'skipped';
+                if (featuredImageUrl) {
+                    elements.featuredImage.src = featuredImageUrl;
+                    elements.featuredImage.alt = featuredImage.alt || 'Ảnh đại diện bài viết';
+                } else {
+                    elements.featuredImage.removeAttribute('src');
+                    elements.featuredImage.alt = '';
+                }
                 elements.finalResult.hidden = false;
                 elements.reviewActions.hidden = true;
                 elements.finalActions.hidden = true;
