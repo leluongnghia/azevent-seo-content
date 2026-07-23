@@ -446,8 +446,10 @@ $lab_prompt_tokens = array(
         .azevent-lab-model-toolbar .azevent-field { margin: 0; }
         .azevent-lab-model-toolbar .button { min-height: 39px; padding: 0 14px; border-radius: 8px; font-weight: 700; }
         .azevent-lab-model-status { grid-column: 1/-1; min-height: 16px; color: #047857; font-size: 11px; }
-        .azevent-lab-model-grid { display: grid; grid-template-columns: repeat(3, minmax(220px, 1fr)); gap: 12px; }
-        .azevent-lab-model-card { min-width: 0; padding: 13px; border: 1px solid #dbe4f3; border-radius: 11px; background: #fff; }
+        .azevent-lab-model-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
+        .azevent-lab-model-card { grid-column: span 2; min-width: 0; padding: 13px; border: 1px solid #dbe4f3; border-radius: 11px; background: #fff; }
+        .azevent-lab-model-card:nth-last-child(2):nth-child(3n + 1) { grid-column: 2 / span 2; }
+        .azevent-lab-model-card:last-child:nth-child(3n + 2) { grid-column: 4 / span 2; }
         .azevent-lab-model-card-head { display: flex; align-items: flex-start; gap: 9px; margin-bottom: 9px; }
         .azevent-lab-model-number { display: inline-grid; place-items: center; width: 25px; height: 25px; flex: 0 0 auto; border-radius: 8px; background: #4f46e5; color: #fff; font-size: 10px; font-weight: 800; }
         .azevent-lab-model-card strong, .azevent-lab-model-card span { display: block; }
@@ -539,6 +541,10 @@ $lab_prompt_tokens = array(
             .azevent-hero h1 { font-size: 25px; }
             .azevent-tabs { margin-bottom: 14px; }
             .azevent-grid, .azevent-prompt-body, .azevent-step-model-grid, .azevent-lab-model-grid, .azevent-lab-model-toolbar { grid-template-columns: 1fr; }
+            .azevent-lab-model-card,
+            .azevent-lab-model-card:nth-last-child(2):nth-child(3n + 1),
+            .azevent-lab-model-card:last-child:nth-child(3n + 2),
+            .azevent-lab-model-card:last-child:nth-child(odd) { grid-column: auto; width: auto; max-width: none; }
             .azevent-tabs { top: 10px; }
             .azevent-tab { min-height: 44px; justify-content: flex-start; }
             .azevent-version { position: static; display: inline-block; margin-top: 18px; }
@@ -556,6 +562,10 @@ $lab_prompt_tokens = array(
         }
         @media (min-width: 801px) and (max-width: 1240px) {
             .azevent-lab-model-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .azevent-lab-model-card,
+            .azevent-lab-model-card:nth-last-child(2):nth-child(3n + 1),
+            .azevent-lab-model-card:last-child:nth-child(3n + 2) { grid-column: auto; }
+            .azevent-lab-model-card:last-child:nth-child(odd) { grid-column: 1 / -1; width: calc(50% - 6px); justify-self: center; }
         }
         @media (max-width: 480px) {
             .azevent-settings-page { margin-left: 0; margin-right: 10px; }

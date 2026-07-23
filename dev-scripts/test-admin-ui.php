@@ -19,8 +19,8 @@ function azevent_ui_assert($condition, $message)
 }
 
 azevent_ui_assert(
-    strpos($settings, 'max-width: 1480px;') !== false
-        && strpos($settings, 'max-width: none;') === false,
+    preg_match('/\\.azevent-settings-page\\s*\\{[^}]*max-width:\\s*1480px;/s', $settings) === 1
+        && preg_match('/\\.azevent-settings-page\\s*\\{[^}]*max-width:\\s*none;/s', $settings) !== 1,
     'Settings giữ chiều rộng đọc tối đa và không còn kéo giãn vô hạn.'
 );
 azevent_ui_assert(
@@ -47,9 +47,17 @@ azevent_ui_assert(
     'Settings tabs hỗ trợ bàn phím Arrow/Home/End.'
 );
 azevent_ui_assert(
-    strpos($settings, 'repeat(3, minmax(220px, 1fr))') !== false
+    strpos($settings, 'repeat(6, minmax(0, 1fr))') !== false
+        && strpos($settings, 'grid-column: span 2;') !== false
+        && strpos($settings, 'grid-column: 2 / span 2;') !== false
+        && strpos($settings, 'grid-column: 4 / span 2;') !== false
         && strpos($settings, 'repeat(5, minmax(0, 1fr))') === false,
-    'Model cards dùng lưới ba cột dễ đọc thay vì ép năm cột.'
+    'Năm model dùng bố cục 3+2 cân giữa thay vì ép năm cột.'
+);
+azevent_ui_assert(
+    strpos($settings, '.azevent-lab-model-card:last-child:nth-child(odd) { grid-column: 1 / -1; width: calc(50% - 6px); justify-self: center; }') !== false
+        && strpos($settings, '.azevent-lab-model-card:last-child:nth-child(odd) { grid-column: auto; width: auto; max-width: none; }') !== false,
+    'Model cuối được căn giữa trên tablet và trở về toàn chiều rộng trên mobile.'
 );
 azevent_ui_assert(
     strpos($settings, 'data-prompt-action="expand"') !== false
