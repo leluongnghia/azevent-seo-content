@@ -7,6 +7,20 @@ if (!current_user_can('edit_posts')) {
     wp_die(esc_html__('Bạn không có quyền xem Background Queue.', 'azevent-seo-content'));
 }
 
+$azq_studio_url = add_query_arg(
+    array(
+        'page' => 'azevent-seo-content-studio',
+        'azevent_modal' => 1,
+    ),
+    admin_url('admin.php')
+);
+$azq_workflow_lab_url = add_query_arg(
+    array(
+        'page' => 'azevent-seo-workflow-lab',
+        'azevent_modal' => 1,
+    ),
+    admin_url('admin.php')
+);
 $azq_settings_url = add_query_arg(
     array(
         'page' => 'azevent-seo-settings',
@@ -32,7 +46,7 @@ $azq_prompts_url = add_query_arg(
         .azq-eyebrow { display: block; margin-bottom: 7px; color: #c7d2fe; font-size: 10px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
         .azq-hero h1 { margin: 0; color: #fff; font-size: 25px; line-height: 1.2; }
         .azq-hero p { max-width: 760px; margin: 9px 0 0; color: #dbeafe; font-size: 13px; line-height: 1.6; }
-        .azq-hero-actions { display: flex; gap: 8px; flex: 0 0 auto; }
+        .azq-hero-actions { display: flex; flex: 0 1 760px; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
         .azq-hero .button { display: inline-flex; align-items: center; gap: 6px; min-height: 39px; border-color: rgba(255,255,255,.35); border-radius: 9px; background: rgba(255,255,255,.12); color: #fff; font-weight: 700; }
         .azq-hero .button-primary { border-color: #fff; background: #fff; color: #3730a3; }
         .azq-hero .button:hover, .azq-hero .button:focus { border-color: rgba(255,255,255,.7); background: rgba(255,255,255,.2); color: #fff; }
@@ -99,6 +113,12 @@ $azq_prompts_url = add_query_arg(
             <p><?php _e('Theo dõi Job tự động và các phiên Content Studio đã lưu. Item “Chờ tiếp tục” có thể mở lại đúng bài, đúng bước và giữ nguyên checkpoint.', 'azevent-seo-content'); ?></p>
         </div>
         <div class="azq-hero-actions">
+            <button type="button" class="button button-primary azq-open-modal" data-modal-section="studio" data-modal-title="<?php esc_attr_e('Content Studio', 'azevent-seo-content'); ?>" data-modal-icon="dashicons-edit-page" data-modal-url="<?php echo esc_url($azq_studio_url); ?>">
+                <span class="dashicons dashicons-edit-page" aria-hidden="true"></span><?php _e('Content Studio', 'azevent-seo-content'); ?>
+            </button>
+            <button type="button" class="button azq-open-modal" data-modal-section="workflow-lab" data-modal-title="<?php esc_attr_e('SEO Workflow Lab', 'azevent-seo-content'); ?>" data-modal-icon="dashicons-chart-area" data-modal-url="<?php echo esc_url($azq_workflow_lab_url); ?>">
+                <span class="dashicons dashicons-chart-area" aria-hidden="true"></span><?php _e('Workflow Lab', 'azevent-seo-content'); ?>
+            </button>
             <?php if (current_user_can('manage_options')) : ?>
                 <button type="button" class="button azq-open-modal" data-modal-section="settings" data-modal-title="<?php esc_attr_e('Settings', 'azevent-seo-content'); ?>" data-modal-icon="dashicons-admin-settings" data-modal-url="<?php echo esc_url($azq_settings_url); ?>">
                     <span class="dashicons dashicons-admin-settings" aria-hidden="true"></span><?php _e('Settings', 'azevent-seo-content'); ?>
@@ -108,7 +128,7 @@ $azq_prompts_url = add_query_arg(
                 </button>
             <?php endif; ?>
             <a class="button" href="<?php echo esc_url(admin_url('post-new.php')); ?>"><?php _e('＋ Tạo bài mới', 'azevent-seo-content'); ?></a>
-            <button type="button" class="button button-primary" id="azq-refresh"><?php _e('↻ Làm mới', 'azevent-seo-content'); ?></button>
+            <button type="button" class="button" id="azq-refresh"><?php _e('↻ Làm mới', 'azevent-seo-content'); ?></button>
         </div>
     </header>
 
@@ -141,24 +161,22 @@ $azq_prompts_url = add_query_arg(
         </div>
     </section>
 
-    <?php if (current_user_can('manage_options')) : ?>
-        <div id="azq-settings-modal" class="azq-modal" hidden aria-hidden="true">
-            <div class="azq-modal-backdrop" data-azq-modal-close></div>
-            <div class="azq-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="azq-modal-title">
-                <header class="azq-modal-header">
-                    <div class="azq-modal-heading">
-                        <span id="azq-modal-icon" class="dashicons dashicons-admin-settings" aria-hidden="true"></span>
-                        <div><span><?php _e('AzEvent SEO', 'azevent-seo-content'); ?></span><h2 id="azq-modal-title"><?php _e('Settings', 'azevent-seo-content'); ?></h2></div>
-                    </div>
-                    <button type="button" id="azq-modal-close" class="azq-modal-close" aria-label="<?php esc_attr_e('Đóng cửa sổ', 'azevent-seo-content'); ?>" data-azq-modal-close>
-                        <span class="dashicons dashicons-no-alt" aria-hidden="true"></span>
-                    </button>
-                </header>
-                <span class="azq-modal-loading" aria-live="polite"><?php _e('Đang tải…', 'azevent-seo-content'); ?></span>
-                <iframe id="azq-modal-frame" class="azq-modal-frame" title="<?php esc_attr_e('Cấu hình AzEvent SEO', 'azevent-seo-content'); ?>"></iframe>
-            </div>
+    <div id="azq-settings-modal" class="azq-modal" hidden aria-hidden="true">
+        <div class="azq-modal-backdrop" data-azq-modal-close></div>
+        <div class="azq-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="azq-modal-title">
+            <header class="azq-modal-header">
+                <div class="azq-modal-heading">
+                    <span id="azq-modal-icon" class="dashicons dashicons-admin-settings" aria-hidden="true"></span>
+                    <div><span><?php _e('AzEvent SEO', 'azevent-seo-content'); ?></span><h2 id="azq-modal-title"><?php _e('Settings', 'azevent-seo-content'); ?></h2></div>
+                </div>
+                <button type="button" id="azq-modal-close" class="azq-modal-close" aria-label="<?php esc_attr_e('Đóng cửa sổ', 'azevent-seo-content'); ?>" data-azq-modal-close>
+                    <span class="dashicons dashicons-no-alt" aria-hidden="true"></span>
+                </button>
+            </header>
+            <span class="azq-modal-loading" aria-live="polite"><?php _e('Đang tải…', 'azevent-seo-content'); ?></span>
+            <iframe id="azq-modal-frame" class="azq-modal-frame" title="<?php esc_attr_e('Công cụ AzEvent SEO', 'azevent-seo-content'); ?>"></iframe>
         </div>
-    <?php endif; ?>
+    </div>
 
     <script>
         (function () {
@@ -197,6 +215,7 @@ $azq_prompts_url = add_query_arg(
                 modalReturnFocus = button;
                 modalTitle.textContent = button.dataset.modalTitle || 'Settings';
                 modalIcon.className = 'dashicons ' + (button.dataset.modalIcon || 'dashicons-admin-settings');
+                modalFrame.title = button.dataset.modalTitle || 'AzEvent SEO';
                 settingsModal.classList.remove('is-loaded');
                 settingsModal.hidden = false;
                 settingsModal.setAttribute('aria-hidden', 'false');
@@ -259,7 +278,7 @@ $azq_prompts_url = add_query_arg(
             if (modalFrame) modalFrame.addEventListener('load', function () { settingsModal.classList.add('is-loaded'); });
             document.addEventListener('keydown', function (event) { if (event.key === 'Escape' && settingsModal && !settingsModal.hidden) closeSettingsModal(); });
             window.addEventListener('message', function (event) {
-                if (event.origin === window.location.origin && modalFrame && event.source === modalFrame.contentWindow && event.data === 'azevent-close-settings-modal') {
+                if (event.origin === window.location.origin && modalFrame && event.source === modalFrame.contentWindow && event.data === 'azevent-close-admin-modal') {
                     closeSettingsModal();
                 }
             });

@@ -14,6 +14,7 @@ class AzEvent_Admin
     {
         add_action('admin_menu', array($this, 'add_menu_pages'));
         add_action('admin_init', array($this, 'register_settings'));
+        add_action('admin_head', array($this, 'render_modal_frame_styles'));
         add_action('wp_ajax_azevent_fetch_legacy_models', array($this, 'fetch_legacy_models'));
         add_action('wp_ajax_azevent_test_ckey_connection', array($this, 'test_ckey_connection'));
     }
@@ -34,7 +35,7 @@ class AzEvent_Admin
         );
 
         add_submenu_page(
-            'azevent-seo-background-queue',
+            null,
             __('Content Studio', 'azevent-seo-content'),
             __('Content Studio', 'azevent-seo-content'),
             'edit_posts',
@@ -43,7 +44,7 @@ class AzEvent_Admin
         );
 
         add_submenu_page(
-            'azevent-seo-background-queue',
+            null,
             __('SEO Workflow Lab', 'azevent-seo-content'),
             __('SEO Workflow Lab', 'azevent-seo-content'),
             'edit_posts',
@@ -59,6 +60,64 @@ class AzEvent_Admin
             'azevent-seo-settings',
             array($this, 'render_settings_page')
         );
+    }
+
+    /**
+     * Strip the WordPress admin chrome when a plugin page is embedded in the
+     * Queue modal. Each page keeps its normal capability check and assets.
+     */
+    public function render_modal_frame_styles()
+    {
+        if (absint($_GET['azevent_modal'] ?? 0) !== 1) {
+            return;
+        }
+
+        $page = sanitize_key(wp_unslash($_GET['page'] ?? ''));
+        if (!in_array($page, array(
+            'azevent-seo-settings',
+            'azevent-seo-content-studio',
+            'azevent-seo-workflow-lab',
+        ), true)) {
+            return;
+        }
+        ?>
+        <style>
+            html.wp-toolbar { padding-top: 0; }
+            body { min-width: 0; background: #f8fafc; }
+            #wpadminbar, #adminmenumain, #wpfooter, .update-nag, .notice:not(.settings-error) { display: none !important; }
+            #wpcontent, #wpfooter { margin-left: 0; }
+            #wpbody-content { min-height: 100vh; padding-bottom: 0; }
+            .azevent-studio-admin-page { width: auto; max-width: none; margin: 0; }
+            .azevent-studio-admin-page > h1,
+            .azevent-studio-admin-page > .description,
+            .azevent-studio-admin-page > .azevent-launch-card { display: none; }
+            .azevent-studio-admin-page .azevent-modal { padding: 0; }
+            .azevent-studio-admin-page .azevent-modal-dialog {
+                width: 100%;
+                max-width: none;
+                height: 100%;
+                max-height: none;
+                border: 0;
+                border-radius: 0;
+                box-shadow: none;
+            }
+            .azevent-studio-admin-page .azevent-modal-header { display: none; }
+            .azlab-page { width: auto; max-width: none !important; margin: 0 !important; padding: 18px; }
+            .azlab-page > .azlab-hero { display: none; }
+            .azlab-page > .azlab-layout { margin-top: 0; }
+            @media (max-width: 782px) {
+                .azlab-page { padding: 10px; }
+                .azevent-studio-admin-page .azevent-modal-body { padding: 14px; }
+            }
+        </style>
+        <script>
+            document.addEventListener('keydown', function (event) {
+                if (event.key === 'Escape' && window.parent !== window) {
+                    window.parent.postMessage('azevent-close-admin-modal', window.location.origin);
+                }
+            });
+        </script>
+        <?php
     }
 
     /**

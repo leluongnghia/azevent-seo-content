@@ -1327,14 +1327,6 @@ $azevent_initial_tab = $azevent_modal_section === 'prompts' ? 'prompts' : ($azev
 
     <script>
         (function () {
-            var isModalMode = <?php echo wp_json_encode($azevent_modal_mode); ?>;
-            if (isModalMode) {
-                document.addEventListener('keydown', function (event) {
-                    if (event.key === 'Escape' && window.parent !== window) {
-                        window.parent.postMessage('azevent-close-settings-modal', window.location.origin);
-                    }
-                });
-            }
             var legacyRefreshButton = document.getElementById('azevent-refresh-legacy-models');
             var legacyStatus = document.getElementById('azevent-legacy-model-status');
             var openaiModelSelect = document.getElementById('azevent_seo_openai_model');

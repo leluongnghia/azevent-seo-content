@@ -26,26 +26,36 @@ function azevent_ui_assert($condition, $message)
 azevent_ui_assert(
     strpos($admin, "'azevent-seo-background-queue',\n            array(\$this, 'render_background_queue_page')") !== false
         && strpos($admin, "add_submenu_page(\n            null,\n            __('AzEvent SEO Settings'") !== false
+        && strpos($admin, "add_submenu_page(\n            null,\n            __('Content Studio'") !== false
+        && strpos($admin, "add_submenu_page(\n            null,\n            __('SEO Workflow Lab'") !== false
         && strpos($admin, "remove_submenu_page('azevent-seo-background-queue', 'azevent-seo-settings')") === false
         && strpos($updater, "'azevent-seo-background-queue',\n            'GitHub Updates'") !== false,
-    'Menu AzEvent SEO mở Queue mặc định và Settings dùng route admin ẩn hợp lệ.'
+    'Queue là trang mặc định; Studio, Workflow Lab và Settings dùng route admin ẩn hợp lệ.'
 );
 azevent_ui_assert(
-    substr_count($background_queue, 'class="button azq-open-modal"') === 2
+    substr_count($background_queue, 'azq-open-modal"') === 4
+        && strpos($background_queue, 'data-modal-section="studio"') !== false
+        && strpos($background_queue, 'data-modal-section="workflow-lab"') !== false
         && strpos($background_queue, 'data-modal-title="<?php esc_attr_e(\'Settings\'') !== false
         && strpos($background_queue, 'data-modal-title="<?php esc_attr_e(\'Prompt\'') !== false
         && strpos($background_queue, 'role="dialog"') !== false
         && strpos($background_queue, "event.key === 'Escape'") !== false
-        && strpos($settings, "postMessage('azevent-close-settings-modal'") !== false
-        && strpos($background_queue, "event.data === 'azevent-close-settings-modal'") !== false
+        && strpos($admin, "postMessage('azevent-close-admin-modal'") !== false
+        && strpos($background_queue, "event.data === 'azevent-close-admin-modal'") !== false
         && strpos($background_queue, "get('azevent_open')") !== false
         && strpos($editor_integration, "'azevent_open' => 'settings'") !== false,
-    'Queue có nút Settings và Prompt mở modal hỗ trợ phím Escape.'
+    'Queue có bốn nút công cụ mở modal chung và hỗ trợ phím Escape.'
 );
 azevent_ui_assert(
     strpos($settings, 'azevent-settings-modal-prompts') !== false
         && strpos($settings, "\$azevent_initial_tab = \$azevent_modal_section === 'prompts' ? 'prompts'") !== false,
     'Settings modal tách đúng nhóm cấu hình và nhóm Prompt.'
+);
+azevent_ui_assert(
+    strpos($admin, 'public function render_modal_frame_styles()') !== false
+        && strpos($admin, '.azevent-studio-admin-page .azevent-modal-header { display: none; }') !== false
+        && strpos($admin, '.azlab-page > .azlab-hero { display: none; }') !== false,
+    'Content Studio và Workflow Lab có chế độ nhúng gọn trong modal Queue.'
 );
 azevent_ui_assert(
     preg_match('/\\.azevent-settings-page\\s*\\{[^}]*max-width:\\s*1480px;/s', $settings) === 1
