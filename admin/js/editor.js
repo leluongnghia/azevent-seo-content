@@ -1039,7 +1039,30 @@ jQuery(function($) {
         jobs.forEach(function(job) {
             const $row = $('<tr>');
             const $keywordCell = $('<td>');
-            $('<span class="azevent-queue-keyword">').text(job.keyword).appendTo($keywordCell);
+            let destination = null;
+            if (job.workflow_type === 'browser' && job.resume_url && job.status !== 'completed') {
+                destination = {
+                    url: job.resume_url,
+                    label: job.status === 'processing' || job.auto_background ? 'Mở tiến trình' : 'Tiếp tục',
+                    primary: true
+                };
+            } else if (job.status === 'completed' && job.post_url) {
+                destination = {
+                    url: job.post_url,
+                    label: 'Mở Draft',
+                    primary: false
+                };
+            }
+
+            const $keyword = destination
+                ? $('<a class="azevent-queue-keyword">')
+                    .attr({
+                        href: destination.url,
+                        title: destination.label,
+                        'aria-label': destination.label + ': ' + job.keyword
+                    })
+                : $('<span class="azevent-queue-keyword">');
+            $keyword.text(job.keyword).appendTo($keywordCell);
             $('<span class="azevent-job-type">')
                 .text(job.workflow_type === 'browser' ? 'Content Studio' : 'Tự động')
                 .appendTo($keywordCell);
@@ -1052,15 +1075,11 @@ jQuery(function($) {
                 .text(job.auto_background && job.status === 'paused' ? 'Đang chạy nền' : (statusLabels[job.status] || job.status));
             const $actionCell = $('<td>');
 
-            if (job.workflow_type === 'browser' && job.resume_url && job.status !== 'completed') {
-                $('<a class="button button-primary azevent-job-action">')
-                    .attr('href', job.resume_url)
-                    .text(job.status === 'processing' || job.auto_background ? 'Mở tiến trình' : 'Tiếp tục')
-                    .appendTo($actionCell);
-            } else if (job.status === 'completed' && job.post_url) {
+            if (destination) {
                 $('<a class="button azevent-job-action">')
-                    .attr('href', job.post_url)
-                    .text('Mở Draft')
+                    .toggleClass('button-primary', destination.primary)
+                    .attr('href', destination.url)
+                    .text(destination.label)
                     .appendTo($actionCell);
             } else if (job.status === 'failed') {
                 $('<button type="button" class="button azevent-job-action azevent-retry-job">')

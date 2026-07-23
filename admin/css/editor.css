@@ -1009,6 +1009,26 @@ body.azevent-modal-open {
     font-weight: 650;
 }
 
+a.azevent-queue-keyword {
+    color: #4338ca;
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-color: transparent;
+    text-underline-offset: 2px;
+    transition: color .15s ease, text-decoration-color .15s ease;
+}
+
+a.azevent-queue-keyword:hover {
+    color: #312e81;
+    text-decoration-color: currentColor;
+}
+
+a.azevent-queue-keyword:focus-visible {
+    border-radius: 3px;
+    outline: 2px solid #6366f1;
+    outline-offset: 3px;
+}
+
 .azevent-job-type {
     display: inline-block;
     margin-top: 5px;

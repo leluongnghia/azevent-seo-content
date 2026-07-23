@@ -5,6 +5,8 @@
 
 $root = dirname(__DIR__);
 $settings = file_get_contents($root . '/admin/views/settings-page.php');
+$background_queue = file_get_contents($root . '/admin/views/background-queue-page.php');
+$editor_js = file_get_contents($root . '/admin/js/editor.js');
 $workflow_css = file_get_contents($root . '/admin/css/workflow-lab.css');
 $editor_css = file_get_contents($root . '/admin/css/editor.css');
 
@@ -73,6 +75,23 @@ azevent_ui_assert(
     strpos($settings, 'data-controlled-by="azevent_lab_validate_outline"') !== false
         && strpos($settings, 'data-controlled-by="azevent_seo_generate_h2_images"') !== false,
     'Các trường phụ chỉ hiện khi tùy chọn liên quan được bật.'
+);
+azevent_ui_assert(
+    strpos($background_queue, "var keyword = document.createElement(destination ? 'a' : 'span')") !== false
+        && strpos($background_queue, "keyword.setAttribute('aria-label', destination.label + ': ' + job.keyword)") !== false
+        && strpos($background_queue, 'if (destination) addButton(actions, destination.label, destination.url') !== false,
+    'Trang Background Queue gắn từ khóa vào đúng hành động chính và giữ nhãn truy cập.'
+);
+azevent_ui_assert(
+    strpos($editor_js, '? $(\'<a class="azevent-queue-keyword">\')') !== false
+        && strpos($editor_js, "'aria-label': destination.label + ': ' + job.keyword") !== false
+        && strpos($editor_js, ".toggleClass('button-primary', destination.primary)") !== false,
+    'Queue trong Content Studio dùng cùng đích đến cho từ khóa và nút hành động.'
+);
+azevent_ui_assert(
+    strpos($background_queue, 'a.azq-keyword:focus-visible') !== false
+        && strpos($editor_css, 'a.azevent-queue-keyword:focus-visible') !== false,
+    'Liên kết từ khóa có trạng thái focus bàn phím rõ ràng ở cả hai giao diện.'
 );
 
 fwrite(STDOUT, "All admin UI regression checks passed.\n");

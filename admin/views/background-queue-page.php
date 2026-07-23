@@ -37,6 +37,9 @@ if (!current_user_can('edit_posts')) {
         .azq-table td { padding: 13px 14px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
         .azq-table tr:hover td { background: #fafbff; }
         .azq-keyword { display: block; max-width: 460px; color: #172033; font-size: 13px; font-weight: 750; }
+        a.azq-keyword { color: #4338ca; cursor: pointer; text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 2px; transition: color .15s ease, text-decoration-color .15s ease; }
+        a.azq-keyword:hover { color: #312e81; text-decoration-color: currentColor; }
+        a.azq-keyword:focus-visible { border-radius: 3px; outline: 2px solid #6366f1; outline-offset: 3px; }
         .azq-type { display: inline-block; margin-top: 5px; padding: 3px 7px; border-radius: 999px; background: #eef2ff; color: #4f46e5; font-size: 9px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
         .azq-error { display: block; max-width: 520px; margin-top: 5px; color: #b91c1c; font-size: 11px; line-height: 1.45; }
         .azq-status { display: inline-flex; padding: 5px 9px; border-radius: 999px; background: #f1f5f9; color: #475569; font-size: 10px; font-weight: 800; white-space: nowrap; }
@@ -113,6 +116,15 @@ if (!current_user_can('edit_posts')) {
             }
             function setNotice(message, error) { notice.hidden = !message; notice.className = 'azq-notice' + (error ? ' is-error' : ''); notice.textContent = message || ''; }
             function addButton(container, label, href, className, jobId) { var element = href ? document.createElement('a') : document.createElement('button'); element.className = 'button ' + (className || ''); element.textContent = label; if (href) element.href = href; else { element.type = 'button'; element.dataset.jobId = jobId; } container.appendChild(element); }
+            function getPrimaryDestination(job) {
+                if (job.workflow_type === 'browser' && job.resume_url && job.status !== 'completed') {
+                    return { url: job.resume_url, label: job.status === 'processing' || job.auto_background ? 'Mở tiến trình' : 'Tiếp tục', primary: true };
+                }
+                if (job.status === 'completed' && job.post_url) {
+                    return { url: job.post_url, label: 'Mở Draft', primary: false };
+                }
+                return null;
+            }
             function visible(job) { return activeFilter === 'all' || job.workflow_type === activeFilter || job.status === activeFilter; }
             function render() {
                 rows.innerHTML = '';
@@ -121,13 +133,15 @@ if (!current_user_can('edit_posts')) {
                 filtered.forEach(function (job) {
                     var row = document.createElement('tr');
                     var content = document.createElement('td');
-                    var keyword = document.createElement('span'); keyword.className = 'azq-keyword'; keyword.textContent = job.keyword; content.appendChild(keyword);
+                    var destination = getPrimaryDestination(job);
+                    var keyword = document.createElement(destination ? 'a' : 'span'); keyword.className = 'azq-keyword'; keyword.textContent = job.keyword;
+                    if (destination) { keyword.href = destination.url; keyword.title = destination.label; keyword.setAttribute('aria-label', destination.label + ': ' + job.keyword); }
+                    content.appendChild(keyword);
                     var type = document.createElement('span'); type.className = 'azq-type'; type.textContent = job.workflow_type === 'browser' ? 'Content Studio' : 'Tự động'; content.appendChild(type);
                     if (job.error) { var error = document.createElement('span'); error.className = 'azq-error'; error.textContent = job.error; content.appendChild(error); }
                     var statusCell = document.createElement('td'); var status = document.createElement('span'); status.className = 'azq-status is-' + job.status; status.textContent = job.auto_background && job.status === 'paused' ? 'Đang chạy nền' : (statusLabels[job.status] || job.status); statusCell.appendChild(status);
                     var actions = document.createElement('td'); actions.className = 'azq-actions';
-                    if (job.workflow_type === 'browser' && job.resume_url && job.status !== 'completed') addButton(actions, job.status === 'processing' || job.auto_background ? 'Mở tiến trình' : 'Tiếp tục', job.resume_url, 'button-primary');
-                    else if (job.status === 'completed' && job.post_url) addButton(actions, 'Mở Draft', job.post_url, '');
+                    if (destination) addButton(actions, destination.label, destination.url, destination.primary ? 'button-primary' : '');
                     else if (job.status === 'failed') addButton(actions, 'Thử lại', '', 'azq-retry', job.id);
                     if (job.status !== 'processing') addButton(actions, 'Xóa', '', 'azq-delete', job.id);
                     row.appendChild(content); row.appendChild(statusCell);
