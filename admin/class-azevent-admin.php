@@ -52,17 +52,13 @@ class AzEvent_Admin
         );
 
         add_submenu_page(
-            'azevent-seo-background-queue',
+            null,
             __('AzEvent SEO Settings', 'azevent-seo-content'),
             __('Settings', 'azevent-seo-content'),
             'manage_options',
             'azevent-seo-settings',
             array($this, 'render_settings_page')
         );
-
-        // Settings remains a registered admin route for the Queue modals, but is
-        // intentionally removed from the sidebar navigation.
-        remove_submenu_page('azevent-seo-background-queue', 'azevent-seo-settings');
     }
 
     /**

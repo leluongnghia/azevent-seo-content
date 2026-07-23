@@ -25,9 +25,10 @@ function azevent_ui_assert($condition, $message)
 
 azevent_ui_assert(
     strpos($admin, "'azevent-seo-background-queue',\n            array(\$this, 'render_background_queue_page')") !== false
-        && strpos($admin, "remove_submenu_page('azevent-seo-background-queue', 'azevent-seo-settings')") !== false
+        && strpos($admin, "add_submenu_page(\n            null,\n            __('AzEvent SEO Settings'") !== false
+        && strpos($admin, "remove_submenu_page('azevent-seo-background-queue', 'azevent-seo-settings')") === false
         && strpos($updater, "'azevent-seo-background-queue',\n            'GitHub Updates'") !== false,
-    'Menu AzEvent SEO mở Queue mặc định và Settings không còn là submenu.'
+    'Menu AzEvent SEO mở Queue mặc định và Settings dùng route admin ẩn hợp lệ.'
 );
 azevent_ui_assert(
     substr_count($background_queue, 'class="button azq-open-modal"') === 2
