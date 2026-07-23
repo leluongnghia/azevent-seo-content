@@ -73,6 +73,7 @@ class AzEvent_SEO_Workflow_Lab
             'audience' => wp_unslash($_POST['audience'] ?? ''),
             'competitor_notes' => wp_unslash($_POST['competitor_notes'] ?? ''),
             'generate_image' => sanitize_text_field(wp_unslash($_POST['generate_image'] ?? '0')) === '1',
+            'optimize_ai_overview_geo' => sanitize_text_field(wp_unslash($_POST['optimize_ai_overview_geo'] ?? '0')) === '1',
         ), get_current_user_id());
 
         if (is_wp_error($result)) {

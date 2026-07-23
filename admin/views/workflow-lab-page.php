@@ -63,6 +63,11 @@ $recent_query = new WP_Query(array(
                     <span><strong><?php _e('Tạo ảnh đại diện ở bước cuối', 'azevent-seo-content'); ?></strong><small><?php _e('Có thể bỏ qua ảnh nếu API ảnh chưa sẵn sàng.', 'azevent-seo-content'); ?></small></span>
                 </label>
 
+                <label class="azlab-toggle">
+                    <input id="azlab-optimize-ai-overview-geo" type="checkbox">
+                    <span><strong><?php _e('Tối ưu AI Overview/GEO', 'azevent-seo-content'); ?></strong><small><?php _e('Chỉ áp dụng bộ ưu tiên GEO riêng cho phiên này. Bỏ chọn sẽ giữ nguyên toàn bộ prompt và cách chạy cũ.', 'azevent-seo-content'); ?></small></span>
+                </label>
+
                 <div class="azlab-actions azlab-actions-end">
                     <button id="azlab-start" type="button" class="button button-primary azlab-primary"><?php _e('Tạo phiên & chạy Research', 'azevent-seo-content'); ?> <span class="dashicons dashicons-arrow-right-alt2"></span></button>
                 </div>

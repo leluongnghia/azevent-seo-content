@@ -50,6 +50,7 @@
         audience: document.getElementById('azlab-audience'),
         competitors: document.getElementById('azlab-competitors'),
         generateImage: document.getElementById('azlab-generate-image'),
+        optimizeAiOverviewGeo: document.getElementById('azlab-optimize-ai-overview-geo'),
         processing: document.getElementById('azlab-processing'),
         processingTitle: document.getElementById('azlab-processing-title'),
         processingElapsed: document.getElementById('azlab-processing-elapsed'),
@@ -783,7 +784,8 @@
             secondary_keywords: elements.secondary.value,
             audience: elements.audience.value,
             competitor_notes: elements.competitors.value,
-            generate_image: elements.generateImage.checked ? '1' : '0'
+            generate_image: elements.generateImage.checked ? '1' : '0',
+            optimize_ai_overview_geo: elements.optimizeAiOverviewGeo.checked ? '1' : '0'
         }).then(function (data) {
             postId = parseInt(data.post_id, 10) || 0;
             context = data.context;

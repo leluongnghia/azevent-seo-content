@@ -101,6 +101,7 @@ class AzEvent_Background_Queue
         $now = current_time('mysql');
         $language = sanitize_text_field(get_option('azevent_seo_default_language', 'Vietnamese'));
         $user_id = get_current_user_id();
+        $geo_enabled = sanitize_text_field(wp_unslash($_POST['optimize_ai_overview_geo'] ?? '0')) === '1';
         $inserted = 0;
 
         foreach ($keywords as $keyword) {
@@ -114,10 +115,13 @@ class AzEvent_Background_Queue
                     'language' => $language,
                     'status' => 'pending',
                     'step' => 'start',
+                    'context' => wp_json_encode(array(
+                        'optimize_ai_overview_geo' => $geo_enabled,
+                    )),
                     'created_at' => $now,
                     'updated_at' => $now,
                 ),
-                array('%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')
+                array('%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')
             );
             if ($result !== false) {
                 $inserted++;

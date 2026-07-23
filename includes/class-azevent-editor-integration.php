@@ -154,6 +154,14 @@ class AzEvent_Editor_Integration
                             <a href="<?php echo esc_url(admin_url('admin.php?page=azevent-seo-settings')); ?>"><?php _e('Thay đổi trong cài đặt', 'azevent-seo-content'); ?></a>
                         </div>
 
+                        <label class="azevent-geo-toggle">
+                            <input id="azevent-optimize-ai-overview-geo" type="checkbox" value="1">
+                            <span>
+                                <strong><?php _e('Tối ưu AI Overview/GEO', 'azevent-seo-content'); ?></strong>
+                                <small><?php _e('Chỉ khi tích, plugin mới nối bộ ưu tiên GEO riêng vào prompt của phiên hoặc Background Queue. Bỏ chọn sẽ chạy nguyên luồng cũ.', 'azevent-seo-content'); ?></small>
+                            </span>
+                        </label>
+
                         <div class="azevent-actions azevent-actions-end">
                             <button type="button" id="azevent-start-btn" class="button button-primary azevent-primary-button">
                                 <?php _e('Bắt đầu phân tích', 'azevent-seo-content'); ?>
@@ -464,6 +472,7 @@ class AzEvent_Editor_Integration
             'author_id' => get_current_user_id(),
         );
         $pipeline_arguments['context'] = is_array($pipeline_arguments['context']) ? $pipeline_arguments['context'] : array();
+        $pipeline_arguments['context']['optimize_ai_overview_geo'] = !empty($pipeline_arguments['context']['optimize_ai_overview_geo']);
         $session_id = substr(sanitize_key(wp_unslash($_POST['session_id'] ?? '')), 0, 64);
         $replace_checkpoint = sanitize_text_field(wp_unslash($_POST['replace_checkpoint'] ?? '0')) === '1';
 

@@ -30,6 +30,7 @@ jQuery(function($) {
     const $log = $('#azevent-log');
     const $keywords = $('#azevent-keywords');
     const $keywordHelp = $('#azevent-keyword-help');
+    const $optimizeAiOverviewGeo = $('#azevent-optimize-ai-overview-geo');
     const $regenerateImage = $('#azevent-regenerate-image');
     const $contentReviewFrame = $('#azevent-content-review-frame');
     const $intentResult = $('#azevent-intent-result-text');
@@ -675,6 +676,7 @@ jQuery(function($) {
         keywordIndex = 0;
         currentPostId = parseInt(checkpoint.post_id, 10) || 0;
         currentContext = checkpoint.context && typeof checkpoint.context === 'object' ? checkpoint.context : {};
+        $optimizeAiOverviewGeo.prop('checked', !!currentContext.optimize_ai_overview_geo);
         lastRequestStep = checkpoint.current_step || checkpoint.next_step || 'start';
         lastRequestContext = currentContext;
         results = [];
@@ -887,12 +889,15 @@ jQuery(function($) {
         });
 
         if (keywordIndex + 1 < keywordQueue.length) {
+            const geoEnabledForQueue = !!currentContext.optimize_ai_overview_geo;
             keywordIndex += 1;
             currentPostId = 0;
-            currentContext = {};
+            currentContext = {
+                optimize_ai_overview_geo: geoEnabledForQueue
+            };
             pendingNextStep = '';
             updateStatus('Chuyển sang từ khóa ' + (keywordIndex + 1) + '/' + keywordQueue.length + ': ' + keywordQueue[keywordIndex]);
-            runStep('start', {});
+            runStep('start', currentContext);
             return;
         }
 
@@ -1134,7 +1139,8 @@ jQuery(function($) {
             data: {
                 action: 'azevent_enqueue_background_jobs',
                 nonce: azevent_seo.nonce,
-                keywords: keywordQueue
+                keywords: keywordQueue,
+                optimize_ai_overview_geo: $optimizeAiOverviewGeo.is(':checked') ? '1' : '0'
             }
         }).done(function(response) {
             isProcessing = false;
@@ -1204,7 +1210,9 @@ jQuery(function($) {
             return;
         }
 
-        const initialContext = {};
+        const initialContext = {
+            optimize_ai_overview_geo: $optimizeAiOverviewGeo.is(':checked')
+        };
         if (mode === 'rewrite') {
             const editorContent = getEditorContent();
             if (!hasReadableContent(editorContent)) {

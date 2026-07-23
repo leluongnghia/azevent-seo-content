@@ -16,6 +16,8 @@ class AzEvent_Content_Pipeline
         $regenerate_image = !empty($arguments['regenerate_image']);
         $author_id = absint($arguments['author_id'] ?? 0);
         $context = isset($arguments['context']) && is_array($arguments['context']) ? $arguments['context'] : array();
+        $context['optimize_ai_overview_geo'] = !empty($context['optimize_ai_overview_geo']);
+        $geo_enabled = $context['optimize_ai_overview_geo'];
 
         if ($keyword === '') {
             return new WP_Error('azevent_missing_keyword', 'Vui lòng nhập từ khóa.');
@@ -111,6 +113,23 @@ class AzEvent_Content_Pipeline
             'content' => "\n\nChế độ viết lại. Hãy viết lại bài hiện tại dưới đây theo outline mới. Giữ lại thông tin đúng, không tự bịa số liệu hoặc cam kết, cải thiện chiều sâu SEO và khả năng chuyển đổi.\n{existing_content}",
             'seo' => "\n\nĐây là chế độ viết lại. Hãy tạo metadata mới cho nội dung, nhưng giữ slug hiện tại '{existing_slug}' trừ khi có lý do SEO rõ ràng.",
         );
+        $apply_geo_priorities = function ($prompt, $prompt_step) use ($geo_enabled, $mode) {
+            $prompt = AzEvent_GEO_Prompts::append(
+                $prompt,
+                AzEvent_GEO_Prompts::CONTENT_STUDIO,
+                $prompt_step,
+                $geo_enabled
+            );
+            if ($mode === 'rewrite') {
+                $prompt = AzEvent_GEO_Prompts::append(
+                    $prompt,
+                    AzEvent_GEO_Prompts::CONTENT_STUDIO,
+                    'rewrite',
+                    $geo_enabled
+                );
+            }
+            return $prompt;
+        };
         $default_text_provider = sanitize_key(get_option('azevent_seo_text_provider', 'azevent'));
         $default_ckey_model = AzEvent_CKey_Client::model_reference(get_option('azevent_seo_ckey_model', ''));
         $default_step_model = $default_text_provider === 'ckey' ? $default_ckey_model : '';
@@ -143,6 +162,7 @@ class AzEvent_Content_Pipeline
                 if ($mode === 'rewrite') {
                     $user_prompt .= $rewrite_instructions['intent'];
                 }
+                $user_prompt = $apply_geo_priorities($user_prompt, 'intent');
                 $result = $ai->call_anthropic(
                     $replace_placeholders($user_prompt, $context),
                     $replace_placeholders($system_prompt, $context),
@@ -167,6 +187,7 @@ class AzEvent_Content_Pipeline
                 if ($mode === 'rewrite') {
                     $user_prompt .= $rewrite_instructions['outline'];
                 }
+                $user_prompt = $apply_geo_priorities($user_prompt, 'outline');
                 $result = $ai->call_anthropic(
                     $replace_placeholders($user_prompt, $context),
                     $replace_placeholders($system_prompt, $context),
@@ -213,6 +234,7 @@ class AzEvent_Content_Pipeline
                 if ($mode === 'rewrite') {
                     $user_prompt .= $rewrite_instructions['content'];
                 }
+                $user_prompt = $apply_geo_priorities($user_prompt, 'content');
                 $split_state = isset($context['content_split']) && is_array($context['content_split'])
                     ? $context['content_split']
                     : array();
@@ -381,6 +403,7 @@ class AzEvent_Content_Pipeline
                 if ($mode === 'rewrite') {
                     $user_prompt .= $rewrite_instructions['seo'];
                 }
+                $user_prompt = $apply_geo_priorities($user_prompt, 'seo');
                 $seo_arguments = array(
                     'response_format' => array('type' => 'json_object'),
                     'max_tokens' => 2048,

@@ -443,6 +443,41 @@ body.azevent-modal-open {
     text-decoration: none;
 }
 
+.azevent-geo-toggle {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-top: 14px;
+    padding: 14px 15px;
+    border: 1px solid #c7d2fe;
+    border-radius: 12px;
+    background: #f5f7ff;
+    cursor: pointer;
+}
+
+.azevent-geo-toggle input {
+    width: 18px;
+    height: 18px;
+    margin: 2px 0 0;
+    flex: 0 0 auto;
+}
+
+.azevent-geo-toggle strong,
+.azevent-geo-toggle small {
+    display: block;
+}
+
+.azevent-geo-toggle strong {
+    color: #312e81;
+    font-size: 13px;
+}
+
+.azevent-geo-toggle small {
+    margin-top: 4px;
+    color: #64748b;
+    line-height: 1.5;
+}
+
 .azevent-actions {
     display: flex;
     align-items: center;

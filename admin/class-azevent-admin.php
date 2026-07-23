@@ -167,12 +167,26 @@ class AzEvent_Admin
             register_setting('azevent_seo_settings_group', "azevent_seo_{$p}_user");
         }
 
+        foreach (AzEvent_GEO_Prompts::get_defaults(AzEvent_GEO_Prompts::CONTENT_STUDIO) as $step => $prompt) {
+            register_setting(
+                'azevent_seo_settings_group',
+                AzEvent_GEO_Prompts::option_name(AzEvent_GEO_Prompts::CONTENT_STUDIO, $step)
+            );
+        }
+
         foreach (array('research', 'brief', 'content', 'seo', 'quality') as $step) {
             register_setting('azevent_seo_settings_group', "azevent_lab_{$step}_system");
             register_setting('azevent_seo_settings_group', "azevent_lab_{$step}_user");
             register_setting('azevent_seo_settings_group', "azevent_lab_{$step}_model", array(
                 'sanitize_callback' => 'sanitize_text_field',
             ));
+        }
+
+        foreach (AzEvent_GEO_Prompts::get_defaults(AzEvent_GEO_Prompts::WORKFLOW_LAB) as $step => $prompt) {
+            register_setting(
+                'azevent_seo_settings_group',
+                AzEvent_GEO_Prompts::option_name(AzEvent_GEO_Prompts::WORKFLOW_LAB, $step)
+            );
         }
     }
 

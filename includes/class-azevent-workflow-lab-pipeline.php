@@ -77,6 +77,7 @@ class AzEvent_Workflow_Lab_Pipeline
                 'audience' => sanitize_textarea_field($input['audience'] ?? ''),
                 'competitor_notes' => sanitize_textarea_field($input['competitor_notes'] ?? ''),
                 'generate_image' => !empty($input['generate_image']),
+                'optimize_ai_overview_geo' => !empty($input['optimize_ai_overview_geo']),
             ),
             'results' => array(),
             'logs' => array(
@@ -84,7 +85,9 @@ class AzEvent_Workflow_Lab_Pipeline
                     'timestamp' => time(),
                     'level' => 'success',
                     'step' => 'setup',
-                    'message' => 'Đã tạo phiên SEO Workflow Lab bằng plugin v' . AZEVENT_SEO_VERSION . ' và lưu Draft checkpoint.',
+                    'message' => 'Đã tạo phiên SEO Workflow Lab bằng plugin v' . AZEVENT_SEO_VERSION
+                        . (!empty($input['optimize_ai_overview_geo']) ? ' với AI Overview/GEO opt-in' : '')
+                        . ' và lưu Draft checkpoint.',
                 ),
             ),
             'created_at' => time(),
@@ -500,6 +503,12 @@ CTA VÀ KẾ HOẠCH INTERNAL LINK
 CẢNH BÁO VÀ THÔNG TIN CẦN XÁC MINH
 ...
 PROMPT;
+        $user = AzEvent_GEO_Prompts::append(
+            $user,
+            AzEvent_GEO_Prompts::WORKFLOW_LAB,
+            'outline_validation',
+            !empty($input['optimize_ai_overview_geo'])
+        );
         return array('system' => $system, 'user' => $user);
     }
 
@@ -683,6 +692,12 @@ PROMPT;
         );
         $system = str_replace(array_keys($replacements), array_values($replacements), $system);
         $user = str_replace(array_keys($replacements), array_values($replacements), $user);
+        $user = AzEvent_GEO_Prompts::append(
+            $user,
+            AzEvent_GEO_Prompts::WORKFLOW_LAB,
+            'content',
+            !empty($input['optimize_ai_overview_geo'])
+        );
 
         $position_instruction = $section_index === 0
             ? 'Đây là phần đầu: viết mở bài ngắn trước H2 hiện tại, sau đó viết đầy đủ H2 này.'
@@ -1038,6 +1053,12 @@ PROMPT;
 
         $system = str_replace(array_keys($replacements), array_values($replacements), $system);
         $user = str_replace(array_keys($replacements), array_values($replacements), $user);
+        $user = AzEvent_GEO_Prompts::append(
+            $user,
+            AzEvent_GEO_Prompts::WORKFLOW_LAB,
+            $step,
+            !empty($input['optimize_ai_overview_geo'])
+        );
         if ($step === 'quality' && !empty($context['content_split']['enabled']) && !empty($context['content_split']['completed'])) {
             $user .= "\n\n## Kiểm tra bổ sung cho bài được ghép từ nhiều H2\n";
             $user .= "- Phát hiện và sửa câu chuyển đoạn gượng, ý lặp giữa các H2, phần mở đầu nhỏ bị lặp, CTA lặp và thay đổi giọng văn.\n";

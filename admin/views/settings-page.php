@@ -166,8 +166,25 @@ $prompt_tokens = array(
     '{existing_slug}' => __('Slug hiện tại khi Rewrite.', 'azevent-seo-content'),
     '{rewrite_goal}' => __('Mục tiêu tự động theo chế độ Create/Rewrite.', 'azevent-seo-content'),
 );
+$content_studio_geo_defaults = AzEvent_GEO_Prompts::get_defaults(AzEvent_GEO_Prompts::CONTENT_STUDIO);
+$content_studio_geo_sections = array(
+    'intent' => __('Search Intent', 'azevent-seo-content'),
+    'outline' => __('Outline', 'azevent-seo-content'),
+    'content' => __('Content', 'azevent-seo-content'),
+    'seo' => __('SEO Metadata', 'azevent-seo-content'),
+    'rewrite' => __('Bổ sung riêng cho Rewrite', 'azevent-seo-content'),
+);
 $lab_prompt_defaults = AzEvent_Workflow_Lab_Pipeline::get_default_prompts();
 $lab_prompt_english = AzEvent_Workflow_Lab_Pipeline::get_english_prompts();
+$workflow_lab_geo_defaults = AzEvent_GEO_Prompts::get_defaults(AzEvent_GEO_Prompts::WORKFLOW_LAB);
+$workflow_lab_geo_sections = array(
+    'research' => __('Research', 'azevent-seo-content'),
+    'brief' => __('Content Brief & Outline', 'azevent-seo-content'),
+    'outline_validation' => __('Outline Validation', 'azevent-seo-content'),
+    'content' => __('Content', 'azevent-seo-content'),
+    'seo' => __('SEO Metadata', 'azevent-seo-content'),
+    'quality' => __('Quality Gate', 'azevent-seo-content'),
+);
 $lab_prompt_sections = array(
     'research' => array(
         'label' => __('Research & Search Intent', 'azevent-seo-content'),
@@ -859,6 +876,30 @@ $lab_prompt_tokens = array(
                                 </div>
                             </details>
                         <?php endforeach; ?>
+                        <div class="azevent-serp-box">
+                            <h3><?php _e('Bộ ưu tiên AI Overview/GEO riêng cho Content Studio', 'azevent-seo-content'); ?></h3>
+                            <p class="azevent-help"><?php _e('Các nội dung dưới đây chỉ được nối thêm khi bạn tích “Tối ưu AI Overview/GEO” lúc bắt đầu phiên. Prompt System/User hiện tại không bị thay đổi.', 'azevent-seo-content'); ?></p>
+                            <div class="azevent-lab-reset-row">
+                                <div class="azevent-lab-reset-actions">
+                                    <button type="button" class="azevent-legacy-refresh" id="azevent-load-content-studio-geo-defaults"><?php _e('↺ Nạp bộ GEO mặc định Content Studio', 'azevent-seo-content'); ?></button>
+                                </div>
+                                <span class="azevent-lab-reset-status" id="azevent-content-studio-geo-status" aria-live="polite"></span>
+                            </div>
+                            <?php foreach ($content_studio_geo_sections as $geo_step => $geo_label) : ?>
+                                <?php $geo_option = AzEvent_GEO_Prompts::option_name(AzEvent_GEO_Prompts::CONTENT_STUDIO, $geo_step); ?>
+                                <details class="azevent-prompt azevent-geo-priority">
+                                    <summary>
+                                        <span><span class="azevent-prompt-title"><?php echo esc_html($geo_label); ?></span><span class="azevent-prompt-description"><?php _e('Prompt bổ sung, không thay prompt gốc.', 'azevent-seo-content'); ?></span></span>
+                                    </summary>
+                                    <div class="azevent-prompt-body" style="grid-template-columns:1fr">
+                                        <div class="azevent-field">
+                                            <label for="<?php echo esc_attr($geo_option); ?>"><?php _e('GEO Priority Prompt', 'azevent-seo-content'); ?></label>
+                                            <textarea id="<?php echo esc_attr($geo_option); ?>" name="<?php echo esc_attr($geo_option); ?>" rows="10"><?php echo esc_textarea($get_prompt($geo_option, $content_studio_geo_defaults[$geo_step])); ?></textarea>
+                                        </div>
+                                    </div>
+                                </details>
+                            <?php endforeach; ?>
+                        </div>
                     </div>
                 </section>
 
@@ -1050,6 +1091,30 @@ $lab_prompt_tokens = array(
                                 </div>
                             </details>
                         <?php endforeach; ?>
+                        <div class="azevent-serp-box">
+                            <h3><?php _e('Bộ ưu tiên AI Overview/GEO riêng cho Workflow Lab', 'azevent-seo-content'); ?></h3>
+                            <p class="azevent-help"><?php _e('Chỉ được nối thêm cho phiên có tích “Tối ưu AI Overview/GEO”. Bộ 5 prompt Workflow Lab và prompt tùy chỉnh hiện tại được giữ nguyên.', 'azevent-seo-content'); ?></p>
+                            <div class="azevent-lab-reset-row">
+                                <div class="azevent-lab-reset-actions">
+                                    <button type="button" class="azevent-legacy-refresh" id="azevent-load-workflow-lab-geo-defaults"><?php _e('↺ Nạp bộ GEO mặc định Workflow Lab', 'azevent-seo-content'); ?></button>
+                                </div>
+                                <span class="azevent-lab-reset-status" id="azevent-workflow-lab-geo-status" aria-live="polite"></span>
+                            </div>
+                            <?php foreach ($workflow_lab_geo_sections as $geo_step => $geo_label) : ?>
+                                <?php $geo_option = AzEvent_GEO_Prompts::option_name(AzEvent_GEO_Prompts::WORKFLOW_LAB, $geo_step); ?>
+                                <details class="azevent-prompt azevent-geo-priority">
+                                    <summary>
+                                        <span><span class="azevent-prompt-title"><?php echo esc_html($geo_label); ?></span><span class="azevent-prompt-description"><?php _e('Prompt bổ sung, không thay prompt gốc.', 'azevent-seo-content'); ?></span></span>
+                                    </summary>
+                                    <div class="azevent-prompt-body" style="grid-template-columns:1fr">
+                                        <div class="azevent-field">
+                                            <label for="<?php echo esc_attr($geo_option); ?>"><?php _e('GEO Priority Prompt', 'azevent-seo-content'); ?></label>
+                                            <textarea id="<?php echo esc_attr($geo_option); ?>" name="<?php echo esc_attr($geo_option); ?>" rows="10"><?php echo esc_textarea($get_prompt($geo_option, $workflow_lab_geo_defaults[$geo_step])); ?></textarea>
+                                        </div>
+                                    </div>
+                                </details>
+                            <?php endforeach; ?>
+                        </div>
                     </div>
                 </section>
             </main>
@@ -1498,6 +1563,47 @@ $lab_prompt_tokens = array(
                     fillLabPrompts(labPromptDefaults);
                     labPromptResetStatus.className = 'azevent-lab-reset-status is-ready';
                     labPromptResetStatus.textContent = '<?php echo esc_js(__('Đã nạp bộ prompt mặc định. Hãy bấm Lưu cấu hình.', 'azevent-seo-content')); ?>';
+                });
+            }
+
+            function fillGeoPriorities(workflow, promptSet) {
+                Object.keys(promptSet).forEach(function (step) {
+                    var field = document.getElementById('azevent_geo_' + workflow + '_' + step);
+                    if (!field || typeof promptSet[step] !== 'string') {
+                        return;
+                    }
+                    field.value = promptSet[step];
+                    field.dispatchEvent(new Event('input', { bubbles: true }));
+                    field.dispatchEvent(new Event('change', { bubbles: true }));
+                });
+            }
+
+            var contentStudioGeoDefaults = <?php echo wp_json_encode($content_studio_geo_defaults); ?>;
+            var workflowLabGeoDefaults = <?php echo wp_json_encode($workflow_lab_geo_defaults); ?>;
+            var contentStudioGeoButton = document.getElementById('azevent-load-content-studio-geo-defaults');
+            var workflowLabGeoButton = document.getElementById('azevent-load-workflow-lab-geo-defaults');
+            var contentStudioGeoStatus = document.getElementById('azevent-content-studio-geo-status');
+            var workflowLabGeoStatus = document.getElementById('azevent-workflow-lab-geo-status');
+
+            if (contentStudioGeoButton) {
+                contentStudioGeoButton.addEventListener('click', function () {
+                    if (!window.confirm('<?php echo esc_js(__('Nạp lại bộ GEO mặc định riêng của Content Studio? Thao tác này không thay System/User Prompt hiện có và chỉ được lưu khi bạn bấm Lưu cấu hình.', 'azevent-seo-content')); ?>')) {
+                        return;
+                    }
+                    fillGeoPriorities('content_studio', contentStudioGeoDefaults);
+                    contentStudioGeoStatus.className = 'azevent-lab-reset-status is-ready';
+                    contentStudioGeoStatus.textContent = '<?php echo esc_js(__('Đã nạp bộ GEO Content Studio. Hãy bấm Lưu cấu hình.', 'azevent-seo-content')); ?>';
+                });
+            }
+
+            if (workflowLabGeoButton) {
+                workflowLabGeoButton.addEventListener('click', function () {
+                    if (!window.confirm('<?php echo esc_js(__('Nạp lại bộ GEO mặc định riêng của Workflow Lab? Thao tác này không thay prompt Workflow Lab hiện có và chỉ được lưu khi bạn bấm Lưu cấu hình.', 'azevent-seo-content')); ?>')) {
+                        return;
+                    }
+                    fillGeoPriorities('workflow_lab', workflowLabGeoDefaults);
+                    workflowLabGeoStatus.className = 'azevent-lab-reset-status is-ready';
+                    workflowLabGeoStatus.textContent = '<?php echo esc_js(__('Đã nạp bộ GEO Workflow Lab. Hãy bấm Lưu cấu hình.', 'azevent-seo-content')); ?>';
                 });
             }
 
