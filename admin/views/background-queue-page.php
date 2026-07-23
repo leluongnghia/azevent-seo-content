@@ -61,7 +61,8 @@ $azq_prompts_url = add_query_arg(
         .azq-filters { display: flex; flex-wrap: wrap; gap: 7px; }
         .azq-filter { min-height: 34px; padding: 0 12px; border: 1px solid #dbe4f3; border-radius: 999px; background: #fff; color: #475569; cursor: pointer; font-size: 11px; font-weight: 700; }
         .azq-filter.is-active { border-color: #6366f1; background: #eef2ff; color: #4338ca; box-shadow: 0 0 0 2px rgba(99,102,241,.1); }
-        .azq-refresh { min-height: 36px; border-radius: 8px !important; font-weight: 700 !important; }
+        .azq-toolbar-status { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex: 0 0 auto; }
+        .azq-refresh { display: inline-flex !important; align-items: center; gap: 5px; min-height: 36px; border-radius: 8px !important; font-weight: 700 !important; }
         .azq-notice { margin: 14px 16px 0; padding: 11px 13px; border: 1px solid #bbf7d0; border-radius: 9px; background: #f0fdf4; color: #166534; }
         .azq-notice.is-error { border-color: #fecaca; background: #fef2f2; color: #991b1b; }
         .azq-table-wrap { overflow: auto; min-height: 360px; }
@@ -101,7 +102,10 @@ $azq_prompts_url = add_query_arg(
         .azq-modal-frame { display: block; flex: 1 1 auto; width: 100%; min-height: 0; border: 0; background: #f8fafc; }
         .azq-modal-loading { position: absolute; top: 82px; left: 50%; z-index: 1; transform: translateX(-50%); padding: 7px 11px; border-radius: 999px; background: #eef2ff; color: #4338ca; font-size: 11px; font-weight: 700; box-shadow: 0 4px 14px rgba(15,23,42,.08); }
         .azq-modal.is-loaded .azq-modal-loading { display: none; }
-        @media (max-width: 900px) { .azq-hero, .azq-toolbar { align-items: stretch; flex-direction: column; } .azq-stats { grid-template-columns: repeat(2,minmax(0,1fr)); } .azq-hero-actions { flex-wrap: wrap; } }
+        @media (max-width: 1100px) { .azq-hero, .azq-toolbar { align-items: stretch; flex-direction: column; } .azq-hero-actions { display: grid; grid-template-columns: repeat(auto-fit,minmax(120px,1fr)); flex-basis: auto; width: 100%; } .azq-hero-actions .button { justify-content: center; } .azq-toolbar-status { justify-content: space-between; } }
+        @media (max-width: 900px) { .azq-stats { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+        @media (max-width: 720px) { .azq-hero-actions { grid-template-columns: repeat(3,minmax(0,1fr)); } }
+        @media (max-width: 480px) { .azq-hero-actions { grid-template-columns: repeat(2,minmax(0,1fr)); } }
         @media (max-width: 600px) { .azq-modal { padding: 0; } .azq-modal-dialog { width: 100vw; height: 100vh; border: 0; border-radius: 0; } .azq-modal-header { padding: 10px 12px 10px 15px; } }
         @media (prefers-reduced-motion: reduce) { .azq-table tr:hover td { transition: none; } }
     </style>
@@ -128,7 +132,6 @@ $azq_prompts_url = add_query_arg(
                 </button>
             <?php endif; ?>
             <a class="button" href="<?php echo esc_url(admin_url('post-new.php')); ?>"><?php _e('＋ Tạo bài mới', 'azevent-seo-content'); ?></a>
-            <button type="button" class="button" id="azq-refresh"><?php _e('↻ Làm mới', 'azevent-seo-content'); ?></button>
         </div>
     </header>
 
@@ -149,7 +152,10 @@ $azq_prompts_url = add_query_arg(
                 <button type="button" class="azq-filter" data-filter="paused"><?php _e('Chờ tiếp tục', 'azevent-seo-content'); ?></button>
                 <button type="button" class="azq-filter" data-filter="failed"><?php _e('Lỗi', 'azevent-seo-content'); ?></button>
             </div>
-            <span id="azq-updated" aria-live="polite"></span>
+            <div class="azq-toolbar-status">
+                <span id="azq-updated" aria-live="polite"></span>
+                <button type="button" class="button azq-refresh" id="azq-refresh"><span class="dashicons dashicons-update" aria-hidden="true"></span><?php _e('Làm mới', 'azevent-seo-content'); ?></button>
+            </div>
         </div>
         <div id="azq-notice" class="azq-notice" hidden></div>
         <div class="azq-table-wrap">

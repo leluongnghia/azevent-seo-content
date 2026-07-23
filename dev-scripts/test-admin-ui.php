@@ -58,6 +58,14 @@ azevent_ui_assert(
     'Content Studio và Workflow Lab có chế độ nhúng gọn trong modal Queue.'
 );
 azevent_ui_assert(
+    strpos($background_queue, 'class="azq-toolbar-status"') !== false
+        && strpos($background_queue, 'class="button azq-refresh" id="azq-refresh"') !== false
+        && strpos($background_queue, 'grid-template-columns: repeat(auto-fit,minmax(120px,1fr))') !== false
+        && strpos($background_queue, 'grid-template-columns: repeat(3,minmax(0,1fr))') !== false
+        && strpos($background_queue, 'grid-template-columns: repeat(2,minmax(0,1fr))') !== false,
+    'Nút Làm mới nằm trong toolbar Queue và nhóm công cụ responsive theo lưới cân đối.'
+);
+azevent_ui_assert(
     preg_match('/\\.azevent-settings-page\\s*\\{[^}]*max-width:\\s*1480px;/s', $settings) === 1
         && preg_match('/\\.azevent-settings-page\\s*\\{[^}]*max-width:\\s*none;/s', $settings) !== 1,
     'Settings giữ chiều rộng đọc tối đa và không còn kéo giãn vô hạn.'
