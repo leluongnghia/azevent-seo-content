@@ -155,7 +155,7 @@ class AzEvent_Editor_Integration
                         </div>
 
                         <label class="azevent-geo-toggle">
-                            <input id="azevent-optimize-ai-overview-geo" type="checkbox" value="1">
+                            <input id="azevent-optimize-ai-overview-geo" type="checkbox" value="1" <?php checked(absint(get_option('azevent_geo_content_studio_default_enabled', 0)), 1); ?>>
                             <span>
                                 <strong><?php _e('Tối ưu AI Overview/GEO', 'azevent-seo-content'); ?></strong>
                                 <small><?php _e('Chỉ khi tích, plugin mới nối bộ ưu tiên GEO riêng vào prompt của phiên hoặc Background Queue. Bỏ chọn sẽ chạy nguyên luồng cũ.', 'azevent-seo-content'); ?></small>

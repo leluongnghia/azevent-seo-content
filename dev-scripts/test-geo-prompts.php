@@ -18,6 +18,13 @@ function get_option($name, $default = false)
         : $default;
 }
 
+function update_option($name, $value, $autoload = null)
+{
+    global $azevent_geo_test_options;
+    $azevent_geo_test_options[$name] = $value;
+    return true;
+}
+
 require AZEVENT_SEO_PATH . 'includes/class-azevent-geo-prompts.php';
 
 function azevent_geo_assert($condition, $message)
@@ -76,6 +83,32 @@ azevent_geo_assert(
     AzEvent_GEO_Prompts::option_name(AzEvent_GEO_Prompts::CONTENT_STUDIO, 'content')
         !== AzEvent_GEO_Prompts::option_name(AzEvent_GEO_Prompts::WORKFLOW_LAB, 'content'),
     'Option GEO của Content Studio và Workflow Lab không trùng nhau.'
+);
+
+$legacy_vietnamese_intent = <<<'PROMPT'
+## Ưu tiên bổ sung: AI Overview/GEO
+- Phân tích theo nhu cầu thực tế của người đọc, không theo mục tiêu thao túng thứ hạng.
+- Mở rộng truy vấn thành các câu hỏi tiếp nối hợp lý: định nghĩa, lựa chọn, so sánh, quy trình, chi phí, thời gian, rủi ro và hành động tiếp theo; chỉ giữ nhóm phù hợp với chủ đề.
+- Xác định entities chính, quan hệ giữa các entities, information gain có thể tạo và những dữ kiện cần bằng chứng.
+- Tách rõ dữ kiện đã được cung cấp, suy luận hợp lý, thông tin có nguy cơ lỗi thời và thông tin chưa xác minh.
+- Không bịa nguồn, URL, số liệu, ngày tháng, khách hàng, giá, case study hoặc tuyên bố đang xếp hạng.
+PROMPT;
+$legacy_option = AzEvent_GEO_Prompts::option_name(AzEvent_GEO_Prompts::CONTENT_STUDIO, 'intent');
+$azevent_geo_test_options[$legacy_option] = $legacy_vietnamese_intent;
+$custom_quality_before_migration = $azevent_geo_test_options[$custom_option];
+AzEvent_GEO_Prompts::maybe_upgrade_to_english();
+azevent_geo_assert(
+    strpos($azevent_geo_test_options[$legacy_option], 'Additional AI Overview/GEO priorities') !== false,
+    'Migration thay bộ GEO tiếng Việt mặc định bằng bộ tiếng Anh.'
+);
+azevent_geo_assert(
+    $azevent_geo_test_options[$custom_option] === $custom_quality_before_migration,
+    'Migration giữ nguyên GEO priority đã tùy chỉnh.'
+);
+azevent_geo_assert(
+    $azevent_geo_test_options[AzEvent_GEO_Prompts::TEMPLATE_VERSION_OPTION]
+        === AzEvent_GEO_Prompts::TEMPLATE_VERSION,
+    'Migration ghi nhận đúng version English GEO template.'
 );
 
 fwrite(STDOUT, "All GEO prompt regression checks passed.\n");

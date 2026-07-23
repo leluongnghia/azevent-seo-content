@@ -64,7 +64,7 @@ $recent_query = new WP_Query(array(
                 </label>
 
                 <label class="azlab-toggle">
-                    <input id="azlab-optimize-ai-overview-geo" type="checkbox">
+                    <input id="azlab-optimize-ai-overview-geo" type="checkbox" <?php checked(absint(get_option('azevent_geo_workflow_lab_default_enabled', 0)), 1); ?>>
                     <span><strong><?php _e('Tối ưu AI Overview/GEO', 'azevent-seo-content'); ?></strong><small><?php _e('Chỉ áp dụng bộ ưu tiên GEO riêng cho phiên này. Bỏ chọn sẽ giữ nguyên toàn bộ prompt và cách chạy cũ.', 'azevent-seo-content'); ?></small></span>
                 </label>
 

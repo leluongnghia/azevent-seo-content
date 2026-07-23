@@ -878,10 +878,18 @@ $lab_prompt_tokens = array(
                         <?php endforeach; ?>
                         <div class="azevent-serp-box">
                             <h3><?php _e('Bộ ưu tiên AI Overview/GEO riêng cho Content Studio', 'azevent-seo-content'); ?></h3>
-                            <p class="azevent-help"><?php _e('Các nội dung dưới đây chỉ được nối thêm khi bạn tích “Tối ưu AI Overview/GEO” lúc bắt đầu phiên. Prompt System/User hiện tại không bị thay đổi.', 'azevent-seo-content'); ?></p>
+                            <input type="hidden" name="azevent_geo_content_studio_default_enabled" value="0">
+                            <label class="azevent-workflow-option" for="azevent_geo_content_studio_default_enabled">
+                                <input id="azevent_geo_content_studio_default_enabled" type="checkbox" name="azevent_geo_content_studio_default_enabled" value="1" <?php checked(absint(get_option('azevent_geo_content_studio_default_enabled', 0)), 1); ?>>
+                                <span>
+                                    <strong><?php _e('Bật mặc định AI Overview/GEO cho phiên Content Studio mới', 'azevent-seo-content'); ?></strong>
+                                    <span><?php _e('Khi lưu lựa chọn này, ô GEO ở màn hình bắt đầu Content Studio sẽ được tích sẵn. Bạn vẫn có thể tắt riêng cho từng phiên hoặc Background Queue.', 'azevent-seo-content'); ?></span>
+                                </span>
+                            </label>
+                            <p class="azevent-help"><?php _e('Không tích: phiên mới dùng nguyên prompt cũ. Nút bên dưới chỉ khôi phục nội dung prompt GEO tiếng Anh và không tự bật chế độ.', 'azevent-seo-content'); ?></p>
                             <div class="azevent-lab-reset-row">
                                 <div class="azevent-lab-reset-actions">
-                                    <button type="button" class="azevent-legacy-refresh" id="azevent-load-content-studio-geo-defaults"><?php _e('↺ Nạp bộ GEO mặc định Content Studio', 'azevent-seo-content'); ?></button>
+                                    <button type="button" class="azevent-legacy-refresh" id="azevent-load-content-studio-geo-defaults"><?php _e('↺ Nạp lại GEO tiếng Anh mặc định', 'azevent-seo-content'); ?></button>
                                 </div>
                                 <span class="azevent-lab-reset-status" id="azevent-content-studio-geo-status" aria-live="polite"></span>
                             </div>
@@ -1093,10 +1101,18 @@ $lab_prompt_tokens = array(
                         <?php endforeach; ?>
                         <div class="azevent-serp-box">
                             <h3><?php _e('Bộ ưu tiên AI Overview/GEO riêng cho Workflow Lab', 'azevent-seo-content'); ?></h3>
-                            <p class="azevent-help"><?php _e('Chỉ được nối thêm cho phiên có tích “Tối ưu AI Overview/GEO”. Bộ 5 prompt Workflow Lab và prompt tùy chỉnh hiện tại được giữ nguyên.', 'azevent-seo-content'); ?></p>
+                            <input type="hidden" name="azevent_geo_workflow_lab_default_enabled" value="0">
+                            <label class="azevent-workflow-option" for="azevent_geo_workflow_lab_default_enabled">
+                                <input id="azevent_geo_workflow_lab_default_enabled" type="checkbox" name="azevent_geo_workflow_lab_default_enabled" value="1" <?php checked(absint(get_option('azevent_geo_workflow_lab_default_enabled', 0)), 1); ?>>
+                                <span>
+                                    <strong><?php _e('Bật mặc định AI Overview/GEO cho phiên Workflow Lab mới', 'azevent-seo-content'); ?></strong>
+                                    <span><?php _e('Khi lưu lựa chọn này, ô GEO ở màn hình tạo phiên Workflow Lab sẽ được tích sẵn. Bạn vẫn có thể tắt riêng cho từng phiên.', 'azevent-seo-content'); ?></span>
+                                </span>
+                            </label>
+                            <p class="azevent-help"><?php _e('Không tích: phiên mới dùng nguyên prompt cũ. Nút bên dưới chỉ khôi phục nội dung prompt GEO tiếng Anh và không tự bật chế độ.', 'azevent-seo-content'); ?></p>
                             <div class="azevent-lab-reset-row">
                                 <div class="azevent-lab-reset-actions">
-                                    <button type="button" class="azevent-legacy-refresh" id="azevent-load-workflow-lab-geo-defaults"><?php _e('↺ Nạp bộ GEO mặc định Workflow Lab', 'azevent-seo-content'); ?></button>
+                                    <button type="button" class="azevent-legacy-refresh" id="azevent-load-workflow-lab-geo-defaults"><?php _e('↺ Nạp lại GEO tiếng Anh mặc định', 'azevent-seo-content'); ?></button>
                                 </div>
                                 <span class="azevent-lab-reset-status" id="azevent-workflow-lab-geo-status" aria-live="polite"></span>
                             </div>
@@ -1587,7 +1603,7 @@ $lab_prompt_tokens = array(
 
             if (contentStudioGeoButton) {
                 contentStudioGeoButton.addEventListener('click', function () {
-                    if (!window.confirm('<?php echo esc_js(__('Nạp lại bộ GEO mặc định riêng của Content Studio? Thao tác này không thay System/User Prompt hiện có và chỉ được lưu khi bạn bấm Lưu cấu hình.', 'azevent-seo-content')); ?>')) {
+                    if (!window.confirm('<?php echo esc_js(__('Nạp lại bộ GEO tiếng Anh mặc định riêng của Content Studio? Thao tác này không thay System/User Prompt hiện có, không tự bật GEO và chỉ được lưu khi bạn bấm Lưu cấu hình.', 'azevent-seo-content')); ?>')) {
                         return;
                     }
                     fillGeoPriorities('content_studio', contentStudioGeoDefaults);
@@ -1598,7 +1614,7 @@ $lab_prompt_tokens = array(
 
             if (workflowLabGeoButton) {
                 workflowLabGeoButton.addEventListener('click', function () {
-                    if (!window.confirm('<?php echo esc_js(__('Nạp lại bộ GEO mặc định riêng của Workflow Lab? Thao tác này không thay prompt Workflow Lab hiện có và chỉ được lưu khi bạn bấm Lưu cấu hình.', 'azevent-seo-content')); ?>')) {
+                    if (!window.confirm('<?php echo esc_js(__('Nạp lại bộ GEO tiếng Anh mặc định riêng của Workflow Lab? Thao tác này không thay prompt Workflow Lab hiện có, không tự bật GEO và chỉ được lưu khi bạn bấm Lưu cấu hình.', 'azevent-seo-content')); ?>')) {
                         return;
                     }
                     fillGeoPriorities('workflow_lab', workflowLabGeoDefaults);

@@ -509,6 +509,7 @@ PROMPT;
             'outline_validation',
             !empty($input['optimize_ai_overview_geo'])
         );
+        $user = str_replace('{language}', sanitize_text_field($context['language'] ?? 'Vietnamese'), $user);
         return array('system' => $system, 'user' => $user);
     }
 
@@ -690,14 +691,14 @@ PROMPT;
             '{competitor_notes}' => 'Đã tổng hợp trong Content Brief.',
             '{serp_snapshot}' => '{}',
         );
-        $system = str_replace(array_keys($replacements), array_values($replacements), $system);
-        $user = str_replace(array_keys($replacements), array_values($replacements), $user);
         $user = AzEvent_GEO_Prompts::append(
             $user,
             AzEvent_GEO_Prompts::WORKFLOW_LAB,
             'content',
             !empty($input['optimize_ai_overview_geo'])
         );
+        $system = str_replace(array_keys($replacements), array_values($replacements), $system);
+        $user = str_replace(array_keys($replacements), array_values($replacements), $user);
 
         $position_instruction = $section_index === 0
             ? 'Đây là phần đầu: viết mở bài ngắn trước H2 hiện tại, sau đó viết đầy đủ H2 này.'
@@ -1051,14 +1052,14 @@ PROMPT;
             '{internal_link_candidates}' => wp_json_encode($internal_link_candidates, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
         );
 
-        $system = str_replace(array_keys($replacements), array_values($replacements), $system);
-        $user = str_replace(array_keys($replacements), array_values($replacements), $user);
         $user = AzEvent_GEO_Prompts::append(
             $user,
             AzEvent_GEO_Prompts::WORKFLOW_LAB,
             $step,
             !empty($input['optimize_ai_overview_geo'])
         );
+        $system = str_replace(array_keys($replacements), array_values($replacements), $system);
+        $user = str_replace(array_keys($replacements), array_values($replacements), $user);
         if ($step === 'quality' && !empty($context['content_split']['enabled']) && !empty($context['content_split']['completed'])) {
             $user .= "\n\n## Kiểm tra bổ sung cho bài được ghép từ nhiều H2\n";
             $user .= "- Phát hiện và sửa câu chuyển đoạn gượng, ý lặp giữa các H2, phần mở đầu nhỏ bị lặp, CTA lặp và thay đổi giọng văn.\n";
