@@ -6,6 +6,9 @@
 $root = dirname(__DIR__);
 $settings = file_get_contents($root . '/admin/views/settings-page.php');
 $background_queue = file_get_contents($root . '/admin/views/background-queue-page.php');
+$admin = file_get_contents($root . '/admin/class-azevent-admin.php');
+$updater = file_get_contents($root . '/includes/class-azevent-github-updater.php');
+$editor_integration = file_get_contents($root . '/includes/class-azevent-editor-integration.php');
 $editor_js = file_get_contents($root . '/admin/js/editor.js');
 $workflow_css = file_get_contents($root . '/admin/css/workflow-lab.css');
 $editor_css = file_get_contents($root . '/admin/css/editor.css');
@@ -20,6 +23,29 @@ function azevent_ui_assert($condition, $message)
     fwrite(STDOUT, "PASS: {$message}\n");
 }
 
+azevent_ui_assert(
+    strpos($admin, "'azevent-seo-background-queue',\n            array(\$this, 'render_background_queue_page')") !== false
+        && strpos($admin, "remove_submenu_page('azevent-seo-background-queue', 'azevent-seo-settings')") !== false
+        && strpos($updater, "'azevent-seo-background-queue',\n            'GitHub Updates'") !== false,
+    'Menu AzEvent SEO mở Queue mặc định và Settings không còn là submenu.'
+);
+azevent_ui_assert(
+    substr_count($background_queue, 'class="button azq-open-modal"') === 2
+        && strpos($background_queue, 'data-modal-title="<?php esc_attr_e(\'Settings\'') !== false
+        && strpos($background_queue, 'data-modal-title="<?php esc_attr_e(\'Prompt\'') !== false
+        && strpos($background_queue, 'role="dialog"') !== false
+        && strpos($background_queue, "event.key === 'Escape'") !== false
+        && strpos($settings, "postMessage('azevent-close-settings-modal'") !== false
+        && strpos($background_queue, "event.data === 'azevent-close-settings-modal'") !== false
+        && strpos($background_queue, "get('azevent_open')") !== false
+        && strpos($editor_integration, "'azevent_open' => 'settings'") !== false,
+    'Queue có nút Settings và Prompt mở modal hỗ trợ phím Escape.'
+);
+azevent_ui_assert(
+    strpos($settings, 'azevent-settings-modal-prompts') !== false
+        && strpos($settings, "\$azevent_initial_tab = \$azevent_modal_section === 'prompts' ? 'prompts'") !== false,
+    'Settings modal tách đúng nhóm cấu hình và nhóm Prompt.'
+);
 azevent_ui_assert(
     preg_match('/\\.azevent-settings-page\\s*\\{[^}]*max-width:\\s*1480px;/s', $settings) === 1
         && preg_match('/\\.azevent-settings-page\\s*\\{[^}]*max-width:\\s*none;/s', $settings) !== 1,

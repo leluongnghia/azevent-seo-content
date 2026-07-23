@@ -251,8 +251,26 @@ $lab_prompt_tokens = array(
     '{seo_json}' => __('SEO metadata dạng JSON.', 'azevent-seo-content'),
     '{internal_link_candidates}' => __('Danh sách bài Published thật được plugin tìm thấy.', 'azevent-seo-content'),
 );
+$azevent_modal_mode = isset($_GET['azevent_modal'])
+    && absint(wp_unslash($_GET['azevent_modal'])) === 1;
+$azevent_modal_section = isset($_GET['azevent_section'])
+    ? sanitize_key(wp_unslash($_GET['azevent_section']))
+    : '';
+if (!in_array($azevent_modal_section, array('settings', 'prompts'), true)) {
+    $azevent_modal_section = '';
+}
+$azevent_initial_tab = $azevent_modal_section === 'prompts' ? 'prompts' : ($azevent_modal_section === 'settings' ? 'api' : '');
 ?>
-<div class="wrap azevent-settings-page">
+<?php if ($azevent_modal_mode) : ?>
+    <style>
+        html.wp-toolbar { padding-top: 0; }
+        body { min-width: 0; background: #f8fafc; }
+        #wpadminbar, #adminmenumain, #wpfooter, .update-nag, .notice:not(.settings-error) { display: none !important; }
+        #wpcontent, #wpfooter { margin-left: 0; }
+        #wpbody-content { min-height: 100vh; padding-bottom: 0; }
+    </style>
+<?php endif; ?>
+<div class="wrap azevent-settings-page<?php echo $azevent_modal_mode ? ' azevent-settings-modal azevent-settings-modal-' . esc_attr($azevent_modal_section) : ''; ?>">
     <style>
         .azevent-settings-page {
             width: auto;
@@ -534,8 +552,17 @@ $lab_prompt_tokens = array(
         .azevent-geo-priority summary { background: rgba(255,255,255,.74); }
         .azevent-footer { position: sticky; bottom: 16px; z-index: 4; display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; padding: 13px 15px; border: 1px solid #e2e8f0; border-radius: 12px; background: rgba(255,255,255,.92); box-shadow: 0 10px 26px rgba(15,23,42,.1); backdrop-filter: blur(10px); }
         .azevent-footer .button-primary { min-width: 154px; height: 42px; border: 0; border-radius: 10px; background: linear-gradient(135deg, #4f46e5, #7c3aed); box-shadow: 0 8px 18px rgba(79,70,229,.24); font-weight: 700; }
+        .azevent-settings-modal { width: auto; max-width: none; margin: 0; padding: 18px; }
+        .azevent-settings-modal .azevent-hero, .azevent-settings-modal .azevent-flow { display: none; }
+        .azevent-settings-modal .azevent-tabs { top: 0; }
+        .azevent-settings-modal-prompts .azevent-tab[data-tab="api"],
+        .azevent-settings-modal-prompts .azevent-tab[data-tab="brand"],
+        .azevent-settings-modal-prompts .azevent-tab[data-tab="content-settings"],
+        .azevent-settings-modal-settings .azevent-tab[data-tab="prompts"],
+        .azevent-settings-modal-settings .azevent-tab[data-tab="lab-prompts"] { display: none; }
         @media (max-width: 800px) {
             .azevent-settings-page { width: auto; margin-right: 12px; }
+            .azevent-settings-modal { margin: 0; padding: 12px; }
             .azevent-hero { padding: 22px 20px; border-radius: 16px; }
             .azevent-brand-row { margin-bottom: 18px; }
             .azevent-hero h1 { font-size: 25px; }
@@ -569,6 +596,7 @@ $lab_prompt_tokens = array(
         }
         @media (max-width: 480px) {
             .azevent-settings-page { margin-left: 0; margin-right: 10px; }
+            .azevent-settings-modal { margin: 0; padding: 10px; }
             .azevent-brand-label, .azevent-tab-icon { display: none; }
             .azevent-card-title { gap: 8px; }
             .azevent-section-icon { width: 30px; height: 30px; flex-basis: 30px; }
@@ -1299,6 +1327,14 @@ $lab_prompt_tokens = array(
 
     <script>
         (function () {
+            var isModalMode = <?php echo wp_json_encode($azevent_modal_mode); ?>;
+            if (isModalMode) {
+                document.addEventListener('keydown', function (event) {
+                    if (event.key === 'Escape' && window.parent !== window) {
+                        window.parent.postMessage('azevent-close-settings-modal', window.location.origin);
+                    }
+                });
+            }
             var legacyRefreshButton = document.getElementById('azevent-refresh-legacy-models');
             var legacyStatus = document.getElementById('azevent-legacy-model-status');
             var openaiModelSelect = document.getElementById('azevent_seo_openai_model');
@@ -1831,9 +1867,12 @@ $lab_prompt_tokens = array(
                 });
             });
 
-            var tabs = document.querySelectorAll('.azevent-tab');
+            var tabs = Array.prototype.filter.call(document.querySelectorAll('.azevent-tab'), function (tab) {
+                return window.getComputedStyle(tab).display !== 'none';
+            });
             var panels = document.querySelectorAll('.azevent-panel');
             var activeTabStorageKey = 'azevent-settings-active-tab';
+            var requestedTab = <?php echo wp_json_encode($azevent_initial_tab); ?>;
 
             function activateTab(tab) {
                 var target = tab.getAttribute('data-tab');
@@ -1855,13 +1894,27 @@ $lab_prompt_tokens = array(
                 }
             }
 
-            try {
-                var storedTab = window.localStorage.getItem(activeTabStorageKey);
-                var storedTabButton = storedTab ? document.querySelector('.azevent-tab[data-tab="' + storedTab + '"]') : null;
-                if (storedTabButton) {
-                    activateTab(storedTabButton);
+            var requestedTabButton = requestedTab
+                ? tabs.find(function (tab) { return tab.getAttribute('data-tab') === requestedTab; })
+                : null;
+            if (requestedTabButton) {
+                activateTab(requestedTabButton);
+            } else {
+                try {
+                    var storedTab = window.localStorage.getItem(activeTabStorageKey);
+                    var storedTabButton = storedTab
+                        ? tabs.find(function (tab) { return tab.getAttribute('data-tab') === storedTab; })
+                        : null;
+                    if (storedTabButton) {
+                        activateTab(storedTabButton);
+                    } else if (tabs[0]) {
+                        activateTab(tabs[0]);
+                    }
+                } catch (error) {
+                    if (tabs[0]) {
+                        activateTab(tabs[0]);
+                    }
                 }
-            } catch (error) {
             }
 
             tabs.forEach(function (tab) {
@@ -1869,7 +1922,7 @@ $lab_prompt_tokens = array(
                     activateTab(tab);
                 });
                 tab.addEventListener('keydown', function (event) {
-                    var tabList = Array.prototype.slice.call(tabs);
+                    var tabList = tabs;
                     var currentIndex = tabList.indexOf(tab);
                     var targetIndex = currentIndex;
                     if (event.key === 'ArrowRight') {

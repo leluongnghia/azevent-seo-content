@@ -6,6 +6,23 @@ if (!defined('ABSPATH')) {
 if (!current_user_can('edit_posts')) {
     wp_die(esc_html__('Bạn không có quyền xem Background Queue.', 'azevent-seo-content'));
 }
+
+$azq_settings_url = add_query_arg(
+    array(
+        'page' => 'azevent-seo-settings',
+        'azevent_modal' => 1,
+        'azevent_section' => 'settings',
+    ),
+    admin_url('admin.php')
+);
+$azq_prompts_url = add_query_arg(
+    array(
+        'page' => 'azevent-seo-settings',
+        'azevent_modal' => 1,
+        'azevent_section' => 'prompts',
+    ),
+    admin_url('admin.php')
+);
 ?>
 <div class="wrap azevent-queue-page">
     <style>
@@ -16,8 +33,10 @@ if (!current_user_can('edit_posts')) {
         .azq-hero h1 { margin: 0; color: #fff; font-size: 25px; line-height: 1.2; }
         .azq-hero p { max-width: 760px; margin: 9px 0 0; color: #dbeafe; font-size: 13px; line-height: 1.6; }
         .azq-hero-actions { display: flex; gap: 8px; flex: 0 0 auto; }
-        .azq-hero .button { display: inline-flex; align-items: center; min-height: 39px; border-color: rgba(255,255,255,.35); border-radius: 9px; background: rgba(255,255,255,.12); color: #fff; font-weight: 700; }
+        .azq-hero .button { display: inline-flex; align-items: center; gap: 6px; min-height: 39px; border-color: rgba(255,255,255,.35); border-radius: 9px; background: rgba(255,255,255,.12); color: #fff; font-weight: 700; }
         .azq-hero .button-primary { border-color: #fff; background: #fff; color: #3730a3; }
+        .azq-hero .button:hover, .azq-hero .button:focus { border-color: rgba(255,255,255,.7); background: rgba(255,255,255,.2); color: #fff; }
+        .azq-hero .button-primary:hover, .azq-hero .button-primary:focus { border-color: #fff; background: #eef2ff; color: #312e81; }
         .azq-stats { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 12px; margin: 16px 0; }
         .azq-stat { padding: 16px 17px; border: 1px solid #dbe4f3; border-radius: 13px; background: #fff; box-shadow: 0 5px 16px rgba(15,23,42,.04); }
         .azq-stat strong, .azq-stat span { display: block; }
@@ -53,7 +72,23 @@ if (!current_user_can('edit_posts')) {
         .azq-empty .dashicons { width: 42px; height: 42px; color: #a5b4fc; font-size: 42px; }
         .azq-empty strong { display: block; margin-top: 10px; color: #334155; font-size: 15px; }
         .azq-empty p { margin: 6px 0 0; }
+        body.azq-modal-open { overflow: hidden; }
+        .azq-modal[hidden] { display: none; }
+        .azq-modal { position: fixed; z-index: 100100; inset: 0; display: flex; align-items: center; justify-content: center; padding: 18px; }
+        .azq-modal-backdrop { position: absolute; inset: 0; background: rgba(8,15,39,.74); backdrop-filter: blur(5px); }
+        .azq-modal-dialog { position: relative; display: flex; flex-direction: column; width: min(1480px, calc(100vw - 36px)); height: min(900px, calc(100vh - 36px)); overflow: hidden; border: 1px solid #dbe4f3; border-radius: 18px; background: #f8fafc; box-shadow: 0 28px 80px rgba(15,23,42,.36); }
+        .azq-modal-header { display: flex; align-items: center; justify-content: space-between; min-height: 66px; padding: 13px 18px 13px 22px; border-bottom: 1px solid #e2e8f0; background: #fff; }
+        .azq-modal-heading { display: flex; align-items: center; gap: 11px; }
+        .azq-modal-heading .dashicons { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: #eef2ff; color: #4f46e5; font-size: 20px; }
+        .azq-modal-heading span { display: block; color: #6366f1; font-size: 9px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+        .azq-modal-heading h2 { margin: 2px 0 0; color: #0f172a; font-size: 19px; line-height: 1.2; }
+        .azq-modal-close { display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 0; border-radius: 10px; background: #f1f5f9; color: #475569; cursor: pointer; }
+        .azq-modal-close:hover, .azq-modal-close:focus { background: #e2e8f0; color: #0f172a; }
+        .azq-modal-frame { display: block; flex: 1 1 auto; width: 100%; min-height: 0; border: 0; background: #f8fafc; }
+        .azq-modal-loading { position: absolute; top: 82px; left: 50%; z-index: 1; transform: translateX(-50%); padding: 7px 11px; border-radius: 999px; background: #eef2ff; color: #4338ca; font-size: 11px; font-weight: 700; box-shadow: 0 4px 14px rgba(15,23,42,.08); }
+        .azq-modal.is-loaded .azq-modal-loading { display: none; }
         @media (max-width: 900px) { .azq-hero, .azq-toolbar { align-items: stretch; flex-direction: column; } .azq-stats { grid-template-columns: repeat(2,minmax(0,1fr)); } .azq-hero-actions { flex-wrap: wrap; } }
+        @media (max-width: 600px) { .azq-modal { padding: 0; } .azq-modal-dialog { width: 100vw; height: 100vh; border: 0; border-radius: 0; } .azq-modal-header { padding: 10px 12px 10px 15px; } }
         @media (prefers-reduced-motion: reduce) { .azq-table tr:hover td { transition: none; } }
     </style>
 
@@ -64,6 +99,14 @@ if (!current_user_can('edit_posts')) {
             <p><?php _e('Theo dõi Job tự động và các phiên Content Studio đã lưu. Item “Chờ tiếp tục” có thể mở lại đúng bài, đúng bước và giữ nguyên checkpoint.', 'azevent-seo-content'); ?></p>
         </div>
         <div class="azq-hero-actions">
+            <?php if (current_user_can('manage_options')) : ?>
+                <button type="button" class="button azq-open-modal" data-modal-section="settings" data-modal-title="<?php esc_attr_e('Settings', 'azevent-seo-content'); ?>" data-modal-icon="dashicons-admin-settings" data-modal-url="<?php echo esc_url($azq_settings_url); ?>">
+                    <span class="dashicons dashicons-admin-settings" aria-hidden="true"></span><?php _e('Settings', 'azevent-seo-content'); ?>
+                </button>
+                <button type="button" class="button azq-open-modal" data-modal-section="prompts" data-modal-title="<?php esc_attr_e('Prompt', 'azevent-seo-content'); ?>" data-modal-icon="dashicons-edit" data-modal-url="<?php echo esc_url($azq_prompts_url); ?>">
+                    <span class="dashicons dashicons-edit" aria-hidden="true"></span><?php _e('Prompt', 'azevent-seo-content'); ?>
+                </button>
+            <?php endif; ?>
             <a class="button" href="<?php echo esc_url(admin_url('post-new.php')); ?>"><?php _e('＋ Tạo bài mới', 'azevent-seo-content'); ?></a>
             <button type="button" class="button button-primary" id="azq-refresh"><?php _e('↻ Làm mới', 'azevent-seo-content'); ?></button>
         </div>
@@ -98,6 +141,25 @@ if (!current_user_can('edit_posts')) {
         </div>
     </section>
 
+    <?php if (current_user_can('manage_options')) : ?>
+        <div id="azq-settings-modal" class="azq-modal" hidden aria-hidden="true">
+            <div class="azq-modal-backdrop" data-azq-modal-close></div>
+            <div class="azq-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="azq-modal-title">
+                <header class="azq-modal-header">
+                    <div class="azq-modal-heading">
+                        <span id="azq-modal-icon" class="dashicons dashicons-admin-settings" aria-hidden="true"></span>
+                        <div><span><?php _e('AzEvent SEO', 'azevent-seo-content'); ?></span><h2 id="azq-modal-title"><?php _e('Settings', 'azevent-seo-content'); ?></h2></div>
+                    </div>
+                    <button type="button" id="azq-modal-close" class="azq-modal-close" aria-label="<?php esc_attr_e('Đóng cửa sổ', 'azevent-seo-content'); ?>" data-azq-modal-close>
+                        <span class="dashicons dashicons-no-alt" aria-hidden="true"></span>
+                    </button>
+                </header>
+                <span class="azq-modal-loading" aria-live="polite"><?php _e('Đang tải…', 'azevent-seo-content'); ?></span>
+                <iframe id="azq-modal-frame" class="azq-modal-frame" title="<?php esc_attr_e('Cấu hình AzEvent SEO', 'azevent-seo-content'); ?>"></iframe>
+            </div>
+        </div>
+    <?php endif; ?>
+
     <script>
         (function () {
             var ajaxUrl = <?php echo wp_json_encode(admin_url('admin-ajax.php')); ?>;
@@ -107,6 +169,11 @@ if (!current_user_can('edit_posts')) {
             var rows = document.getElementById('azq-rows');
             var empty = document.getElementById('azq-empty');
             var notice = document.getElementById('azq-notice');
+            var settingsModal = document.getElementById('azq-settings-modal');
+            var modalFrame = document.getElementById('azq-modal-frame');
+            var modalTitle = document.getElementById('azq-modal-title');
+            var modalIcon = document.getElementById('azq-modal-icon');
+            var modalReturnFocus = null;
             var statusLabels = { pending: 'Đang chờ', processing: 'Đang chạy', paused: 'Chờ tiếp tục', completed: 'Hoàn tất', failed: 'Lỗi' };
             var stepLabels = { start: 'Search Intent', search_intent: 'Search Intent', outline: 'Outline', content: 'Content', seo: 'SEO Metadata', section_images: 'Ảnh H2', image: 'Tạo ảnh', finalize: 'Lưu Draft', completed: 'Đã hoàn tất' };
 
@@ -124,6 +191,35 @@ if (!current_user_can('edit_posts')) {
                     return { url: job.post_url, label: 'Mở Draft', primary: false };
                 }
                 return null;
+            }
+            function openSettingsModal(button) {
+                if (!settingsModal || !modalFrame) return;
+                modalReturnFocus = button;
+                modalTitle.textContent = button.dataset.modalTitle || 'Settings';
+                modalIcon.className = 'dashicons ' + (button.dataset.modalIcon || 'dashicons-admin-settings');
+                settingsModal.classList.remove('is-loaded');
+                settingsModal.hidden = false;
+                settingsModal.setAttribute('aria-hidden', 'false');
+                document.body.classList.add('azq-modal-open');
+                if (modalFrame.dataset.url !== button.dataset.modalUrl) {
+                    modalFrame.dataset.url = button.dataset.modalUrl;
+                    modalFrame.src = button.dataset.modalUrl;
+                } else {
+                    settingsModal.classList.add('is-loaded');
+                }
+                window.setTimeout(function () { document.getElementById('azq-modal-close').focus(); }, 20);
+            }
+            function closeSettingsModal() {
+                if (!settingsModal) return;
+                settingsModal.hidden = true;
+                settingsModal.setAttribute('aria-hidden', 'true');
+                document.body.classList.remove('azq-modal-open');
+                var currentUrl = new URL(window.location.href);
+                if (currentUrl.searchParams.has('azevent_open')) {
+                    currentUrl.searchParams.delete('azevent_open');
+                    window.history.replaceState({}, document.title, currentUrl.toString());
+                }
+                if (modalReturnFocus) modalReturnFocus.focus();
             }
             function visible(job) { return activeFilter === 'all' || job.workflow_type === activeFilter || job.status === activeFilter; }
             function render() {
@@ -158,6 +254,20 @@ if (!current_user_can('edit_posts')) {
                 }).catch(function (error) { if (!silent) setNotice(error.message, true); });
             }
             document.querySelectorAll('.azq-filter').forEach(function (button) { button.addEventListener('click', function () { document.querySelectorAll('.azq-filter').forEach(function (item) { item.classList.toggle('is-active', item === button); }); activeFilter = button.dataset.filter; render(); }); });
+            document.querySelectorAll('.azq-open-modal').forEach(function (button) { button.addEventListener('click', function () { openSettingsModal(button); }); });
+            document.querySelectorAll('[data-azq-modal-close]').forEach(function (button) { button.addEventListener('click', closeSettingsModal); });
+            if (modalFrame) modalFrame.addEventListener('load', function () { settingsModal.classList.add('is-loaded'); });
+            document.addEventListener('keydown', function (event) { if (event.key === 'Escape' && settingsModal && !settingsModal.hidden) closeSettingsModal(); });
+            window.addEventListener('message', function (event) {
+                if (event.origin === window.location.origin && modalFrame && event.source === modalFrame.contentWindow && event.data === 'azevent-close-settings-modal') {
+                    closeSettingsModal();
+                }
+            });
+            var requestedModal = new URLSearchParams(window.location.search).get('azevent_open');
+            var requestedModalButton = requestedModal
+                ? document.querySelector('.azq-open-modal[data-modal-section="' + requestedModal + '"]')
+                : null;
+            if (requestedModalButton) openSettingsModal(requestedModalButton);
             document.getElementById('azq-refresh').addEventListener('click', function () { load(false); });
             rows.addEventListener('click', function (event) {
                 var button = event.target.closest('button[data-job-id]'); if (!button) return;

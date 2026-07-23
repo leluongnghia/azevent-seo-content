@@ -151,7 +151,7 @@ class AzEvent_Editor_Integration
                         <div class="azevent-language-summary">
                             <span class="dashicons dashicons-translation" aria-hidden="true"></span>
                             <span><?php _e('Ngôn ngữ đầu ra', 'azevent-seo-content'); ?><strong><?php echo esc_html($default_language_label); ?></strong></span>
-                            <a href="<?php echo esc_url(admin_url('admin.php?page=azevent-seo-settings')); ?>"><?php _e('Thay đổi trong cài đặt', 'azevent-seo-content'); ?></a>
+                            <a href="<?php echo esc_url(add_query_arg(array('page' => 'azevent-seo-background-queue', 'azevent_open' => 'settings'), admin_url('admin.php'))); ?>"><?php _e('Thay đổi trong cài đặt', 'azevent-seo-content'); ?></a>
                         </div>
 
                         <label class="azevent-geo-toggle">

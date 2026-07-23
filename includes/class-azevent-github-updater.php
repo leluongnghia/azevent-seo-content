@@ -591,7 +591,7 @@ class AzEvent_GitHub_Updater
     public function add_settings_page()
     {
         add_submenu_page(
-            'azevent-seo-settings',
+            'azevent-seo-background-queue',
             'GitHub Updates',
             'GitHub Updates',
             'manage_options',

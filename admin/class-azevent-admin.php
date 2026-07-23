@@ -24,17 +24,17 @@ class AzEvent_Admin
     public function add_menu_pages()
     {
         add_menu_page(
-            __('AzEvent SEO Settings', 'azevent-seo-content'),
+            __('AzEvent SEO Queue', 'azevent-seo-content'),
             __('AzEvent SEO', 'azevent-seo-content'),
-            'manage_options',
-            'azevent-seo-settings',
-            array($this, 'render_settings_page'),
+            'edit_posts',
+            'azevent-seo-background-queue',
+            array($this, 'render_background_queue_page'),
             'dashicons-art',
             80
         );
 
         add_submenu_page(
-            'azevent-seo-settings',
+            'azevent-seo-background-queue',
             __('Content Studio', 'azevent-seo-content'),
             __('Content Studio', 'azevent-seo-content'),
             'edit_posts',
@@ -43,7 +43,7 @@ class AzEvent_Admin
         );
 
         add_submenu_page(
-            'azevent-seo-settings',
+            'azevent-seo-background-queue',
             __('SEO Workflow Lab', 'azevent-seo-content'),
             __('SEO Workflow Lab', 'azevent-seo-content'),
             'edit_posts',
@@ -52,13 +52,17 @@ class AzEvent_Admin
         );
 
         add_submenu_page(
-            'azevent-seo-settings',
-            __('Background Queue', 'azevent-seo-content'),
-            __('Background Queue', 'azevent-seo-content'),
-            'edit_posts',
             'azevent-seo-background-queue',
-            array($this, 'render_background_queue_page')
+            __('AzEvent SEO Settings', 'azevent-seo-content'),
+            __('Settings', 'azevent-seo-content'),
+            'manage_options',
+            'azevent-seo-settings',
+            array($this, 'render_settings_page')
         );
+
+        // Settings remains a registered admin route for the Queue modals, but is
+        // intentionally removed from the sidebar navigation.
+        remove_submenu_page('azevent-seo-background-queue', 'azevent-seo-settings');
     }
 
     /**
