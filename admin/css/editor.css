@@ -10,7 +10,7 @@
 
 .azevent-studio-admin-page {
     width: auto;
-    max-width: none;
+    max-width: 1480px;
     margin-right: 20px;
 }
 
@@ -21,7 +21,7 @@
 }
 
 .azevent-studio-admin-page .azevent-launch-card {
-    margin: 24px 20px 0 0;
+    margin: 24px 0 0;
     padding: 30px;
     border-radius: 18px;
     box-shadow: 0 18px 42px rgba(15, 23, 42, .18);
@@ -156,9 +156,9 @@ body.azevent-modal-open {
     position: relative;
     display: flex;
     flex-direction: column;
-    width: calc(100vw - 12px);
-    max-width: none;
-    max-height: calc(100vh - 12px);
+    width: calc(100vw - 32px);
+    max-width: 1480px;
+    max-height: calc(100vh - 32px);
     overflow: hidden;
     border: 1px solid #dbe4f3;
     border-radius: 18px;
@@ -453,6 +453,17 @@ body.azevent-modal-open {
     border-radius: 12px;
     background: #f5f7ff;
     cursor: pointer;
+    transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
+}
+
+.azevent-geo-toggle:hover {
+    border-color: #a5b4fc;
+    background: #fff;
+}
+
+.azevent-geo-toggle:focus-within {
+    border-color: #818cf8;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, .12);
 }
 
 .azevent-geo-toggle input {
@@ -1110,7 +1121,7 @@ body.azevent-modal-open {
 
 @media (max-width: 782px) {
     .azevent-studio-admin-page .azevent-launch-card {
-        margin-right: 10px;
+        margin-right: 0;
         padding: 22px;
     }
 

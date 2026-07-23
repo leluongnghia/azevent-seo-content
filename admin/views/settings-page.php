@@ -256,12 +256,14 @@ $lab_prompt_tokens = array(
     <style>
         .azevent-settings-page {
             width: auto;
-            max-width: none;
+            max-width: 1480px;
             margin-right: 24px;
             color: #0f172a;
             font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
         .azevent-settings-page * { box-sizing: border-box; }
+        .azevent-settings-page main, .azevent-card-title > div, .azevent-model-routing-header > div { min-width: 0; }
+        .azevent-settings-page p, .azevent-settings-page span, .azevent-settings-page label { overflow-wrap: anywhere; }
         .azevent-hero {
             position: relative;
             overflow: hidden;
@@ -333,7 +335,12 @@ $lab_prompt_tokens = array(
             background: #fff;
             box-shadow: 0 8px 22px rgba(15, 23, 42, .055);
             overflow-x: auto;
+            scrollbar-width: thin;
+            scroll-snap-type: x proximity;
         }
+        .azevent-tabs::-webkit-scrollbar, .azevent-flow::-webkit-scrollbar { height: 6px; }
+        .azevent-tabs::-webkit-scrollbar-thumb, .azevent-flow::-webkit-scrollbar-thumb { border-radius: 999px; background: #cbd5e1; }
+        .azevent-tabs::-webkit-scrollbar-track, .azevent-flow::-webkit-scrollbar-track { background: transparent; }
         .azevent-tab {
             display: flex;
             align-items: center;
@@ -350,9 +357,14 @@ $lab_prompt_tokens = array(
             font-weight: 600;
             text-align: left;
             white-space: nowrap;
+            scroll-snap-align: start;
         }
         .azevent-tab:hover { background: #f8fafc; color: #1e293b; }
         .azevent-tab.is-active { background: #4f46e5; color: #fff; box-shadow: 0 4px 12px rgba(79,70,229,.2); }
+        .azevent-tab:focus-visible, .azevent-prompt-toggle:focus-visible, .azevent-legacy-refresh:focus-visible, .azevent-model-add:focus-visible {
+            outline: 3px solid rgba(99,102,241,.28);
+            outline-offset: 2px;
+        }
         .azevent-tab-icon { width: 24px; color: currentColor; font-size: 15px; }
         .azevent-panel { display: none; }
         .azevent-panel.is-active { display: block; }
@@ -411,7 +423,9 @@ $lab_prompt_tokens = array(
         .azevent-field input:focus, .azevent-field select:focus, .azevent-field textarea:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,.12); outline: none; }
         .azevent-endpoint-key[hidden] { display: none; }
         .azevent-help { margin: 6px 0 0; color: #94a3b8; font-size: 11px; line-height: 1.5; }
-        .azevent-field label.azevent-workflow-option { display: flex; align-items: flex-start; gap: 13px; margin-bottom: 0; padding: 15px; border: 1px solid #dbe4f3; border-radius: 11px; background: #f8fafc; }
+        .azevent-field label.azevent-workflow-option, label.azevent-workflow-option { display: flex; align-items: flex-start; gap: 13px; margin-bottom: 0; padding: 15px; border: 1px solid #dbe4f3; border-radius: 11px; background: #f8fafc; cursor: pointer; transition: border-color .15s, background .15s, box-shadow .15s; }
+        label.azevent-workflow-option:hover { border-color: #c7d2fe; background: #fff; }
+        label.azevent-workflow-option:focus-within { border-color: #818cf8; box-shadow: 0 0 0 3px rgba(99,102,241,.12); }
         .azevent-workflow-option input[type="checkbox"] { width: 18px; height: 18px; margin: 2px 0 0; accent-color: #4f46e5; }
         .azevent-workflow-option strong, .azevent-workflow-option span { display: block; }
         .azevent-workflow-option strong { margin-bottom: 4px; color: #1e293b; font-size: 13px; }
@@ -432,7 +446,7 @@ $lab_prompt_tokens = array(
         .azevent-lab-model-toolbar .azevent-field { margin: 0; }
         .azevent-lab-model-toolbar .button { min-height: 39px; padding: 0 14px; border-radius: 8px; font-weight: 700; }
         .azevent-lab-model-status { grid-column: 1/-1; min-height: 16px; color: #047857; font-size: 11px; }
-        .azevent-lab-model-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+        .azevent-lab-model-grid { display: grid; grid-template-columns: repeat(3, minmax(220px, 1fr)); gap: 12px; }
         .azevent-lab-model-card { min-width: 0; padding: 13px; border: 1px solid #dbe4f3; border-radius: 11px; background: #fff; }
         .azevent-lab-model-card-head { display: flex; align-items: flex-start; gap: 9px; margin-bottom: 9px; }
         .azevent-lab-model-number { display: inline-grid; place-items: center; width: 25px; height: 25px; flex: 0 0 auto; border-radius: 8px; background: #4f46e5; color: #fff; font-size: 10px; font-weight: 800; }
@@ -440,7 +454,7 @@ $lab_prompt_tokens = array(
         .azevent-lab-model-card strong { color: #172554; font-size: 12px; line-height: 1.35; }
         .azevent-lab-model-card-head span:last-child { margin-top: 2px; color: #64748b; font-size: 10px; line-height: 1.35; }
         .azevent-lab-model-card select { width: 100%; }
-        .azevent-lab-model-state { overflow: hidden; margin-top: 7px; color: #64748b; font-size: 10px; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
+        .azevent-lab-model-state { margin-top: 7px; color: #64748b; font-size: 10px; line-height: 1.45; overflow-wrap: anywhere; }
         .azevent-outline-validator-model { max-width: 720px; margin-top: 13px; padding-top: 13px; border-top: 1px solid #dbeafe; }
         .azevent-model-tools input { flex: 1; min-width: 0; }
         .azevent-model-add { flex: 0 0 auto; padding: 0 12px; border: 1px solid #c7d2fe; border-radius: 8px; background: #eef2ff; color: #4338ca; cursor: pointer; font-size: 12px; font-weight: 700; }
@@ -492,6 +506,16 @@ $lab_prompt_tokens = array(
         .azevent-prompt-description { display: block; color: #64748b; font-size: 11px; font-weight: 400; }
         .azevent-prompt-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding: 17px 15px; }
         .azevent-prompt-body .azevent-field { margin: 0; }
+        .azevent-settings-section { margin: 26px 0 12px; padding-top: 23px; border-top: 1px solid #e2e8f0; }
+        .azevent-settings-section:first-of-type { margin-top: 0; padding-top: 0; border-top: 0; }
+        .azevent-settings-section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-bottom: 14px; }
+        .azevent-settings-section-title { display: flex; align-items: flex-start; gap: 10px; min-width: 0; }
+        .azevent-settings-section-number { display: inline-grid; place-items: center; width: 28px; height: 28px; flex: 0 0 28px; border-radius: 8px; background: #eef2ff; color: #4338ca; font-size: 11px; font-weight: 800; }
+        .azevent-settings-section-heading h3 { margin: 0 0 4px; color: #172554; font-size: 15px; }
+        .azevent-settings-section-heading p { margin: 0; color: #64748b; font-size: 11px; line-height: 1.55; }
+        .azevent-prompt-tools { display: flex; flex: 0 0 auto; gap: 7px; }
+        .azevent-prompt-toggle { min-height: 36px; padding: 0 11px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; color: #475569; cursor: pointer; font-size: 11px; font-weight: 700; }
+        .azevent-prompt-toggle:hover { border-color: #a5b4fc; color: #4338ca; }
         .azevent-lab-reset-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 16px; }
         .azevent-lab-reset-actions { display: flex; flex-wrap: wrap; gap: 9px; }
         .azevent-lab-reset-status { color: #64748b; font-size: 11px; }
@@ -499,21 +523,49 @@ $lab_prompt_tokens = array(
         .azevent-serp-box { margin-bottom: 18px; padding: 17px; border: 1px solid #bfdbfe; border-radius: 13px; background: linear-gradient(135deg, #eff6ff, #f8fafc); }
         .azevent-serp-box h3 { margin: 0; color: #1e3a8a; font-size: 14px; }
         .azevent-serp-box > p { margin: 6px 0 15px; color: #64748b; font-size: 11px; line-height: 1.55; }
+        .azevent-geo-box { margin-bottom: 0; border-color: #c4b5fd; background: linear-gradient(145deg, #faf5ff, #f8fafc 58%, #eff6ff); }
+        .azevent-geo-box h3 { color: #4c1d95; }
+        .azevent-geo-formula { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; margin: 12px 0 15px; color: #475569; font-size: 11px; font-weight: 700; }
+        .azevent-geo-formula span { padding: 5px 8px; border: 1px solid #ddd6fe; border-radius: 7px; background: rgba(255,255,255,.82); color: #5b21b6; }
+        .azevent-geo-formula b { color: #7c3aed; }
+        .azevent-geo-priority { border-color: #ddd6fe; background: rgba(255,255,255,.7); }
+        .azevent-geo-priority summary { background: rgba(255,255,255,.74); }
         .azevent-footer { position: sticky; bottom: 16px; z-index: 4; display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; padding: 13px 15px; border: 1px solid #e2e8f0; border-radius: 12px; background: rgba(255,255,255,.92); box-shadow: 0 10px 26px rgba(15,23,42,.1); backdrop-filter: blur(10px); }
         .azevent-footer .button-primary { min-width: 154px; height: 42px; border: 0; border-radius: 10px; background: linear-gradient(135deg, #4f46e5, #7c3aed); box-shadow: 0 8px 18px rgba(79,70,229,.24); font-weight: 700; }
         @media (max-width: 800px) {
-            .azevent-settings-page { margin-right: 12px; }
+            .azevent-settings-page { width: auto; margin-right: 12px; }
+            .azevent-hero { padding: 22px 20px; border-radius: 16px; }
+            .azevent-brand-row { margin-bottom: 18px; }
+            .azevent-hero h1 { font-size: 25px; }
             .azevent-tabs { margin-bottom: 14px; }
             .azevent-grid, .azevent-prompt-body, .azevent-step-model-grid, .azevent-lab-model-grid, .azevent-lab-model-toolbar { grid-template-columns: 1fr; }
             .azevent-tabs { top: 10px; }
-            .azevent-tab { justify-content: flex-start; }
+            .azevent-tab { min-height: 44px; justify-content: flex-start; }
             .azevent-version { position: static; display: inline-block; margin-top: 18px; }
             .azevent-flow { overflow-x: auto; }
-            .azevent-card-header { flex-direction: column; }
-            .azevent-legacy-actions { align-items: flex-start; flex-direction: column; }
+            .azevent-card { padding: 18px 16px; border-radius: 13px; }
+            .azevent-card-header, .azevent-settings-section-heading { flex-direction: column; }
+            .azevent-legacy-actions, .azevent-lab-reset-row { align-items: stretch; flex-direction: column; }
+            .azevent-lab-reset-actions, .azevent-prompt-tools { width: 100%; }
+            .azevent-lab-reset-actions > button, .azevent-prompt-tools > button { flex: 1 1 auto; min-height: 42px; }
+            .azevent-model-tools { align-items: stretch; flex-direction: column; }
+            .azevent-model-add { min-height: 40px; }
+            .azevent-prompt summary { min-height: 56px; align-items: center; }
+            .azevent-footer { bottom: 0; padding: 10px; }
+            .azevent-footer .button-primary { width: 100%; }
         }
-        @media (min-width: 801px) and (max-width: 1200px) {
+        @media (min-width: 801px) and (max-width: 1240px) {
             .azevent-lab-model-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 480px) {
+            .azevent-settings-page { margin-left: 0; margin-right: 10px; }
+            .azevent-brand-label, .azevent-tab-icon { display: none; }
+            .azevent-card-title { gap: 8px; }
+            .azevent-section-icon { width: 30px; height: 30px; flex-basis: 30px; }
+            .azevent-token-subtitle { display: none; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .azevent-settings-page *, .azevent-settings-page *:before, .azevent-settings-page *:after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
         }
     </style>
 
@@ -538,16 +590,16 @@ $lab_prompt_tokens = array(
     <form method="post" action="options.php">
         <?php settings_fields('azevent_seo_settings_group'); ?>
         <div class="azevent-layout">
-            <nav class="azevent-tabs" aria-label="Settings sections">
-                <button type="button" class="azevent-tab is-active" data-tab="api" aria-selected="true"><span class="azevent-tab-icon">⚡</span><?php _e('AI Providers', 'azevent-seo-content'); ?></button>
-                <button type="button" class="azevent-tab" data-tab="brand" aria-selected="false"><span class="azevent-tab-icon">◈</span><?php _e('Thương hiệu', 'azevent-seo-content'); ?></button>
-                <button type="button" class="azevent-tab" data-tab="content-settings" aria-selected="false"><span class="azevent-tab-icon">文</span><?php _e('Nội dung', 'azevent-seo-content'); ?></button>
-                <button type="button" class="azevent-tab" data-tab="prompts" aria-selected="false"><span class="azevent-tab-icon">✎</span><?php _e('AI Prompts', 'azevent-seo-content'); ?></button>
-                <button type="button" class="azevent-tab" data-tab="lab-prompts" aria-selected="false"><span class="azevent-tab-icon">◫</span><?php _e('Workflow Lab Prompts', 'azevent-seo-content'); ?></button>
+            <nav class="azevent-tabs" aria-label="Settings sections" role="tablist">
+                <button type="button" id="azevent-tab-api" class="azevent-tab is-active" data-tab="api" role="tab" aria-controls="azevent-panel-api" aria-selected="true" tabindex="0"><span class="azevent-tab-icon">⚡</span><?php _e('AI Providers', 'azevent-seo-content'); ?></button>
+                <button type="button" id="azevent-tab-brand" class="azevent-tab" data-tab="brand" role="tab" aria-controls="azevent-panel-brand" aria-selected="false" tabindex="-1"><span class="azevent-tab-icon">◈</span><?php _e('Thương hiệu', 'azevent-seo-content'); ?></button>
+                <button type="button" id="azevent-tab-content-settings" class="azevent-tab" data-tab="content-settings" role="tab" aria-controls="azevent-panel-content-settings" aria-selected="false" tabindex="-1"><span class="azevent-tab-icon">文</span><?php _e('Nội dung', 'azevent-seo-content'); ?></button>
+                <button type="button" id="azevent-tab-prompts" class="azevent-tab" data-tab="prompts" role="tab" aria-controls="azevent-panel-prompts" aria-selected="false" tabindex="-1"><span class="azevent-tab-icon">✎</span><?php _e('AI Prompts', 'azevent-seo-content'); ?></button>
+                <button type="button" id="azevent-tab-lab-prompts" class="azevent-tab" data-tab="lab-prompts" role="tab" aria-controls="azevent-panel-lab-prompts" aria-selected="false" tabindex="-1"><span class="azevent-tab-icon">◫</span><?php _e('Workflow Lab Prompts', 'azevent-seo-content'); ?></button>
             </nav>
 
             <main>
-                <section class="azevent-panel is-active" data-panel="api">
+                <section id="azevent-panel-api" class="azevent-panel is-active" data-panel="api" role="tabpanel" aria-labelledby="azevent-tab-api">
                     <div class="azevent-card">
                         <div class="azevent-card-header">
                             <div class="azevent-card-title">
@@ -737,7 +789,7 @@ $lab_prompt_tokens = array(
                     </div>
                 </section>
 
-                <section class="azevent-panel" data-panel="brand">
+                <section id="azevent-panel-brand" class="azevent-panel" data-panel="brand" role="tabpanel" aria-labelledby="azevent-tab-brand" hidden>
                     <div class="azevent-card">
                         <div class="azevent-card-header">
                             <div class="azevent-card-title">
@@ -770,7 +822,7 @@ $lab_prompt_tokens = array(
                     </div>
                 </section>
 
-                <section class="azevent-panel" data-panel="content-settings">
+                <section id="azevent-panel-content-settings" class="azevent-panel" data-panel="content-settings" role="tabpanel" aria-labelledby="azevent-tab-content-settings" hidden>
                     <div class="azevent-card">
                         <div class="azevent-card-header">
                             <div class="azevent-card-title">
@@ -803,7 +855,7 @@ $lab_prompt_tokens = array(
                     </div>
                 </section>
 
-                <section class="azevent-panel" data-panel="prompts">
+                <section id="azevent-panel-prompts" class="azevent-panel" data-panel="prompts" role="tabpanel" aria-labelledby="azevent-tab-prompts" hidden>
                     <div class="azevent-card">
                         <div class="azevent-card-header">
                             <div class="azevent-card-title">
@@ -827,6 +879,17 @@ $lab_prompt_tokens = array(
                             </div>
                             <p class="azevent-token-description"><?php _e('Bạn không cần tự thay các biến này. Khi chạy, plugin sẽ tự lấy dữ liệu tương ứng. Các biến {existing_*} chỉ có giá trị ở chế độ Viết lại bài hiện tại.', 'azevent-seo-content'); ?></p>
                         </div>
+                        <div class="azevent-settings-section">
+                            <div class="azevent-settings-section-heading">
+                                <div class="azevent-settings-section-title">
+                                    <span class="azevent-settings-section-number">1</span>
+                                    <div>
+                                        <h3><?php _e('Cách Content Studio vận hành', 'azevent-seo-content'); ?></h3>
+                                        <p><?php _e('Các tùy chọn ảnh hưởng đến cách chia request và tạo ảnh trong phiên mới.', 'azevent-seo-content'); ?></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                         <div class="azevent-serp-box">
                             <h3><?php _e('Cách viết Content trong Content Studio', 'azevent-seo-content'); ?></h3>
                             <input type="hidden" name="azevent_seo_split_content_by_outline" value="0">
@@ -843,13 +906,13 @@ $lab_prompt_tokens = array(
                             <h3><?php _e('Ảnh minh họa tự động theo H2', 'azevent-seo-content'); ?></h3>
                             <input type="hidden" name="azevent_seo_generate_h2_images" value="0">
                             <label class="azevent-workflow-option" for="azevent_seo_generate_h2_images">
-                                <input id="azevent_seo_generate_h2_images" type="checkbox" name="azevent_seo_generate_h2_images" value="1" <?php checked($azevent_generate_h2_images, 1); ?>>
+                                <input id="azevent_seo_generate_h2_images" type="checkbox" name="azevent_seo_generate_h2_images" value="1" aria-controls="azevent-h2-image-limit-field" aria-expanded="<?php echo $azevent_generate_h2_images ? 'true' : 'false'; ?>" <?php checked($azevent_generate_h2_images, 1); ?>>
                                 <span>
                                     <strong><?php _e('Tạo và chèn ảnh minh họa cho các H2 quan trọng', 'azevent-seo-content'); ?></strong>
                                     <span><?php _e('Áp dụng cho Content Studio và SEO Workflow Lab. AI chọn section, tạo ảnh 16:9 và chèn sau đoạn mở đầu của H2.', 'azevent-seo-content'); ?></span>
                                 </span>
                             </label>
-                            <div class="azevent-field" style="max-width:260px;margin-top:14px">
+                            <div id="azevent-h2-image-limit-field" class="azevent-field azevent-conditional-field" data-controlled-by="azevent_seo_generate_h2_images" style="max-width:260px;margin-top:14px" <?php echo $azevent_generate_h2_images ? '' : 'hidden'; ?>>
                                 <label for="azevent_seo_h2_image_limit"><?php _e('Số ảnh H2 tối đa mỗi bài', 'azevent-seo-content'); ?></label>
                                 <select id="azevent_seo_h2_image_limit" name="azevent_seo_h2_image_limit">
                                     <?php foreach (array(3, 4, 5, 6, 8, 10) as $image_limit) : ?>
@@ -859,8 +922,23 @@ $lab_prompt_tokens = array(
                             </div>
                             <p class="azevent-help"><?php _e('Mặc định tắt. Ảnh lỗi sẽ thử lại hai lần, sau đó bỏ qua để bài vẫn hoàn tất. Ảnh đại diện vẫn được tạo riêng.', 'azevent-seo-content'); ?></p>
                         </div>
+                        <div class="azevent-settings-section">
+                            <div class="azevent-settings-section-heading">
+                                <div class="azevent-settings-section-title">
+                                    <span class="azevent-settings-section-number">2</span>
+                                    <div>
+                                        <h3><?php _e('Prompt chính của Content Studio', 'azevent-seo-content'); ?></h3>
+                                        <p><?php _e('System Prompt và User Prompt điều khiển nhiệm vụ chính của từng bước.', 'azevent-seo-content'); ?></p>
+                                    </div>
+                                </div>
+                                <div class="azevent-prompt-tools" aria-label="<?php esc_attr_e('Điều khiển nhóm prompt Content Studio', 'azevent-seo-content'); ?>">
+                                    <button type="button" class="azevent-prompt-toggle" data-prompt-action="expand" data-prompt-group="content-studio"><?php _e('Mở tất cả', 'azevent-seo-content'); ?></button>
+                                    <button type="button" class="azevent-prompt-toggle" data-prompt-action="collapse" data-prompt-group="content-studio"><?php _e('Thu gọn', 'azevent-seo-content'); ?></button>
+                                </div>
+                            </div>
+                        </div>
                         <?php foreach ($prompt_sections as $key => $section) : ?>
-                            <details class="azevent-prompt" <?php echo $key === 'content' ? 'open' : ''; ?>>
+                            <details class="azevent-prompt" data-prompt-group="content-studio">
                                 <summary>
                                     <span><span class="azevent-prompt-title"><?php echo esc_html($section['label']); ?></span><span class="azevent-prompt-description"><?php echo esc_html($section['description']); ?></span></span>
                                 </summary>
@@ -876,8 +954,22 @@ $lab_prompt_tokens = array(
                                 </div>
                             </details>
                         <?php endforeach; ?>
-                        <div class="azevent-serp-box">
-                            <h3><?php _e('Bộ ưu tiên AI Overview/GEO riêng cho Content Studio', 'azevent-seo-content'); ?></h3>
+                        <div class="azevent-settings-section">
+                            <div class="azevent-settings-section-heading">
+                                <div class="azevent-settings-section-title">
+                                    <span class="azevent-settings-section-number">3</span>
+                                    <div>
+                                        <h3><?php _e('AI Overview/GEO — tùy chọn', 'azevent-seo-content'); ?></h3>
+                                        <p><?php _e('Lớp bổ sung độc lập; không thay thế prompt chính ở phía trên.', 'azevent-seo-content'); ?></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="azevent-serp-box azevent-geo-box">
+                            <h3><?php _e('Prompt AI Overview/GEO riêng cho Content Studio', 'azevent-seo-content'); ?></h3>
+                            <div class="azevent-geo-formula" aria-label="<?php esc_attr_e('Cách ghép prompt khi bật GEO', 'azevent-seo-content'); ?>">
+                                <span><?php _e('Prompt chính', 'azevent-seo-content'); ?></span><b>+</b><span><?php _e('GEO của bước', 'azevent-seo-content'); ?></span><b>→</b><?php _e('Prompt gửi AI', 'azevent-seo-content'); ?>
+                            </div>
                             <input type="hidden" name="azevent_geo_content_studio_default_enabled" value="0">
                             <label class="azevent-workflow-option" for="azevent_geo_content_studio_default_enabled">
                                 <input id="azevent_geo_content_studio_default_enabled" type="checkbox" name="azevent_geo_content_studio_default_enabled" value="1" <?php checked(absint(get_option('azevent_geo_content_studio_default_enabled', 0)), 1); ?>>
@@ -890,12 +982,14 @@ $lab_prompt_tokens = array(
                             <div class="azevent-lab-reset-row">
                                 <div class="azevent-lab-reset-actions">
                                     <button type="button" class="azevent-legacy-refresh" id="azevent-load-content-studio-geo-defaults"><?php _e('↺ Nạp lại GEO tiếng Anh mặc định', 'azevent-seo-content'); ?></button>
+                                    <button type="button" class="azevent-prompt-toggle" data-prompt-action="expand" data-prompt-group="content-studio-geo"><?php _e('Mở prompt GEO', 'azevent-seo-content'); ?></button>
+                                    <button type="button" class="azevent-prompt-toggle" data-prompt-action="collapse" data-prompt-group="content-studio-geo"><?php _e('Thu gọn', 'azevent-seo-content'); ?></button>
                                 </div>
                                 <span class="azevent-lab-reset-status" id="azevent-content-studio-geo-status" aria-live="polite"></span>
                             </div>
                             <?php foreach ($content_studio_geo_sections as $geo_step => $geo_label) : ?>
                                 <?php $geo_option = AzEvent_GEO_Prompts::option_name(AzEvent_GEO_Prompts::CONTENT_STUDIO, $geo_step); ?>
-                                <details class="azevent-prompt azevent-geo-priority">
+                                <details class="azevent-prompt azevent-geo-priority" data-prompt-group="content-studio-geo">
                                     <summary>
                                         <span><span class="azevent-prompt-title"><?php echo esc_html($geo_label); ?></span><span class="azevent-prompt-description"><?php _e('Prompt bổ sung, không thay prompt gốc.', 'azevent-seo-content'); ?></span></span>
                                     </summary>
@@ -911,7 +1005,7 @@ $lab_prompt_tokens = array(
                     </div>
                 </section>
 
-                <section class="azevent-panel" data-panel="lab-prompts">
+                <section id="azevent-panel-lab-prompts" class="azevent-panel" data-panel="lab-prompts" role="tabpanel" aria-labelledby="azevent-tab-lab-prompts" hidden>
                     <div class="azevent-card">
                         <div class="azevent-card-header">
                             <div class="azevent-card-title">
@@ -919,6 +1013,17 @@ $lab_prompt_tokens = array(
                                 <div>
                                 <h2><?php _e('Workflow Lab Prompts', 'azevent-seo-content'); ?></h2>
                                 <p class="azevent-card-description"><?php _e('Prompt và model độc lập cho 5 bước SEO Workflow Lab; không ảnh hưởng Content Studio.', 'azevent-seo-content'); ?></p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="azevent-settings-section">
+                            <div class="azevent-settings-section-heading">
+                                <div class="azevent-settings-section-title">
+                                    <span class="azevent-settings-section-number">1</span>
+                                    <div>
+                                        <h3><?php _e('Model theo từng bước', 'azevent-seo-content'); ?></h3>
+                                        <p><?php _e('Chọn một model chung hoặc tinh chỉnh riêng từng bước mà không làm thay đổi prompt.', 'azevent-seo-content'); ?></p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -979,6 +1084,17 @@ $lab_prompt_tokens = array(
                                 <?php endforeach; ?>
                             </div>
                         </div>
+                        <div class="azevent-settings-section">
+                            <div class="azevent-settings-section-heading">
+                                <div class="azevent-settings-section-title">
+                                    <span class="azevent-settings-section-number">2</span>
+                                    <div>
+                                        <h3><?php _e('Dữ liệu và cách chạy Workflow Lab', 'azevent-seo-content'); ?></h3>
+                                        <p><?php _e('Cấu hình SERP, lượt kiểm định Outline và cách chia Content thành background job.', 'azevent-seo-content'); ?></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                         <div class="azevent-serp-box">
                             <h3><?php _e('Tự động nghiên cứu đối thủ bằng SERP thật', 'azevent-seo-content'); ?></h3>
                             <p><?php _e('Khi ô “Dữ liệu đối thủ / SERP thực tế” trong Workflow Lab để trống, plugin dùng SerpApi để lấy kết quả Google, loại domain của website hiện tại và đọc có giới hạn title, meta, H1–H3 của các trang đầu. Snapshot được cache 6 giờ và lưu trong checkpoint.', 'azevent-seo-content'); ?></p>
@@ -1024,13 +1140,13 @@ $lab_prompt_tokens = array(
                             <h3><?php _e('Kiểm định Outline bằng AI', 'azevent-seo-content'); ?></h3>
                             <input type="hidden" name="azevent_lab_validate_outline" value="0">
                             <label class="azevent-workflow-option" for="azevent_lab_validate_outline">
-                                <input id="azevent_lab_validate_outline" type="checkbox" name="azevent_lab_validate_outline" value="1" <?php checked($azevent_lab_validate_outline, 1); ?>>
+                                <input id="azevent_lab_validate_outline" type="checkbox" name="azevent_lab_validate_outline" value="1" aria-controls="azevent-outline-validator-model" aria-expanded="<?php echo $azevent_lab_validate_outline ? 'true' : 'false'; ?>" <?php checked($azevent_lab_validate_outline, 1); ?>>
                                 <span>
                                     <strong><?php _e('Kiểm định Outline bằng AI lần hai', 'azevent-seo-content'); ?></strong>
                                     <span><?php _e('Thêm bước Kiểm định Outline độc lập sau Brief & Outline để AI rà soát intent, loại heading biên tập nội bộ và gộp mục trùng trước khi viết Content.', 'azevent-seo-content'); ?></span>
                                 </span>
                             </label>
-                            <div class="azevent-field azevent-outline-validator-model">
+                            <div id="azevent-outline-validator-model" class="azevent-field azevent-outline-validator-model azevent-conditional-field" data-controlled-by="azevent_lab_validate_outline" <?php echo $azevent_lab_validate_outline ? '' : 'hidden'; ?>>
                                 <label for="azevent_lab_outline_validation_model"><?php _e('Model kiểm định Outline', 'azevent-seo-content'); ?></label>
                                 <select id="azevent_lab_outline_validation_model" class="azevent-lab-model-select" name="azevent_lab_outline_validation_model" data-inherit-label="<?php echo esc_attr($azevent_lab_effective_labels['brief']); ?>">
                                     <option value="" <?php selected($azevent_lab_outline_validation_model, ''); ?>><?php printf(esc_html__('Dùng cùng model Brief & Outline — %s', 'azevent-seo-content'), esc_html($azevent_lab_effective_labels['brief'])); ?></option>
@@ -1063,6 +1179,21 @@ $lab_prompt_tokens = array(
                             <p class="azevent-help"><?php _e('Chế độ tách giúp giảm timeout và cho phép tiếp tục từ H2 bị lỗi. Sau khi ghép, bước Links & Quality Gate vẫn kiểm tra toàn bộ bài để giảm lặp ý và giữ giọng văn nhất quán.', 'azevent-seo-content'); ?></p>
                         </div>
                         <p class="azevent-note"><?php _e('Bộ mặc định ưu tiên people-first content, intent, information gain, bằng chứng thương hiệu, internal link thật và kiểm soát spam. Không prompt nào có thể đảm bảo thứ hạng; kết quả còn phụ thuộc website, cạnh tranh, kỹ thuật, backlink và dữ liệu thực tế.', 'azevent-seo-content'); ?></p>
+                        <div class="azevent-settings-section">
+                            <div class="azevent-settings-section-heading">
+                                <div class="azevent-settings-section-title">
+                                    <span class="azevent-settings-section-number">3</span>
+                                    <div>
+                                        <h3><?php _e('Workflow Lab Prompts chính', 'azevent-seo-content'); ?></h3>
+                                        <p><?php _e('Năm cặp System/User Prompt điều khiển nhiệm vụ và định dạng đầu ra của từng bước.', 'azevent-seo-content'); ?></p>
+                                    </div>
+                                </div>
+                                <div class="azevent-prompt-tools" aria-label="<?php esc_attr_e('Điều khiển nhóm Workflow Lab Prompts', 'azevent-seo-content'); ?>">
+                                    <button type="button" class="azevent-prompt-toggle" data-prompt-action="expand" data-prompt-group="workflow-lab"><?php _e('Mở tất cả', 'azevent-seo-content'); ?></button>
+                                    <button type="button" class="azevent-prompt-toggle" data-prompt-action="collapse" data-prompt-group="workflow-lab"><?php _e('Thu gọn', 'azevent-seo-content'); ?></button>
+                                </div>
+                            </div>
+                        </div>
                         <div class="azevent-lab-reset-row">
                             <div class="azevent-lab-reset-actions">
                                 <button type="button" class="azevent-legacy-refresh" id="azevent-load-english-lab-prompts"><?php _e('EN Nạp Prompt tiếng Anh & lưu', 'azevent-seo-content'); ?></button>
@@ -1083,7 +1214,7 @@ $lab_prompt_tokens = array(
                             <p class="azevent-token-description"><?php _e('Plugin tự thay các biến khi chạy. Dữ liệu bước trước chỉ có giá trị sau khi bước đó đã hoàn tất hoặc được bạn chỉnh sửa và tiếp tục.', 'azevent-seo-content'); ?></p>
                         </div>
                         <?php foreach ($lab_prompt_sections as $key => $section) : ?>
-                            <details class="azevent-prompt" <?php echo $key === 'content' ? 'open' : ''; ?>>
+                            <details class="azevent-prompt" data-prompt-group="workflow-lab">
                                 <summary>
                                     <span><span class="azevent-prompt-title"><?php echo esc_html($section['label']); ?></span><span class="azevent-prompt-description"><?php echo esc_html($section['description']); ?></span></span>
                                 </summary>
@@ -1099,8 +1230,22 @@ $lab_prompt_tokens = array(
                                 </div>
                             </details>
                         <?php endforeach; ?>
-                        <div class="azevent-serp-box">
-                            <h3><?php _e('Bộ ưu tiên AI Overview/GEO riêng cho Workflow Lab', 'azevent-seo-content'); ?></h3>
+                        <div class="azevent-settings-section">
+                            <div class="azevent-settings-section-heading">
+                                <div class="azevent-settings-section-title">
+                                    <span class="azevent-settings-section-number">4</span>
+                                    <div>
+                                        <h3><?php _e('AI Overview/GEO — tùy chọn', 'azevent-seo-content'); ?></h3>
+                                        <p><?php _e('Lớp prompt bổ sung riêng; chỉ được ghép khi ô GEO của phiên đang bật.', 'azevent-seo-content'); ?></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="azevent-serp-box azevent-geo-box">
+                            <h3><?php _e('Prompt AI Overview/GEO riêng cho Workflow Lab', 'azevent-seo-content'); ?></h3>
+                            <div class="azevent-geo-formula" aria-label="<?php esc_attr_e('Cách ghép prompt khi bật GEO', 'azevent-seo-content'); ?>">
+                                <span><?php _e('Workflow Lab User Prompt', 'azevent-seo-content'); ?></span><b>+</b><span><?php _e('GEO của bước', 'azevent-seo-content'); ?></span><b>→</b><?php _e('Prompt gửi AI', 'azevent-seo-content'); ?>
+                            </div>
                             <input type="hidden" name="azevent_geo_workflow_lab_default_enabled" value="0">
                             <label class="azevent-workflow-option" for="azevent_geo_workflow_lab_default_enabled">
                                 <input id="azevent_geo_workflow_lab_default_enabled" type="checkbox" name="azevent_geo_workflow_lab_default_enabled" value="1" <?php checked(absint(get_option('azevent_geo_workflow_lab_default_enabled', 0)), 1); ?>>
@@ -1113,12 +1258,14 @@ $lab_prompt_tokens = array(
                             <div class="azevent-lab-reset-row">
                                 <div class="azevent-lab-reset-actions">
                                     <button type="button" class="azevent-legacy-refresh" id="azevent-load-workflow-lab-geo-defaults"><?php _e('↺ Nạp lại GEO tiếng Anh mặc định', 'azevent-seo-content'); ?></button>
+                                    <button type="button" class="azevent-prompt-toggle" data-prompt-action="expand" data-prompt-group="workflow-lab-geo"><?php _e('Mở prompt GEO', 'azevent-seo-content'); ?></button>
+                                    <button type="button" class="azevent-prompt-toggle" data-prompt-action="collapse" data-prompt-group="workflow-lab-geo"><?php _e('Thu gọn', 'azevent-seo-content'); ?></button>
                                 </div>
                                 <span class="azevent-lab-reset-status" id="azevent-workflow-lab-geo-status" aria-live="polite"></span>
                             </div>
                             <?php foreach ($workflow_lab_geo_sections as $geo_step => $geo_label) : ?>
                                 <?php $geo_option = AzEvent_GEO_Prompts::option_name(AzEvent_GEO_Prompts::WORKFLOW_LAB, $geo_step); ?>
-                                <details class="azevent-prompt azevent-geo-priority">
+                                <details class="azevent-prompt azevent-geo-priority" data-prompt-group="workflow-lab-geo">
                                     <summary>
                                         <span><span class="azevent-prompt-title"><?php echo esc_html($geo_label); ?></span><span class="azevent-prompt-description"><?php _e('Prompt bổ sung, không thay prompt gốc.', 'azevent-seo-content'); ?></span></span>
                                     </summary>
@@ -1173,6 +1320,19 @@ $lab_prompt_tokens = array(
                 apiEndpointSelect.addEventListener('change', syncEndpointKeyField);
                 syncEndpointKeyField();
             }
+
+            document.querySelectorAll('.azevent-conditional-field[data-controlled-by]').forEach(function (field) {
+                var control = document.getElementById(field.getAttribute('data-controlled-by'));
+                if (!control) {
+                    return;
+                }
+                var syncConditionalField = function () {
+                    field.hidden = !control.checked;
+                    control.setAttribute('aria-expanded', control.checked ? 'true' : 'false');
+                };
+                control.addEventListener('change', syncConditionalField);
+                syncConditionalField();
+            });
 
             function replaceLegacyModels(select, models) {
                 if (!select || !Array.isArray(models) || !models.length) {
@@ -1631,7 +1791,13 @@ $lab_prompt_tokens = array(
             });
             document.querySelectorAll('.azevent-token').forEach(function (tokenButton) {
                 tokenButton.addEventListener('click', function () {
-                    var target = activePromptField || document.querySelector('.azevent-prompt[open] textarea');
+                    var currentPanel = tokenButton.closest('.azevent-panel');
+                    var focusedFieldIsRelevant = activePromptField
+                        && currentPanel
+                        && currentPanel.contains(activePromptField);
+                    var target = focusedFieldIsRelevant
+                        ? activePromptField
+                        : (currentPanel ? currentPanel.querySelector('.azevent-prompt[open] textarea') : null);
                     if (!target) {
                         return;
                     }
@@ -1645,6 +1811,16 @@ $lab_prompt_tokens = array(
                 });
             });
 
+            document.querySelectorAll('.azevent-prompt-toggle').forEach(function (toggleButton) {
+                toggleButton.addEventListener('click', function () {
+                    var group = toggleButton.getAttribute('data-prompt-group');
+                    var shouldOpen = toggleButton.getAttribute('data-prompt-action') === 'expand';
+                    document.querySelectorAll('.azevent-prompt[data-prompt-group="' + group + '"]').forEach(function (prompt) {
+                        prompt.open = shouldOpen;
+                    });
+                });
+            });
+
             var tabs = document.querySelectorAll('.azevent-tab');
             var panels = document.querySelectorAll('.azevent-panel');
             var activeTabStorageKey = 'azevent-settings-active-tab';
@@ -1655,10 +1831,14 @@ $lab_prompt_tokens = array(
                     var active = item === tab;
                     item.classList.toggle('is-active', active);
                     item.setAttribute('aria-selected', active ? 'true' : 'false');
+                    item.setAttribute('tabindex', active ? '0' : '-1');
                 });
                 panels.forEach(function (panel) {
-                    panel.classList.toggle('is-active', panel.getAttribute('data-panel') === target);
+                    var active = panel.getAttribute('data-panel') === target;
+                    panel.classList.toggle('is-active', active);
+                    panel.hidden = !active;
                 });
+                tab.scrollIntoView({ block: 'nearest', inline: 'nearest' });
                 try {
                     window.localStorage.setItem(activeTabStorageKey, target);
                 } catch (error) {
@@ -1677,6 +1857,25 @@ $lab_prompt_tokens = array(
             tabs.forEach(function (tab) {
                 tab.addEventListener('click', function () {
                     activateTab(tab);
+                });
+                tab.addEventListener('keydown', function (event) {
+                    var tabList = Array.prototype.slice.call(tabs);
+                    var currentIndex = tabList.indexOf(tab);
+                    var targetIndex = currentIndex;
+                    if (event.key === 'ArrowRight') {
+                        targetIndex = (currentIndex + 1) % tabList.length;
+                    } else if (event.key === 'ArrowLeft') {
+                        targetIndex = (currentIndex - 1 + tabList.length) % tabList.length;
+                    } else if (event.key === 'Home') {
+                        targetIndex = 0;
+                    } else if (event.key === 'End') {
+                        targetIndex = tabList.length - 1;
+                    } else {
+                        return;
+                    }
+                    event.preventDefault();
+                    activateTab(tabList[targetIndex]);
+                    tabList[targetIndex].focus();
                 });
             });
         }());
