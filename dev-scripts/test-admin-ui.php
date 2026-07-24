@@ -97,10 +97,13 @@ azevent_ui_assert(
 azevent_ui_assert(
     strpos($background_queue, 'class="azq-toolbar-status"') !== false
         && strpos($background_queue, 'class="button azq-refresh" id="azq-refresh"') !== false
-        && strpos($background_queue, 'grid-template-columns: repeat(auto-fit,minmax(120px,1fr))') !== false
+        && strpos($background_queue, '@media (max-width: 1280px)') !== false
+        && strpos($background_queue, 'grid-template-columns: repeat(5,minmax(0,1fr))') !== false
         && strpos($background_queue, 'grid-template-columns: repeat(3,minmax(0,1fr))') !== false
-        && strpos($background_queue, 'grid-template-columns: repeat(2,minmax(0,1fr))') !== false,
-    'Nút Làm mới nằm trong toolbar Queue và nhóm công cụ responsive theo lưới cân đối.'
+        && strpos($background_queue, 'grid-template-columns: repeat(2,minmax(0,1fr))') !== false
+        && strpos($background_queue, '#azq-updated { overflow: hidden; min-width: 0; text-overflow: ellipsis; white-space: nowrap; }') !== false
+        && strpos($background_queue, '.azq-refresh { display: inline-flex !important; flex: 0 0 auto;') !== false,
+    'Header và toolbar Queue tự xuống hàng, giữ nút Làm mới trong khung ở các chiều rộng hẹp.'
 );
 azevent_ui_assert(
     preg_match('/\\.azevent-settings-page\\s*\\{[^}]*max-width:\\s*1480px;/s', $settings) === 1
