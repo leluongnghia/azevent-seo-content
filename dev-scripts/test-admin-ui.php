@@ -120,7 +120,10 @@ azevent_ui_assert(
         && strpos($background_queue, 'grid-column: 2 / span 2') !== false
         && strpos($background_queue, 'grid-template-columns: repeat(3,minmax(0,1fr))') !== false
         && strpos($background_queue, 'grid-template-columns: repeat(2,minmax(0,1fr))') !== false
+        && strpos($background_queue, '@container azq (max-width: 820px) { .azq-stats { grid-template-columns: repeat(2,minmax(0,1fr)); } }') !== false
         && strpos($background_queue, '@container azq (max-width: 520px)') !== false
+        && strpos($background_queue, '@container azq (max-width: 520px) { .azq-hero-actions, .azq-stats { grid-template-columns: minmax(0,1fr); }') !== false
+        && strpos($background_queue, '.azq-toolbar { grid-template-columns: minmax(0,1fr); } .azq-toolbar-status { justify-content: space-between; }') !== false
         && strpos($background_queue, '.azq-hero, .azq-toolbar { align-items: stretch; flex-direction: column; }') === false
         && strpos($background_queue, '.azq-toolbar-status { justify-content: flex-end; width: 100%;') === false
         && strpos($background_queue, '#azq-updated { overflow: hidden; min-width: 0; text-overflow: ellipsis; white-space: nowrap; }') !== false
