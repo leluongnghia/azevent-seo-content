@@ -152,7 +152,7 @@ class AzEvent_Admin
         register_setting('azevent_seo_settings_group', 'azevent_seo_ckey_custom_models', array(
             'sanitize_callback' => array($this, 'sanitize_custom_models'),
         ));
-        foreach (array('intent', 'outline', 'content', 'seo') as $step) {
+        foreach (array('intent', 'outline', 'outline_validation', 'content', 'seo') as $step) {
             register_setting('azevent_seo_settings_group', "azevent_seo_{$step}_model", array(
                 'sanitize_callback' => 'sanitize_text_field',
             ));
@@ -220,7 +220,7 @@ class AzEvent_Admin
         ));
 
         // Prompts
-        $prompts = array('intent', 'outline', 'content', 'seo');
+        $prompts = array('intent', 'outline', 'outline_validation', 'content', 'seo');
         foreach ($prompts as $p) {
             register_setting('azevent_seo_settings_group', "azevent_seo_{$p}_system");
             register_setting('azevent_seo_settings_group', "azevent_seo_{$p}_user");

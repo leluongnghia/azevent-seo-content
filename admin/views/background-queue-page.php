@@ -274,7 +274,7 @@ $azq_prompts_url = add_query_arg(
             var quickReturnFocus = null;
             var pendingQuickEntry = null;
             var statusLabels = { pending: 'Đang chờ', processing: 'Đang chạy', paused: 'Chờ tiếp tục', completed: 'Hoàn tất', failed: 'Lỗi' };
-            var stepLabels = { start: 'Search Intent', search_intent: 'Search Intent', outline: 'Outline', content: 'Content', seo: 'SEO Metadata', section_images: 'Ảnh H2', image: 'Tạo ảnh', finalize: 'Lưu Draft', completed: 'Đã hoàn tất' };
+            var stepLabels = { start: 'Search Intent', search_intent: 'Search Intent', outline: 'Outline', outline_validation: 'Kiểm định Outline', content: 'Content', seo: 'SEO Metadata', section_images: 'Ảnh H2', image: 'Tạo ảnh', finalize: 'Lưu Draft', completed: 'Đã hoàn tất' };
 
             function request(action, data) {
                 var body = new URLSearchParams(Object.assign({ action: action, nonce: nonce }, data || {}));

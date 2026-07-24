@@ -29,6 +29,7 @@ jQuery(function($) {
     const $statusText = $('#azevent-status-text');
     const $log = $('#azevent-log');
     const $keywords = $('#azevent-keywords');
+    const $secondaryKeywords = $('#azevent-secondary-keywords');
     const $keywordHelp = $('#azevent-keyword-help');
     const $optimizeAiOverviewGeo = $('#azevent-optimize-ai-overview-geo');
     const $regenerateImage = $('#azevent-regenerate-image');
@@ -44,7 +45,7 @@ jQuery(function($) {
     const $queueEmpty = $('#azevent-queue-empty');
     const $queueNotice = $('#azevent-queue-notice');
     const $sectionImagesResult = $('#azevent-section-images-result');
-    const stepOrder = ['intent', 'outline', 'content', 'seo', 'finish'];
+    const stepOrder = ['intent', 'outline', 'outline_validation', 'content', 'seo', 'finish'];
 
     let studioState = 'idle';
     let isProcessing = false;
@@ -88,6 +89,20 @@ jQuery(function($) {
         });
     }
 
+    function getSecondaryKeywords() {
+        const seen = {};
+        return $secondaryKeywords.val().split(/[\r\n,]+/).map(function(keyword) {
+            return keyword.trim();
+        }).filter(function(keyword) {
+            const key = keyword.toLowerCase();
+            if (!keyword || seen[key]) {
+                return false;
+            }
+            seen[key] = true;
+            return true;
+        }).slice(0, 50);
+    }
+
     function getEditorContent() {
         if (typeof tinyMCE !== 'undefined' && tinyMCE.get('content')) {
             return tinyMCE.get('content').getContent() || '';
@@ -118,6 +133,7 @@ jQuery(function($) {
             start: 'Search Intent',
             search_intent: 'Search Intent',
             outline: 'Outline',
+            outline_validation: 'Kiểm định Outline',
             content: 'Content',
             seo: 'SEO Metadata',
             section_images: 'Ảnh minh họa H2',
@@ -259,6 +275,7 @@ jQuery(function($) {
         return {
             intent: !!currentContext.search_intent,
             outline: !!currentContext.outline,
+            outline_validation: !!currentContext.outline_validation,
             content: !!currentContext.content,
             seo: !!currentContext.seo
         };
@@ -311,6 +328,10 @@ jQuery(function($) {
             showOutlineReview(currentContext);
             return true;
         }
+        if (step === 'outline_validation' && currentContext.outline_validation) {
+            showOutlineReview(currentContext);
+            return true;
+        }
         if (step === 'content' && currentContext.content) {
             showContentReview(currentContext);
             return true;
@@ -344,6 +365,7 @@ jQuery(function($) {
         const labels = {
             intent: 'Search Intent',
             outline: 'Outline',
+            outline_validation: 'Kiểm định Outline',
             content: 'Content',
             seo: 'SEO'
         };
@@ -475,13 +497,24 @@ jQuery(function($) {
         isProcessing = false;
         currentContext = context || {};
         setControlsDisabled(false);
-        setActiveStep('outline');
+        const validation = currentContext.outline_validation || null;
+        setActiveStep(validation ? 'outline_validation' : 'outline');
         $outlineResult.val(currentContext.outline || '');
         $outlineResult.prop('readonly', !!currentContext.content);
+        $('#azevent-outline-review-kicker').text(validation ? 'Outline đã kiểm định' : 'Outline hoàn tất');
+        $('#azevent-outline-review-title').text(validation ? 'Duyệt Outline đã kiểm định trước khi viết' : 'Kiểm tra dàn ý trước khi kiểm định');
+        $('#azevent-outline-validation-badge').text(
+            validation
+                ? (validation.status === 'fallback' ? 'Giữ Outline gốc' : 'Đã kiểm định')
+                : 'Chờ kiểm định'
+        );
+        $rerunOutlineButton.text(validation ? 'Kiểm định lại' : 'Tạo lại Outline');
         $continueContentButton.html(
             currentContext.content
                 ? 'Xem Content đã tạo <span class="dashicons dashicons-arrow-right-alt2" aria-hidden="true"></span>'
-                : 'Tiếp tục tạo Content <span class="dashicons dashicons-arrow-right-alt2" aria-hidden="true"></span>'
+                : validation
+                    ? 'Dùng Outline và tạo Content <span class="dashicons dashicons-arrow-right-alt2" aria-hidden="true"></span>'
+                    : 'Kiểm định Outline <span class="dashicons dashicons-arrow-right-alt2" aria-hidden="true"></span>'
         );
         showView('outline-review');
     }
@@ -503,8 +536,9 @@ jQuery(function($) {
 
     function clearContextAfter(step) {
         const downstream = {
-            intent: ['search_intent', 'outline', 'content', 'seo', 'content_split', 'section_images'],
-            outline: ['outline', 'content', 'seo', 'content_split', 'section_images'],
+            intent: ['search_intent', 'outline', 'outline_original', 'outline_validation', 'content', 'seo', 'content_split', 'section_images'],
+            outline: ['outline', 'outline_original', 'outline_validation', 'content', 'seo', 'content_split', 'section_images'],
+            outline_validation: ['outline_validation', 'content', 'seo', 'content_split', 'section_images'],
             content: ['content', 'seo', 'section_images'],
             seo: ['seo', 'section_images']
         };
@@ -559,7 +593,7 @@ jQuery(function($) {
 
         updateStatus(response.data.message || 'Đã hoàn tất bước hiện tại.');
         const splitState = responseContext.content_split || {};
-        if (response.data.next_step === 'content' && splitState.enabled && !splitState.completed) {
+        if (azevent_seo.auto_advance && response.data.next_step === 'content' && splitState.enabled && !splitState.completed) {
             runStep('content', responseContext);
             return;
         }
@@ -574,6 +608,10 @@ jQuery(function($) {
         if (!azevent_seo.auto_advance) {
             if (response.data.next_step === 'outline') {
                 showIntentReview(responseContext);
+                return;
+            }
+            if (response.data.next_step === 'outline_validation') {
+                showOutlineReview(responseContext);
                 return;
             }
             if (response.data.next_step === 'content') {
@@ -677,6 +715,7 @@ jQuery(function($) {
         currentPostId = parseInt(checkpoint.post_id, 10) || 0;
         currentContext = checkpoint.context && typeof checkpoint.context === 'object' ? checkpoint.context : {};
         $optimizeAiOverviewGeo.prop('checked', !!currentContext.optimize_ai_overview_geo);
+        $secondaryKeywords.val(Array.isArray(currentContext.secondary_keywords) ? currentContext.secondary_keywords.join('\n') : '');
         lastRequestStep = checkpoint.current_step || checkpoint.next_step || 'start';
         lastRequestContext = currentContext;
         results = [];
@@ -707,7 +746,7 @@ jQuery(function($) {
 
         const nextStep = checkpoint.next_step || lastRequestStep;
         const splitState = currentContext.content_split || {};
-        if (nextStep === 'content' && splitState.enabled && !splitState.completed) {
+        if (azevent_seo.auto_advance && nextStep === 'content' && splitState.enabled && !splitState.completed) {
             runStep('content', currentContext);
             return;
         }
@@ -721,6 +760,10 @@ jQuery(function($) {
         }
         if (nextStep === 'outline' && currentContext.search_intent && !azevent_seo.auto_advance) {
             showIntentReview(currentContext);
+            return;
+        }
+        if (nextStep === 'outline_validation' && currentContext.outline && !azevent_seo.auto_advance) {
+            showOutlineReview(currentContext);
             return;
         }
         if (nextStep === 'content' && currentContext.outline && !azevent_seo.auto_advance) {
@@ -890,10 +933,12 @@ jQuery(function($) {
 
         if (keywordIndex + 1 < keywordQueue.length) {
             const geoEnabledForQueue = !!currentContext.optimize_ai_overview_geo;
+            const secondaryKeywordsForQueue = Array.isArray(currentContext.secondary_keywords) ? currentContext.secondary_keywords : [];
             keywordIndex += 1;
             currentPostId = 0;
             currentContext = {
-                optimize_ai_overview_geo: geoEnabledForQueue
+                optimize_ai_overview_geo: geoEnabledForQueue,
+                secondary_keywords: secondaryKeywordsForQueue
             };
             pendingNextStep = '';
             updateStatus('Chuyển sang từ khóa ' + (keywordIndex + 1) + '/' + keywordQueue.length + ': ' + keywordQueue[keywordIndex]);
@@ -1020,6 +1065,7 @@ jQuery(function($) {
         const stepLabels = {
             start: 'Search Intent',
             outline: 'Outline',
+            outline_validation: 'Kiểm định Outline',
             content: 'Content',
             seo: 'SEO Metadata',
             section_images: 'Ảnh H2',
@@ -1159,6 +1205,7 @@ jQuery(function($) {
                 action: 'azevent_enqueue_background_jobs',
                 nonce: azevent_seo.nonce,
                 keywords: keywordQueue,
+                secondary_keywords: getSecondaryKeywords(),
                 optimize_ai_overview_geo: $optimizeAiOverviewGeo.is(':checked') ? '1' : '0'
             }
         }).done(function(response) {
@@ -1230,7 +1277,8 @@ jQuery(function($) {
         }
 
         const initialContext = {
-            optimize_ai_overview_geo: $optimizeAiOverviewGeo.is(':checked')
+            optimize_ai_overview_geo: $optimizeAiOverviewGeo.is(':checked'),
+            secondary_keywords: getSecondaryKeywords()
         };
         if (mode === 'rewrite') {
             const editorContent = getEditorContent();
@@ -1294,6 +1342,11 @@ jQuery(function($) {
     });
 
     $rerunOutlineButton.on('click', function() {
+        if (currentContext.outline_validation) {
+            clearContextAfter('outline_validation');
+            runStep('outline_validation', currentContext);
+            return;
+        }
         clearContextAfter('outline');
         runStep('outline', currentContext);
     });
@@ -1311,6 +1364,10 @@ jQuery(function($) {
         currentContext.outline = reviewedOutline;
         delete currentContext.content;
         delete currentContext.seo;
+        if (!currentContext.outline_validation) {
+            runStep('outline_validation', currentContext);
+            return;
+        }
         runStep('content', currentContext);
     });
 

@@ -24,6 +24,13 @@ PROMPT,
 - Do not create an H1 in the publishable outline because WordPress uses the post title as the H1.
 - Produce the requested result in {language}; these English instructions do not change the output language.
 PROMPT,
+    'outline_validation' => <<<'PROMPT'
+## Additional AI Overview/GEO priorities
+- Validate the outline against the real user task, related entities, follow-up questions, and evidence needs identified in Search Intent.
+- Remove headings that exist only for SEO manipulation, internal editorial notes, fixed quotas, or unrelated examples.
+- Keep claims requiring evidence clearly scoped so the writer cannot fabricate statistics, dates, sources, prices, or case studies.
+- Return only the corrected publishable Markdown outline in {language}; do not add an H1, report, score, or commentary.
+PROMPT,
     'content' => <<<'PROMPT'
 ## Additional AI Overview/GEO priorities
 - Write people-first content for the current topic. Ignore any On-page SEO examples, tools, case studies, or instructions in the base prompt when they are irrelevant.

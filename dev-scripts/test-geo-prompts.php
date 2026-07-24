@@ -63,8 +63,8 @@ azevent_geo_assert(
 $content_defaults = AzEvent_GEO_Prompts::get_defaults(AzEvent_GEO_Prompts::CONTENT_STUDIO);
 $lab_defaults = AzEvent_GEO_Prompts::get_defaults(AzEvent_GEO_Prompts::WORKFLOW_LAB);
 azevent_geo_assert(
-    array_keys($content_defaults) === array('intent', 'outline', 'content', 'seo', 'rewrite'),
-    'Content Studio có file priority riêng cho đủ Create/Rewrite pipeline.'
+    array_keys($content_defaults) === array('intent', 'outline', 'outline_validation', 'content', 'seo', 'rewrite'),
+    'Content Studio có file priority riêng cho đủ Create/Rewrite pipeline và Outline Validation.'
 );
 azevent_geo_assert(
     array_keys($lab_defaults) === array('research', 'brief', 'outline_validation', 'content', 'seo', 'quality'),

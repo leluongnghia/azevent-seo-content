@@ -68,6 +68,8 @@ class AzEvent_SEO_Workflow_Lab
         $this->verify_request();
         $pipeline = new AzEvent_Workflow_Lab_Pipeline();
         $result = $pipeline->create_session(array(
+            'mode' => sanitize_key(wp_unslash($_POST['mode'] ?? 'create')),
+            'existing_post_id' => absint($_POST['existing_post_id'] ?? 0),
             'keyword' => wp_unslash($_POST['keyword'] ?? ''),
             'secondary_keywords' => wp_unslash($_POST['secondary_keywords'] ?? ''),
             'audience' => wp_unslash($_POST['audience'] ?? ''),
@@ -207,7 +209,7 @@ class AzEvent_SEO_Workflow_Lab
 
         wp_send_json_success(array(
             'post_id' => $post_id,
-            'message' => 'Đã xoá dữ liệu phiên Workflow Lab. Bài Draft liên quan vẫn được giữ trong Posts.',
+            'message' => 'Đã xoá dữ liệu phiên Workflow Lab. Bài viết liên quan vẫn được giữ nguyên trong Posts.',
         ));
     }
 

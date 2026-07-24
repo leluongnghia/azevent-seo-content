@@ -102,6 +102,11 @@ class AzEvent_Background_Queue
         $language = sanitize_text_field(get_option('azevent_seo_default_language', 'Vietnamese'));
         $user_id = get_current_user_id();
         $geo_enabled = sanitize_text_field(wp_unslash($_POST['optimize_ai_overview_geo'] ?? '0')) === '1';
+        $raw_secondary_keywords = isset($_POST['secondary_keywords'])
+            ? (array) wp_unslash($_POST['secondary_keywords'])
+            : array();
+        $secondary_keywords = array_values(array_unique(array_filter(array_map('sanitize_text_field', $raw_secondary_keywords))));
+        $secondary_keywords = array_slice($secondary_keywords, 0, 50);
         $inserted = 0;
 
         foreach ($keywords as $keyword) {
@@ -117,6 +122,7 @@ class AzEvent_Background_Queue
                     'step' => 'start',
                     'context' => wp_json_encode(array(
                         'optimize_ai_overview_geo' => $geo_enabled,
+                        'secondary_keywords' => $secondary_keywords,
                     )),
                     'created_at' => $now,
                     'updated_at' => $now,

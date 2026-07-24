@@ -49,22 +49,33 @@ class AzEvent_Workflow_Lab_Pipeline
     public function create_session(array $input, $author_id)
     {
         $keyword = sanitize_text_field($input['keyword'] ?? '');
+        $mode = sanitize_key($input['mode'] ?? 'create');
+        $mode = in_array($mode, array('create', 'rewrite'), true) ? $mode : 'create';
+        $existing_post = null;
         if ($keyword === '') {
             return new WP_Error('azevent_lab_missing_keyword', 'Vui lòng nhập từ khóa chính.');
         }
 
-        $post_id = wp_insert_post(array(
-            'post_type' => 'post',
-            'post_status' => 'draft',
-            'post_title' => $keyword,
-            'post_author' => absint($author_id),
-        ), true);
-        if (is_wp_error($post_id)) {
-            return $post_id;
+        if ($mode === 'rewrite') {
+            $post_id = absint($input['existing_post_id'] ?? 0);
+            $existing_post = get_post($post_id);
+            if (!$existing_post || $existing_post->post_type !== 'post' || !current_user_can('edit_post', $post_id)) {
+                return new WP_Error('azevent_lab_invalid_rewrite_post', 'Không tìm thấy bài viết hoặc bạn không có quyền chỉnh sửa bài đã chọn.');
+            }
+        } else {
+            $post_id = wp_insert_post(array(
+                'post_type' => 'post',
+                'post_status' => 'draft',
+                'post_title' => $keyword,
+                'post_author' => absint($author_id),
+            ), true);
+            if (is_wp_error($post_id)) {
+                return $post_id;
+            }
         }
 
         $context = array(
-            'version' => 1,
+            'version' => 2,
             'status' => 'active',
             'current_step' => 'setup',
             'last_completed_step' => 'setup',
@@ -72,6 +83,7 @@ class AzEvent_Workflow_Lab_Pipeline
             'outline_validation_enabled' => absint(get_option('azevent_lab_validate_outline', 0)) === 1,
             'language' => sanitize_text_field(get_option('azevent_seo_default_language', 'Vietnamese')),
             'input' => array(
+                'mode' => $mode,
                 'keyword' => $keyword,
                 'secondary_keywords' => $this->sanitize_lines($input['secondary_keywords'] ?? ''),
                 'audience' => sanitize_textarea_field($input['audience'] ?? ''),
@@ -93,6 +105,24 @@ class AzEvent_Workflow_Lab_Pipeline
             'created_at' => time(),
             'updated_at' => time(),
         );
+        if ($mode === 'rewrite') {
+            $existing_content = (string) $existing_post->post_content;
+            $existing_content = function_exists('mb_substr')
+                ? mb_substr($existing_content, 0, 50000)
+                : substr($existing_content, 0, 50000);
+            $context['existing_post'] = array(
+                'id' => absint($post_id),
+                'title' => sanitize_text_field($existing_post->post_title),
+                'content' => $existing_content,
+                'excerpt' => (string) $existing_post->post_excerpt,
+                'slug' => sanitize_title($existing_post->post_name),
+                'status' => sanitize_key($existing_post->post_status),
+                'featured_image_id' => absint(get_post_thumbnail_id($post_id)),
+                'has_thumbnail' => has_post_thumbnail($post_id),
+            );
+            $context['logs'][0]['message'] = 'Đã tạo phiên Viết lại bài cũ bằng plugin v' . AZEVENT_SEO_VERSION
+                . '. Bài gốc chỉ được cập nhật ở bước Ảnh & Draft; slug và ảnh đại diện được giữ nguyên mặc định.';
+        }
 
         update_post_meta($post_id, self::SESSION_META, $context);
         update_post_meta($post_id, '_azevent_seo_workflow_lab_owner', absint($author_id));
@@ -474,6 +504,11 @@ PROMPT;
         $user .= "CONTENT BRIEF LƯỢT ĐẦU:\n" . $draft_brief . "\n\n";
         $user .= "THÔNG TIN THƯƠNG HIỆU ĐÃ XÁC THỰC:\n" . $brand['azevent_seo_brand_info'] . "\n" . $brand['azevent_seo_brand_solution'] . "\n\n";
         $user .= "INTERNAL LINK CANDIDATES THẬT:\n" . wp_json_encode($internal_link_candidates, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n\n";
+        if (($input['mode'] ?? 'create') === 'rewrite') {
+            $user .= "BÀI VIẾT HIỆN CÓ CẦN GIỮ THÔNG TIN ĐÚNG:\n"
+                . (string) ($context['existing_post']['content'] ?? '')
+                . "\n\n";
+        }
         $user .= <<<'PROMPT'
 ĐỊNH DẠNG ĐẦU RA BẮT BUỘC:
 CONTENT BRIEF ĐÃ KIỂM ĐỊNH
@@ -699,6 +734,9 @@ PROMPT;
         );
         $system = str_replace(array_keys($replacements), array_values($replacements), $system);
         $user = str_replace(array_keys($replacements), array_values($replacements), $user);
+        if (($input['mode'] ?? 'create') === 'rewrite') {
+            $user .= $this->rewrite_step_instructions('content', $context);
+        }
 
         $position_instruction = $section_index === 0
             ? 'Đây là phần đầu: viết mở bài ngắn trước H2 hiện tại, sau đó viết đầy đủ H2 này.'
@@ -881,8 +919,11 @@ PROMPT;
                 );
             }
         }
-        $image_status = 'skipped';
-        $featured_image = array();
+        $rewrite_mode = ($context['input']['mode'] ?? 'create') === 'rewrite';
+        $image_status = $rewrite_mode && has_post_thumbnail($post_id) ? 'preserved' : 'skipped';
+        $featured_image = $rewrite_mode && has_post_thumbnail($post_id)
+            ? AzEvent_Image_SEO::attachment_data(get_post_thumbnail_id($post_id))
+            : array();
         if (!$skip_image && !empty($context['input']['generate_image'])) {
             if (!AzEvent_API_Client::is_configured()) {
                 return new WP_Error('azevent_lab_image_api_missing', 'Chưa cấu hình AzEvent API tạo ảnh. Bạn có thể chọn “Lưu Draft không ảnh”.');
@@ -916,14 +957,17 @@ PROMPT;
             $this->append_log($post_id, $context, 'info', 'finalize', 'Bỏ qua tạo ảnh đại diện theo lựa chọn hiện tại.');
         }
 
-        $updated = wp_update_post(array(
+        $post_update = array(
             'ID' => $post_id,
             'post_title' => $seo['title'],
-            'post_name' => $seo['slug'],
             'post_excerpt' => $seo['meta'],
             'post_content' => $context['results']['content'],
             'post_status' => 'draft',
-        ), true);
+        );
+        if (!$rewrite_mode) {
+            $post_update['post_name'] = $seo['slug'];
+        }
+        $updated = wp_update_post($post_update, true);
         if (is_wp_error($updated)) {
             return $updated;
         }
@@ -1050,6 +1094,13 @@ PROMPT;
             '{content}' => (string) ($results['content'] ?? ''),
             '{seo_json}' => wp_json_encode($results['seo'] ?? array(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             '{internal_link_candidates}' => wp_json_encode($internal_link_candidates, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            '{existing_title}' => sanitize_text_field($context['existing_post']['title'] ?? ''),
+            '{existing_content}' => (string) ($context['existing_post']['content'] ?? ''),
+            '{existing_excerpt}' => (string) ($context['existing_post']['excerpt'] ?? ''),
+            '{existing_slug}' => sanitize_title($context['existing_post']['slug'] ?? ''),
+            '{rewrite_goal}' => ($input['mode'] ?? 'create') === 'rewrite'
+                ? 'Viết lại bài hiện có, giữ thông tin đúng và cải thiện nội dung theo Research và Quality Gate.'
+                : 'Tạo bài viết mới.',
         );
 
         $user = AzEvent_GEO_Prompts::append(
@@ -1060,6 +1111,9 @@ PROMPT;
         );
         $system = str_replace(array_keys($replacements), array_values($replacements), $system);
         $user = str_replace(array_keys($replacements), array_values($replacements), $user);
+        if (($input['mode'] ?? 'create') === 'rewrite') {
+            $user .= $this->rewrite_step_instructions($step, $context);
+        }
         if ($step === 'quality' && !empty($context['content_split']['enabled']) && !empty($context['content_split']['completed'])) {
             $user .= "\n\n## Kiểm tra bổ sung cho bài được ghép từ nhiều H2\n";
             $user .= "- Phát hiện và sửa câu chuyển đoạn gượng, ý lặp giữa các H2, phần mở đầu nhỏ bị lặp, CTA lặp và thay đổi giọng văn.\n";
@@ -1067,6 +1121,29 @@ PROMPT;
         }
 
         return array('system' => $system, 'user' => $user);
+    }
+
+    private function rewrite_step_instructions($step, array $context)
+    {
+        $existing = isset($context['existing_post']) && is_array($context['existing_post'])
+            ? $context['existing_post']
+            : array();
+        $base = "\n\n## Chế độ Viết lại bài cũ\n";
+        $base .= "- Bài hiện có: " . sanitize_text_field($existing['title'] ?? '') . "\n";
+        $base .= "- Slug phải giữ nguyên ở bước lưu: " . sanitize_title($existing['slug'] ?? '') . "\n";
+        $base .= "- Giữ thông tin đúng và giá trị riêng; đánh dấu hoặc loại nội dung lỗi thời, trùng lặp, không có căn cứ. Không tự bịa dữ liệu mới.\n";
+        $instructions = array(
+            'research' => "- Phân tích bài cũ như một nguồn đầu vào: xác định phần nên giữ, cập nhật, bổ sung hoặc loại bỏ.\n",
+            'brief' => "- Brief và Outline mới phải thể hiện rõ cách cải thiện bài cũ theo Research.\n",
+            'content' => "- Viết lại nội dung dựa trên bài cũ và Brief đã duyệt; không chỉ thay từ đồng nghĩa.\n",
+            'seo' => "- Tạo metadata phù hợp nội dung mới nhưng trường slug phải trả về đúng slug hiện có.\n",
+            'quality' => "- Kiểm tra nội dung quan trọng từ bài cũ có bị mất hoặc bị biến đổi sai nghĩa hay không.\n",
+        );
+        $base .= $instructions[$step] ?? '';
+        if (in_array($step, array('research', 'brief', 'content', 'quality'), true)) {
+            $base .= "\n## Nội dung bài hiện có\n" . (string) ($existing['content'] ?? '');
+        }
+        return $base;
     }
 
     private function call_text($step, $user_prompt, $system_prompt, $max_tokens, array $options = array())

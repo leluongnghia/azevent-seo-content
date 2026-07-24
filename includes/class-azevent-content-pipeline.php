@@ -17,6 +17,12 @@ class AzEvent_Content_Pipeline
         $author_id = absint($arguments['author_id'] ?? 0);
         $context = isset($arguments['context']) && is_array($arguments['context']) ? $arguments['context'] : array();
         $context['optimize_ai_overview_geo'] = !empty($context['optimize_ai_overview_geo']);
+        $secondary_keywords = $context['secondary_keywords'] ?? array();
+        if (!is_array($secondary_keywords)) {
+            $secondary_keywords = preg_split('/[\r\n,]+/', (string) $secondary_keywords);
+        }
+        $secondary_keywords = array_values(array_unique(array_filter(array_map('sanitize_text_field', $secondary_keywords))));
+        $context['secondary_keywords'] = array_slice($secondary_keywords, 0, 50);
         $geo_enabled = $context['optimize_ai_overview_geo'];
 
         if ($keyword === '') {
@@ -81,7 +87,7 @@ class AzEvent_Content_Pipeline
         $replace_placeholders = function ($text, $replacement_context) use ($keyword, $language, $brand_name, $brand_info, $brand_solution, $mode) {
             $placeholders = array(
                 '{keyword}' => $keyword,
-                '{secondary_keywords}' => $keyword,
+                '{secondary_keywords}' => implode(', ', (array) ($replacement_context['secondary_keywords'] ?? array())),
                 '{language}' => $language,
                 '{outline_focus}' => isset($replacement_context['outline_focus']) ? $replacement_context['outline_focus'] : '',
                 '{brand_name}' => $brand_name,
@@ -110,6 +116,7 @@ class AzEvent_Content_Pipeline
         $rewrite_instructions = array(
             'intent' => "\n\nChế độ viết lại. Hãy phân tích bài hiện tại và chỉ ra search intent, điểm yếu, thông tin thiếu hoặc lỗi thời. Bài hiện tại có tiêu đề '{existing_title}':\n{existing_content}",
             'outline' => "\n\nChế độ viết lại. Hãy tạo outline cải tiến dựa trên intent và bài hiện tại dưới đây. Giữ lại thông tin đúng, bổ sung phần còn thiếu, tránh lặp lại nội dung cũ không cần thiết.\n{existing_content}",
+            'outline_validation' => "\n\nĐây là bài viết lại. Giữ các thông tin đúng và hữu ích trong cấu trúc mới; chỉ loại bỏ phần trùng, lỗi thời hoặc lệch search intent.",
             'content' => "\n\nChế độ viết lại. Hãy viết lại bài hiện tại dưới đây theo outline mới. Giữ lại thông tin đúng, không tự bịa số liệu hoặc cam kết, cải thiện chiều sâu SEO và khả năng chuyển đổi.\n{existing_content}",
             'seo' => "\n\nĐây là chế độ viết lại. Hãy tạo metadata mới cho nội dung, nhưng giữ slug hiện tại '{existing_slug}' trừ khi có lý do SEO rõ ràng.",
         );
@@ -141,6 +148,9 @@ class AzEvent_Content_Pipeline
             'outline' => $uses_primary_api
                 ? sanitize_text_field(get_option('azevent_seo_outline_model', $default_step_model))
                 : 'claude-3-5-sonnet-20240620',
+            'outline_validation' => $uses_primary_api
+                ? sanitize_text_field(get_option('azevent_seo_outline_validation_model', get_option('azevent_seo_outline_model', $default_step_model)))
+                : 'claude-3-5-sonnet-20240620',
             'content' => $uses_primary_api
                 ? sanitize_text_field(get_option('azevent_seo_content_model', $default_step_model))
                 : 'claude-3-5-sonnet-20240620',
@@ -148,6 +158,9 @@ class AzEvent_Content_Pipeline
                 ? sanitize_text_field(get_option('azevent_seo_seo_model', $default_step_model))
                 : '',
         );
+        if ($step_models['outline_validation'] === '') {
+            $step_models['outline_validation'] = $step_models['outline'];
+        }
         foreach ($step_models as $step_key => $step_model) {
             if ($uses_primary_api && $step_model === '') {
                 $step_models[$step_key] = $default_step_model;
@@ -202,27 +215,78 @@ class AzEvent_Content_Pipeline
                     return $this->attach_error_context($result, $post_id, $context);
                 }
                 $context['outline'] = $result;
-                $outline_message = 'Đã xây dựng dàn ý chi tiết. Đang tiến hành viết nội dung bài viết...';
+                $context['outline_original'] = $result;
+                unset($context['outline_validation'], $context['content_split']);
+                return array(
+                    'status' => 'processing',
+                    'message' => 'Đã xây dựng dàn ý chi tiết. Sẵn sàng kiểm định Outline trước khi viết bài.',
+                    'next_step' => 'outline_validation',
+                    'post_id' => $post_id,
+                    'context' => $context,
+                );
+
+            case 'outline_validation':
+                $original_outline = trim((string) ($context['outline'] ?? ''));
+                if ($original_outline === '') {
+                    return $this->attach_error_context(
+                        new WP_Error('azevent_missing_outline', 'Chưa có Outline để kiểm định.'),
+                        $post_id,
+                        $context
+                    );
+                }
+                $system_prompt = $get_prompt('azevent_seo_outline_validation_system', $prompt_defaults['outline_validation']['system']);
+                $user_prompt = $get_prompt('azevent_seo_outline_validation_user', $prompt_defaults['outline_validation']['user']);
+                if ($mode === 'rewrite') {
+                    $user_prompt .= $rewrite_instructions['outline_validation'];
+                }
+                $user_prompt = $apply_geo_priorities($user_prompt, 'outline_validation');
+                $context['outline_original'] = (string) ($context['outline_original'] ?? $original_outline);
+                $result = $ai->call_anthropic(
+                    $replace_placeholders($user_prompt, $context),
+                    $replace_placeholders($system_prompt, $context),
+                    $step_models['outline_validation'],
+                    6144,
+                    array(
+                        'auto_continue' => true,
+                        'max_continuations' => 1,
+                    )
+                );
+                if (is_wp_error($result)) {
+                    return $this->attach_error_context($result, $post_id, $context);
+                }
+                $validated_outline = trim((string) $result);
+                $validated_sections = array_slice(AzEvent_Outline_Sections::extract($validated_outline), 0, 20);
+                if (count($validated_sections) < 2) {
+                    $validated_outline = $original_outline;
+                    $validated_sections = array_slice(AzEvent_Outline_Sections::extract($original_outline), 0, 20);
+                    $validation_status = 'fallback';
+                    $validation_message = 'Kết quả kiểm định không có đủ 2 H2; plugin giữ nguyên Outline đã duyệt.';
+                } else {
+                    $validation_status = 'validated';
+                    $validation_message = sprintf('Đã kiểm định Outline và xác nhận %d H2.', count($validated_sections));
+                }
+                $context['outline'] = $validated_outline;
+                $context['outline_validation'] = array(
+                    'status' => $validation_status,
+                    'sections' => count($validated_sections),
+                    'completed_at' => time(),
+                );
                 if (absint(get_option('azevent_seo_split_content_by_outline', 0)) === 1) {
-                    $sections = array_slice(AzEvent_Outline_Sections::extract($result), 0, 20);
                     $context['content_split'] = array(
                         'initialized' => true,
-                        'enabled' => count($sections) >= 2,
+                        'enabled' => count($validated_sections) >= 2,
                         'completed' => false,
-                        'sections' => count($sections) >= 2 ? $sections : array(),
+                        'sections' => count($validated_sections) >= 2 ? $validated_sections : array(),
                         'current_index' => 0,
                         'parts' => array(),
                         'attempts' => array(),
                         'history' => array(),
-                        'fallback_reason' => count($sections) >= 2 ? '' : 'Không nhận diện được ít nhất 2 H2 trong Outline.',
+                        'fallback_reason' => count($validated_sections) >= 2 ? '' : 'Không nhận diện được ít nhất 2 H2 trong Outline.',
                     );
-                    $outline_message = count($sections) >= 2
-                        ? sprintf('Đã nhận diện %d H2. Sẵn sàng viết lần lượt từng phần.', count($sections))
-                        : 'Không nhận diện được ít nhất 2 H2; Content sẽ viết toàn bài trong một request.';
                 }
                 return array(
                     'status' => 'processing',
-                    'message' => $outline_message,
+                    'message' => $validation_message . ' Sẵn sàng viết Content.',
                     'next_step' => 'content',
                     'post_id' => $post_id,
                     'context' => $context,

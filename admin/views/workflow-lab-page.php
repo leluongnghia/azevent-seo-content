@@ -3,16 +3,40 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+$recent_meta_query = array(
+    array(
+        'key' => AzEvent_Workflow_Lab_Pipeline::SESSION_META,
+        'compare' => 'EXISTS',
+    ),
+);
+if (!current_user_can('manage_options')) {
+    $recent_meta_query[] = array(
+        'key' => '_azevent_seo_workflow_lab_owner',
+        'value' => get_current_user_id(),
+        'compare' => '=',
+        'type' => 'NUMERIC',
+    );
+}
 $recent_query = new WP_Query(array(
     'post_type' => 'post',
-    'post_status' => array('draft', 'pending', 'private'),
+    'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
     'posts_per_page' => 12,
-    'author' => current_user_can('manage_options') ? 0 : get_current_user_id(),
-    'meta_key' => AzEvent_Workflow_Lab_Pipeline::SESSION_META,
+    'meta_query' => $recent_meta_query,
     'orderby' => 'modified',
     'order' => 'DESC',
     'no_found_rows' => true,
 ));
+$rewrite_posts = get_posts(array(
+    'post_type' => 'post',
+    'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
+    'numberposts' => 100,
+    'orderby' => 'modified',
+    'order' => 'DESC',
+    'suppress_filters' => false,
+));
+$rewrite_posts = array_values(array_filter($rewrite_posts, function ($rewrite_post) {
+    return current_user_can('edit_post', $rewrite_post->ID);
+}));
 ?>
 <div class="wrap azlab-page">
     <header class="azlab-hero">
@@ -35,10 +59,35 @@ $recent_query = new WP_Query(array(
                 <div class="azlab-panel-heading">
                     <span class="azlab-kicker"><?php _e('Phiên thử nghiệm mới', 'azevent-seo-content'); ?></span>
                     <h2><?php _e('Chuẩn bị đầu vào', 'azevent-seo-content'); ?></h2>
-                    <p><?php _e('Lab xử lý một từ khóa mỗi phiên để bạn kiểm tra kỹ chất lượng từng bước.', 'azevent-seo-content'); ?></p>
+                    <p><?php _e('Tạo bài mới hoặc viết lại một bài hiện có qua từng checkpoint kiểm soát chất lượng.', 'azevent-seo-content'); ?></p>
                 </div>
 
+                <fieldset class="azlab-mode-picker">
+                    <legend><?php _e('Chế độ', 'azevent-seo-content'); ?></legend>
+                    <label class="azlab-mode-card">
+                        <input type="radio" name="azlab_mode" value="create" checked>
+                        <span><strong><?php _e('Tạo bài mới', 'azevent-seo-content'); ?></strong><small><?php _e('Tạo một Draft mới từ từ khóa.', 'azevent-seo-content'); ?></small></span>
+                    </label>
+                    <label class="azlab-mode-card">
+                        <input type="radio" name="azlab_mode" value="rewrite">
+                        <span><strong><?php _e('Viết lại bài cũ', 'azevent-seo-content'); ?></strong><small><?php _e('Chỉ cập nhật bài đã chọn ở bước cuối.', 'azevent-seo-content'); ?></small></span>
+                    </label>
+                </fieldset>
+
                 <div class="azlab-form-grid">
+                    <label id="azlab-existing-post-field" class="azlab-field azlab-field-wide" hidden>
+                        <span><?php _e('Bài viết cần viết lại', 'azevent-seo-content'); ?> <b>*</b></span>
+                        <select id="azlab-existing-post">
+                            <option value=""><?php _e('— Chọn bài viết —', 'azevent-seo-content'); ?></option>
+                            <?php foreach ($rewrite_posts as $rewrite_post) : ?>
+                                <?php $rewrite_status_object = get_post_status_object($rewrite_post->post_status); ?>
+                                <option value="<?php echo esc_attr($rewrite_post->ID); ?>" data-title="<?php echo esc_attr($rewrite_post->post_title); ?>">
+                                    <?php echo esc_html(sprintf('#%d · %s · %s', $rewrite_post->ID, $rewrite_post->post_title, $rewrite_status_object ? $rewrite_status_object->label : $rewrite_post->post_status)); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <small><?php _e('Slug và ảnh đại diện hiện có được giữ nguyên mặc định; bài chuyển về Draft khi hoàn tất để bạn duyệt.', 'azevent-seo-content'); ?></small>
+                    </label>
                     <label class="azlab-field azlab-field-wide">
                         <span><?php _e('Từ khóa chính', 'azevent-seo-content'); ?> <b>*</b></span>
                         <input id="azlab-keyword" type="text" placeholder="Ví dụ: công ty tổ chức sự kiện chuyên nghiệp">
@@ -212,10 +261,11 @@ $recent_query = new WP_Query(array(
                             <article class="azlab-session-item" data-session-id="<?php echo esc_attr($recent_post->ID); ?>">
                                 <a href="<?php echo esc_url(add_query_arg('azevent_lab_post', $recent_post->ID, admin_url('admin.php?page=azevent-seo-workflow-lab'))); ?>">
                                     <strong><?php echo esc_html($session['input']['keyword'] ?? get_the_title($recent_post)); ?></strong>
+                                    <?php if (($session['input']['mode'] ?? 'create') === 'rewrite') : ?><em class="azlab-session-mode"><?php _e('Viết lại', 'azevent-seo-content'); ?></em><?php endif; ?>
                                     <span><?php echo esc_html(($session['status'] ?? 'paused') === 'completed' ? 'Đã hoàn tất' : 'Đã lưu: ' . ($session['last_completed_step'] ?? 'setup')); ?></span>
                                     <small><?php echo esc_html(get_the_modified_date('d/m/Y H:i', $recent_post)); ?></small>
                                 </a>
-                                <button type="button" class="azlab-delete-session" data-session-id="<?php echo esc_attr($recent_post->ID); ?>" aria-label="<?php esc_attr_e('Xoá phiên', 'azevent-seo-content'); ?>" title="<?php esc_attr_e('Xoá phiên, giữ nguyên bài Draft', 'azevent-seo-content'); ?>"><span class="dashicons dashicons-trash"></span></button>
+                                <button type="button" class="azlab-delete-session" data-session-id="<?php echo esc_attr($recent_post->ID); ?>" aria-label="<?php esc_attr_e('Xoá phiên', 'azevent-seo-content'); ?>" title="<?php esc_attr_e('Xoá phiên, giữ nguyên bài viết', 'azevent-seo-content'); ?>"><span class="dashicons dashicons-trash"></span></button>
                             </article>
                         <?php endforeach; ?>
                     <?php else : ?>

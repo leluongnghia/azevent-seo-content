@@ -18,6 +18,7 @@ $azevent_ckey_api_format = get_option('azevent_seo_ckey_api_format', 'messages')
 $azevent_step_models = array(
     'intent' => get_option('azevent_seo_intent_model', ''),
     'outline' => get_option('azevent_seo_outline_model', ''),
+    'outline_validation' => get_option('azevent_seo_outline_validation_model', ''),
     'content' => get_option('azevent_seo_content_model', ''),
     'seo' => get_option('azevent_seo_seo_model', ''),
 );
@@ -117,6 +118,10 @@ $azevent_step_model_fields = array(
         'label' => __('Outline', 'azevent-seo-content'),
         'hint' => __('Lập dàn ý', 'azevent-seo-content'),
     ),
+    'outline_validation' => array(
+        'label' => __('Kiểm định Outline', 'azevent-seo-content'),
+        'hint' => __('Rà soát dàn ý', 'azevent-seo-content'),
+    ),
     'content' => array(
         'label' => __('Content', 'azevent-seo-content'),
         'hint' => __('Viết bài', 'azevent-seo-content'),
@@ -140,6 +145,10 @@ $prompt_sections = array(
         'label' => __('Outline', 'azevent-seo-content'),
         'description' => __('Xây dựng cấu trúc H2/H3 theo mục tiêu SEO.', 'azevent-seo-content'),
     ),
+    'outline_validation' => array(
+        'label' => __('Kiểm định Outline', 'azevent-seo-content'),
+        'description' => __('Rà soát search intent, từ khóa phụ, cấu trúc và nội dung trùng trước khi viết.', 'azevent-seo-content'),
+    ),
     'content' => array(
         'label' => __('Content', 'azevent-seo-content'),
         'description' => __('Viết hoặc viết lại nội dung HTML chuẩn chuyển đổi.', 'azevent-seo-content'),
@@ -151,7 +160,7 @@ $prompt_sections = array(
 );
 $prompt_tokens = array(
     '{keyword}' => __('Từ khóa nhập ở màn hình Post.', 'azevent-seo-content'),
-    '{secondary_keywords}' => __('Từ khóa phụ; hiện dùng cùng từ khóa chính trong luồng hiện tại.', 'azevent-seo-content'),
+    '{secondary_keywords}' => __('Danh sách từ khóa phụ nhập trong Content Studio.', 'azevent-seo-content'),
     '{language}' => __('Ngôn ngữ được chọn khi tạo bài.', 'azevent-seo-content'),
     '{outline_focus}' => __('Trọng tâm outline; có thể bổ sung thủ công trong prompt.', 'azevent-seo-content'),
     '{brand_name}' => __('Tên thương hiệu trong tab Thương hiệu.', 'azevent-seo-content'),
@@ -170,6 +179,7 @@ $content_studio_geo_defaults = AzEvent_GEO_Prompts::get_defaults(AzEvent_GEO_Pro
 $content_studio_geo_sections = array(
     'intent' => __('Search Intent', 'azevent-seo-content'),
     'outline' => __('Outline', 'azevent-seo-content'),
+    'outline_validation' => __('Kiểm định Outline', 'azevent-seo-content'),
     'content' => __('Content', 'azevent-seo-content'),
     'seo' => __('SEO Metadata', 'azevent-seo-content'),
     'rewrite' => __('Bổ sung riêng cho Rewrite', 'azevent-seo-content'),
@@ -649,7 +659,7 @@ $azevent_initial_tab = $azevent_modal_section === 'prompts' ? 'prompts' : ($azev
                             </div>
                             <div class="azevent-status <?php echo $azevent_api_ready ? 'is-ready' : 'is-pending'; ?>"><span class="azevent-status-dot"></span><?php echo $azevent_api_ready ? esc_html__('Đã cấu hình', 'azevent-seo-content') : esc_html__('Chưa cấu hình', 'azevent-seo-content'); ?></div>
                         </div>
-                        <p class="azevent-note"><?php printf(esc_html__('Provider text mặc định điều khiển bốn bước nội dung. Ảnh đại diện dùng %s khi key của endpoint này đã được cấu hình.', 'azevent-seo-content'), esc_html(AzEvent_API_Client::get_provider_label($azevent_base_url))); ?></p>
+                        <p class="azevent-note"><?php printf(esc_html__('Provider text mặc định điều khiển năm bước nội dung. Ảnh đại diện dùng %s khi key của endpoint này đã được cấu hình.', 'azevent-seo-content'), esc_html(AzEvent_API_Client::get_provider_label($azevent_base_url))); ?></p>
                         <div class="azevent-grid">
                             <div class="azevent-field">
                                 <label for="azevent_seo_text_provider"><?php _e('Provider text mặc định', 'azevent-seo-content'); ?></label>
@@ -760,9 +770,9 @@ $azevent_initial_tab = $azevent_modal_section === 'prompts' ? 'prompts' : ($azev
                             <div class="azevent-model-routing-header">
                                 <div>
                                     <h3><?php _e('Model theo từng bước nội dung', 'azevent-seo-content'); ?></h3>
-                                    <p><?php _e('Chọn model riêng cho Search Intent, Outline, Content và SEO. Để mặc định nếu muốn tất cả dùng Text Model phía trên.', 'azevent-seo-content'); ?></p>
+                                    <p><?php _e('Chọn model riêng cho Search Intent, Outline, kiểm định Outline, Content và SEO. Để mặc định nếu muốn tất cả dùng Text Model phía trên.', 'azevent-seo-content'); ?></p>
                                 </div>
-                                <span class="azevent-model-routing-badge"><?php _e('4 bước', 'azevent-seo-content'); ?></span>
+                                <span class="azevent-model-routing-badge"><?php _e('5 bước', 'azevent-seo-content'); ?></span>
                             </div>
                             <div class="azevent-step-model-grid">
                                 <?php foreach ($azevent_step_model_fields as $step_key => $step_field) : ?>
@@ -886,7 +896,7 @@ $azevent_initial_tab = $azevent_modal_section === 'prompts' ? 'prompts' : ($azev
                                 <input id="azevent_seo_browser_auto_advance" type="checkbox" name="azevent_seo_browser_auto_advance" value="1" <?php checked($azevent_browser_auto_advance, 1); ?>>
                                 <span>
                                     <strong><?php _e('Bỏ qua duyệt thủ công', 'azevent-seo-content'); ?></strong>
-                                    <span><?php _e('Khi tích chọn, Content Studio tự chạy Search Intent → Outline → Content → SEO → tạo ảnh và lưu Draft. Khi bỏ tích, plugin dừng để bạn duyệt từng bước.', 'azevent-seo-content'); ?></span>
+                                    <span><?php _e('Khi tích chọn, Content Studio tự chạy Search Intent → Outline → Kiểm định Outline → Content → SEO → tạo ảnh và lưu Draft. Khi bỏ tích, plugin dừng để bạn duyệt từng bước.', 'azevent-seo-content'); ?></span>
                                 </span>
                             </label>
                         </div>

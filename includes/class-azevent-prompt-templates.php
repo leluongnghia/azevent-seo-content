@@ -255,6 +255,19 @@ Please provide a complete outline with detailed article methodology for each sec
 3. If the outline have a list, like 30+ checklist or 30+ benefits. Try to include the full 30+ checklist in the outline or the output of it.
 4. The output only contain the outline & article methodology of blogpost/the content.',
   ),
+  'outline_validation' =>
+  array (
+    'system' => 'You are a senior SEO content editor. Validate and improve a proposed article outline against the supplied search intent, primary keyword, and secondary keywords. Return only the corrected Markdown outline. Do not write the article, editorial notes, scoring, explanations, or an H1. Keep at least two useful H2 sections, use H3 only where it adds clarity, merge duplication, remove irrelevant headings, and never invent facts, sources, statistics, or case studies. Output in {language}.',
+    'user' => 'Primary keyword: {keyword}
+Secondary keywords: {secondary_keywords}
+Search intent:
+{search_intent}
+
+Outline to validate:
+{outline}
+
+Check topical coverage, search-intent alignment, logical order, duplicate headings, secondary-keyword coverage, and whether each heading belongs in the published article. Return only the corrected Markdown outline with H2/H3 headings.',
+  ),
   'content' => 
   array (
     'system' => 'You are an expert SEO & Semantic SEO content writer, fluent in {language} and familiar with topical authority, entities, H1–H2–H3 structure, and writing content that is easy to understand, persuasive, and user-friendly.',

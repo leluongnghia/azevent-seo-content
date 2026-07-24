@@ -13,6 +13,10 @@ $editor_js = file_get_contents($root . '/admin/js/editor.js');
 $workflow_js = file_get_contents($root . '/admin/js/workflow-lab.js');
 $workflow_css = file_get_contents($root . '/admin/css/workflow-lab.css');
 $editor_css = file_get_contents($root . '/admin/css/editor.css');
+$content_pipeline = file_get_contents($root . '/includes/class-azevent-content-pipeline.php');
+$workflow_page = file_get_contents($root . '/admin/views/workflow-lab-page.php');
+$workflow_controller = file_get_contents($root . '/admin/class-azevent-workflow-lab.php');
+$workflow_pipeline = file_get_contents($root . '/includes/class-azevent-workflow-lab-pipeline.php');
 
 function azevent_ui_assert($condition, $message)
 {
@@ -170,6 +174,25 @@ azevent_ui_assert(
     strpos($background_queue, 'a.azq-keyword:focus-visible') !== false
         && strpos($editor_css, 'a.azevent-queue-keyword:focus-visible') !== false,
     'Liên kết từ khóa có trạng thái focus bàn phím rõ ràng ở cả hai giao diện.'
+);
+azevent_ui_assert(
+    strpos($editor_integration, 'id="azevent-secondary-keywords"') !== false
+        && strpos($editor_integration, 'data-step="outline_validation"') !== false
+        && strpos($editor_js, "runStep('outline_validation', currentContext)") !== false
+        && strpos($editor_js, 'secondary_keywords: getSecondaryKeywords()') !== false
+        && strpos($content_pipeline, "case 'outline_validation':") !== false
+        && strpos($content_pipeline, "'next_step' => 'outline_validation'") !== false,
+    'Content Studio nhận từ khóa phụ và dừng ở checkpoint Kiểm định Outline trước Content.'
+);
+azevent_ui_assert(
+    strpos($workflow_page, 'name="azlab_mode" value="rewrite"') !== false
+        && strpos($workflow_page, 'id="azlab-existing-post"') !== false
+        && strpos($workflow_js, 'existing_post_id: existingPostId') !== false
+        && strpos($workflow_controller, "'existing_post_id' => absint") !== false
+        && strpos($workflow_pipeline, "'mode' => \$mode") !== false
+        && strpos($workflow_pipeline, "if (!\$rewrite_mode)") !== false
+        && strpos($workflow_pipeline, "'featured_image_id' => absint(get_post_thumbnail_id(\$post_id))") !== false,
+    'Workflow Lab hỗ trợ chọn bài cũ, giữ slug và ghi đè bài chỉ ở bước finalize.'
 );
 
 fwrite(STDOUT, "All admin UI regression checks passed.\n");

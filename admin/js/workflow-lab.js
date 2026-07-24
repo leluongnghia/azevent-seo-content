@@ -45,6 +45,8 @@
         setup: document.getElementById('azlab-setup'),
         workflow: document.getElementById('azlab-workflow'),
         start: document.getElementById('azlab-start'),
+        existingPostField: document.getElementById('azlab-existing-post-field'),
+        existingPost: document.getElementById('azlab-existing-post'),
         keyword: document.getElementById('azlab-keyword'),
         secondary: document.getElementById('azlab-secondary'),
         audience: document.getElementById('azlab-audience'),
@@ -126,6 +128,25 @@
             }
             return response.data;
         });
+    }
+
+    function getMode() {
+        const checked = document.querySelector('input[name="azlab_mode"]:checked');
+        return checked ? checked.value : 'create';
+    }
+
+    function syncMode() {
+        const rewrite = getMode() === 'rewrite';
+        elements.existingPostField.hidden = !rewrite;
+        elements.existingPost.required = rewrite;
+        elements.generateImage.checked = !rewrite;
+        elements.start.firstChild.nodeValue = rewrite ? 'Tạo phiên viết lại & chạy Research ' : 'Tạo phiên & chạy Research ';
+        if (rewrite && elements.existingPost.value) {
+            const option = elements.existingPost.options[elements.existingPost.selectedIndex];
+            if (option && option.dataset.title && !elements.keyword.value.trim()) {
+                elements.keyword.value = option.dataset.title;
+            }
+        }
     }
 
     function setNotice(message, success) {
@@ -645,6 +666,11 @@
             elements.finalActions.hidden = false;
             elements.reviewActions.hidden = true;
             elements.finalConfirmation.hidden = false;
+            const rewriteMode = context.input && context.input.mode === 'rewrite';
+            elements.saveNoImage.textContent = rewriteMode ? 'Lưu Draft, không tạo ảnh mới' : 'Lưu Draft không ảnh';
+            elements.finalize.textContent = rewriteMode
+                ? (context.input.generate_image ? 'Duyệt, tạo ảnh mới & lưu Draft' : 'Duyệt & lưu bản viết lại')
+                : 'Duyệt, tạo ảnh & lưu Draft';
         }
 
         const index = stepOrder.indexOf(step);
@@ -768,6 +794,13 @@
     }
 
     function startSession() {
+        const mode = getMode();
+        const existingPostId = parseInt(elements.existingPost.value, 10) || 0;
+        if (mode === 'rewrite' && !existingPostId) {
+            setNotice('Vui lòng chọn bài viết cần viết lại.', false);
+            elements.existingPost.focus();
+            return;
+        }
         const keyword = elements.keyword.value.trim();
         if (!keyword) {
             setNotice('Vui lòng nhập từ khóa chính.', false);
@@ -780,6 +813,8 @@
         elements.start.disabled = true;
         setNotice('', false);
         request('azevent_lab_create_session', {
+            mode: mode,
+            existing_post_id: existingPostId,
             keyword: keyword,
             secondary_keywords: elements.secondary.value,
             audience: elements.audience.value,
@@ -923,6 +958,15 @@
         });
     });
     elements.copyLog.addEventListener('click', copyLogs);
+    document.querySelectorAll('input[name="azlab_mode"]').forEach(function (input) {
+        input.addEventListener('change', syncMode);
+    });
+    elements.existingPost.addEventListener('change', function () {
+        const option = elements.existingPost.options[elements.existingPost.selectedIndex];
+        if (getMode() === 'rewrite' && option && option.dataset.title) {
+            elements.keyword.value = option.dataset.title;
+        }
+    });
     document.querySelectorAll('.azlab-stepper li').forEach(function (item) {
         item.addEventListener('click', function () {
             openCompletedStep(item);
@@ -937,7 +981,7 @@
     document.querySelectorAll('.azlab-delete-session').forEach(function (button) {
         button.addEventListener('click', function () {
             const sessionId = parseInt(button.dataset.sessionId, 10) || 0;
-            if (!sessionId || !window.confirm('Xoá dữ liệu phiên Workflow Lab này? Bài Draft liên quan vẫn được giữ trong Posts.')) {
+            if (!sessionId || !window.confirm('Xoá dữ liệu phiên Workflow Lab này? Bài viết liên quan vẫn được giữ trong Posts.')) {
                 return;
             }
             button.disabled = true;
@@ -990,9 +1034,15 @@
         }
 
         elements.keyword.value = keyword;
+        const createMode = document.querySelector('input[name="azlab_mode"][value="create"]');
+        if (createMode) {
+            createMode.checked = true;
+            syncMode();
+        }
         setNotice('Đã điền sẵn từ khóa từ Background Queue. Kiểm tra đầu vào rồi tạo phiên Workflow Lab.', true);
         elements.keyword.focus();
     });
 
+    syncMode();
     loadSession();
 }());

@@ -90,9 +90,10 @@ class AzEvent_Editor_Integration
                     <ol id="azevent-workflow-stepper" class="azevent-stepper" aria-label="<?php esc_attr_e('Tiến trình tạo nội dung', 'azevent-seo-content'); ?>" hidden>
                         <li data-step="intent"><span>1</span><small>Search Intent</small></li>
                         <li data-step="outline"><span>2</span><small>Outline</small></li>
-                        <li data-step="content"><span>3</span><small>Content</small></li>
-                        <li data-step="seo"><span>4</span><small>SEO</small></li>
-                        <li data-step="finish"><span>5</span><small><?php _e('Ảnh & Lưu', 'azevent-seo-content'); ?></small></li>
+                        <li data-step="outline_validation"><span>3</span><small><?php _e('Kiểm định', 'azevent-seo-content'); ?></small></li>
+                        <li data-step="content"><span>4</span><small>Content</small></li>
+                        <li data-step="seo"><span>5</span><small>SEO</small></li>
+                        <li data-step="finish"><span>6</span><small><?php _e('Ảnh & Lưu', 'azevent-seo-content'); ?></small></li>
                     </ol>
 
                     <section id="azevent-setup-view" class="azevent-view">
@@ -146,6 +147,13 @@ class AzEvent_Editor_Integration
                             <textarea id="azevent-keywords" name="azevent_keywords" rows="6"
                                 placeholder="<?php esc_attr_e("Mỗi dòng một từ khóa. Ví dụ:\nTổ chức hội nghị doanh nghiệp\nDịch vụ gala dinner", 'azevent-seo-content'); ?>"><?php echo esc_textarea($default_mode === 'rewrite' ? $post->post_title : ''); ?></textarea>
                             <span id="azevent-keyword-help"><?php _e('Tạo mới: mỗi dòng sẽ tạo một Draft riêng.', 'azevent-seo-content'); ?></span>
+                        </div>
+
+                        <div class="azevent-field">
+                            <label for="azevent-secondary-keywords"><?php _e('Từ khóa phụ', 'azevent-seo-content'); ?></label>
+                            <textarea id="azevent-secondary-keywords" name="azevent_secondary_keywords" rows="4"
+                                placeholder="<?php esc_attr_e("Mỗi dòng một từ khóa phụ. Danh sách này dùng chung cho các từ khóa chính trong phiên.", 'azevent-seo-content'); ?>"></textarea>
+                            <span><?php _e('AI dùng danh sách này ở Search Intent, Outline, bước kiểm định và Content.', 'azevent-seo-content'); ?></span>
                         </div>
 
                         <div class="azevent-language-summary">
@@ -228,11 +236,11 @@ class AzEvent_Editor_Integration
                     <section id="azevent-outline-review-view" class="azevent-view" hidden>
                         <div class="azevent-review-header">
                             <div>
-                                <span class="azevent-step-kicker"><?php _e('Outline hoàn tất', 'azevent-seo-content'); ?></span>
-                                <h3><?php _e('Kiểm tra dàn ý trước khi viết Content', 'azevent-seo-content'); ?></h3>
+                                <span id="azevent-outline-review-kicker" class="azevent-step-kicker"><?php _e('Outline hoàn tất', 'azevent-seo-content'); ?></span>
+                                <h3 id="azevent-outline-review-title"><?php _e('Kiểm tra dàn ý trước khi viết Content', 'azevent-seo-content'); ?></h3>
                                 <p><?php _e('Bạn có thể chỉnh dàn ý khi Content chưa được tạo. Các nút Quay lại chỉ mở kết quả đã lưu, không gọi lại AI.', 'azevent-seo-content'); ?></p>
                             </div>
-                            <span class="azevent-review-badge"><?php _e('Chờ tiếp tục', 'azevent-seo-content'); ?></span>
+                            <span id="azevent-outline-validation-badge" class="azevent-review-badge"><?php _e('Chờ kiểm định', 'azevent-seo-content'); ?></span>
                         </div>
 
                         <div class="azevent-step-result">
