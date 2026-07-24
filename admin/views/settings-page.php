@@ -568,6 +568,8 @@ $azevent_initial_tab = $azevent_modal_section === 'prompts' ? 'prompts' : ($azev
         .azevent-settings-modal-prompts .azevent-tab[data-tab="api"],
         .azevent-settings-modal-prompts .azevent-tab[data-tab="brand"],
         .azevent-settings-modal-prompts .azevent-tab[data-tab="content-settings"],
+        .azevent-settings-modal-prompts .azevent-tab[data-tab="studio-models"],
+        .azevent-settings-modal-prompts .azevent-tab[data-tab="lab-models"],
         .azevent-settings-modal-settings .azevent-tab[data-tab="prompts"],
         .azevent-settings-modal-settings .azevent-tab[data-tab="lab-prompts"] { display: none; }
         @media (max-width: 800px) {
@@ -640,6 +642,8 @@ $azevent_initial_tab = $azevent_modal_section === 'prompts' ? 'prompts' : ($azev
         <div class="azevent-layout">
             <nav class="azevent-tabs" aria-label="Settings sections" role="tablist">
                 <button type="button" id="azevent-tab-api" class="azevent-tab is-active" data-tab="api" role="tab" aria-controls="azevent-panel-api" aria-selected="true" tabindex="0"><span class="azevent-tab-icon">⚡</span><?php _e('AI Providers', 'azevent-seo-content'); ?></button>
+                <button type="button" id="azevent-tab-studio-models" class="azevent-tab" data-tab="studio-models" role="tab" aria-controls="azevent-panel-studio-models" aria-selected="false" tabindex="-1"><span class="azevent-tab-icon">◆</span><?php _e('Content Studio Models', 'azevent-seo-content'); ?></button>
+                <button type="button" id="azevent-tab-lab-models" class="azevent-tab" data-tab="lab-models" role="tab" aria-controls="azevent-panel-lab-models" aria-selected="false" tabindex="-1"><span class="azevent-tab-icon">◇</span><?php _e('Workflow Lab Models', 'azevent-seo-content'); ?></button>
                 <button type="button" id="azevent-tab-brand" class="azevent-tab" data-tab="brand" role="tab" aria-controls="azevent-panel-brand" aria-selected="false" tabindex="-1"><span class="azevent-tab-icon">◈</span><?php _e('Thương hiệu', 'azevent-seo-content'); ?></button>
                 <button type="button" id="azevent-tab-content-settings" class="azevent-tab" data-tab="content-settings" role="tab" aria-controls="azevent-panel-content-settings" aria-selected="false" tabindex="-1"><span class="azevent-tab-icon">文</span><?php _e('Nội dung', 'azevent-seo-content'); ?></button>
                 <button type="button" id="azevent-tab-prompts" class="azevent-tab" data-tab="prompts" role="tab" aria-controls="azevent-panel-prompts" aria-selected="false" tabindex="-1"><span class="azevent-tab-icon">✎</span><?php _e('AI Prompts', 'azevent-seo-content'); ?></button>
@@ -766,39 +770,6 @@ $azevent_initial_tab = $azevent_modal_section === 'prompts' ? 'prompts' : ($azev
                                 </div>
                             </div>
                         </div>
-                        <div class="azevent-model-routing">
-                            <div class="azevent-model-routing-header">
-                                <div>
-                                    <h3><?php _e('Model theo từng bước nội dung', 'azevent-seo-content'); ?></h3>
-                                    <p><?php _e('Chọn model riêng cho Search Intent, Outline, kiểm định Outline, Content và SEO. Để mặc định nếu muốn tất cả dùng Text Model phía trên.', 'azevent-seo-content'); ?></p>
-                                </div>
-                                <span class="azevent-model-routing-badge"><?php _e('5 bước', 'azevent-seo-content'); ?></span>
-                            </div>
-                            <div class="azevent-step-model-grid">
-                                <?php foreach ($azevent_step_model_fields as $step_key => $step_field) : ?>
-                                    <div class="azevent-field azevent-step-model">
-                                        <label for="azevent_seo_<?php echo esc_attr($step_key); ?>_model">
-                                            <span><?php echo esc_html($step_field['label']); ?></span>
-                                            <small><?php echo esc_html($step_field['hint']); ?></small>
-                                        </label>
-                                        <select class="azevent-step-model-select" id="azevent_seo_<?php echo esc_attr($step_key); ?>_model" name="azevent_seo_<?php echo esc_attr($step_key); ?>_model">
-                                            <option value="" <?php selected($azevent_step_models[$step_key], ''); ?>><?php printf(esc_html__('Dùng provider mặc định — %s', 'azevent-seo-content'), esc_html($azevent_default_text_label)); ?></option>
-                                            <optgroup label="<?php echo esc_attr(AzEvent_API_Client::get_provider_label($azevent_base_url)); ?>">
-                                                <?php foreach ($azevent_text_models as $model_id => $model_label) : ?>
-                                                    <option value="<?php echo esc_attr($model_id); ?>" <?php selected($azevent_step_models[$step_key], $model_id); ?>><?php echo esc_html($model_label); ?></option>
-                                                <?php endforeach; ?>
-                                            </optgroup>
-                                            <optgroup label="CKEY.VN">
-                                                <?php foreach ($azevent_ckey_models as $model_id => $model_label) : ?>
-                                                    <?php $model_reference = AzEvent_CKey_Client::model_reference($model_id); ?>
-                                                    <option value="<?php echo esc_attr($model_reference); ?>" <?php selected($azevent_step_models[$step_key], $model_reference); ?>><?php echo esc_html($model_label); ?></option>
-                                                <?php endforeach; ?>
-                                            </optgroup>
-                                        </select>
-                                    </div>
-                                <?php endforeach; ?>
-                            </div>
-                        </div>
                         <details class="azevent-legacy">
                             <summary>
                                 <span class="azevent-legacy-title">
@@ -834,6 +805,175 @@ $azevent_initial_tab = $azevent_modal_section === 'prompts' ? 'prompts' : ($azev
                                 <span class="azevent-legacy-status" id="azevent-legacy-model-status" aria-live="polite"><?php _e('Nhập API key rồi bấm Lưu cấu hình để tải model.', 'azevent-seo-content'); ?></span>
                             </div>
                         </details>
+                    </div>
+                </section>
+
+                <section id="azevent-panel-studio-models" class="azevent-panel" data-panel="studio-models" role="tabpanel" aria-labelledby="azevent-tab-studio-models" hidden>
+                    <div class="azevent-card">
+                        <div class="azevent-card-header">
+                            <div class="azevent-card-title">
+                                <span class="azevent-section-icon">◆</span>
+                                <div>
+                                <h2><?php _e('Content Studio Models', 'azevent-seo-content'); ?></h2>
+                                <p class="azevent-card-description"><?php _e('Chọn model riêng cho từng bước Content Studio; không làm thay đổi Prompt hoặc Workflow Lab.', 'azevent-seo-content'); ?></p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="azevent-model-routing">
+                            <div class="azevent-model-routing-header">
+                                <div>
+                                    <h3><?php _e('Model theo từng bước nội dung', 'azevent-seo-content'); ?></h3>
+                                    <p><?php _e('Chọn model riêng cho Search Intent, Outline, kiểm định Outline, Content và SEO. Để mặc định nếu muốn tất cả dùng Text Model trong AI Providers.', 'azevent-seo-content'); ?></p>
+                                </div>
+                                <span class="azevent-model-routing-badge"><?php _e('5 bước', 'azevent-seo-content'); ?></span>
+                            </div>
+                            <div class="azevent-step-model-grid">
+                                <?php foreach ($azevent_step_model_fields as $step_key => $step_field) : ?>
+                                    <div class="azevent-field azevent-step-model">
+                                        <label for="azevent_seo_<?php echo esc_attr($step_key); ?>_model">
+                                            <span><?php echo esc_html($step_field['label']); ?></span>
+                                            <small><?php echo esc_html($step_field['hint']); ?></small>
+                                        </label>
+                                        <select class="azevent-step-model-select" id="azevent_seo_<?php echo esc_attr($step_key); ?>_model" name="azevent_seo_<?php echo esc_attr($step_key); ?>_model">
+                                            <option value="" <?php selected($azevent_step_models[$step_key], ''); ?>><?php printf(esc_html__('Dùng provider mặc định — %s', 'azevent-seo-content'), esc_html($azevent_default_text_label)); ?></option>
+                                            <optgroup label="<?php echo esc_attr(AzEvent_API_Client::get_provider_label($azevent_base_url)); ?>">
+                                                <?php foreach ($azevent_text_models as $model_id => $model_label) : ?>
+                                                    <option value="<?php echo esc_attr($model_id); ?>" <?php selected($azevent_step_models[$step_key], $model_id); ?>><?php echo esc_html($model_label); ?></option>
+                                                <?php endforeach; ?>
+                                            </optgroup>
+                                            <optgroup label="CKEY.VN">
+                                                <?php foreach ($azevent_ckey_models as $model_id => $model_label) : ?>
+                                                    <?php $model_reference = AzEvent_CKey_Client::model_reference($model_id); ?>
+                                                    <option value="<?php echo esc_attr($model_reference); ?>" <?php selected($azevent_step_models[$step_key], $model_reference); ?>><?php echo esc_html($model_label); ?></option>
+                                                <?php endforeach; ?>
+                                            </optgroup>
+                                        </select>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="azevent-panel-lab-models" class="azevent-panel" data-panel="lab-models" role="tabpanel" aria-labelledby="azevent-tab-lab-models" hidden>
+                    <div class="azevent-card">
+                        <div class="azevent-card-header">
+                            <div class="azevent-card-title">
+                                <span class="azevent-section-icon">◇</span>
+                                <div>
+                                <h2><?php _e('Workflow Lab Models', 'azevent-seo-content'); ?></h2>
+                                <p class="azevent-card-description"><?php _e('Model độc lập cho các bước SEO Workflow Lab; không ảnh hưởng Content Studio hoặc Prompt.', 'azevent-seo-content'); ?></p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="azevent-settings-section">
+                            <div class="azevent-settings-section-heading">
+                                <div class="azevent-settings-section-title">
+                                    <span class="azevent-settings-section-number">1</span>
+                                    <div>
+                                        <h3><?php _e('Model theo từng bước nội dung', 'azevent-seo-content'); ?></h3>
+                                        <p><?php _e('Chọn một model chung hoặc tinh chỉnh riêng từng bước mà không làm thay đổi Prompt.', 'azevent-seo-content'); ?></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="azevent-lab-model-routing" id="azevent-lab-model-routing">
+                            <div class="azevent-model-routing-header">
+                                <div>
+                                    <h3><?php _e('Chọn nhanh model cho Workflow Lab', 'azevent-seo-content'); ?></h3>
+                                    <p><?php _e('Toàn bộ 5 bước được đặt cạnh nhau. Bạn có thể đổi riêng từng bước hoặc áp dụng một model cho tất cả.', 'azevent-seo-content'); ?></p>
+                                </div>
+                                <span class="azevent-model-routing-badge"><?php _e('5 bước', 'azevent-seo-content'); ?></span>
+                            </div>
+                            <div class="azevent-lab-model-toolbar">
+                                <div class="azevent-field">
+                                    <label for="azevent-lab-bulk-model"><?php _e('Áp dụng nhanh một model', 'azevent-seo-content'); ?></label>
+                                    <select id="azevent-lab-bulk-model" class="azevent-lab-model-select">
+                                        <option value=""><?php _e('Chọn model để áp dụng…', 'azevent-seo-content'); ?></option>
+                                        <optgroup label="<?php echo esc_attr(AzEvent_API_Client::get_provider_label($azevent_base_url)); ?>">
+                                            <?php foreach ($azevent_text_models as $model_id => $model_label) : ?>
+                                                <option value="<?php echo esc_attr($model_id); ?>"><?php echo esc_html($model_label); ?></option>
+                                            <?php endforeach; ?>
+                                        </optgroup>
+                                        <optgroup label="CKEY.VN">
+                                            <?php foreach ($azevent_ckey_models as $model_id => $model_label) : ?>
+                                                <option value="<?php echo esc_attr(AzEvent_CKey_Client::model_reference($model_id)); ?>"><?php echo esc_html($model_label); ?></option>
+                                            <?php endforeach; ?>
+                                        </optgroup>
+                                    </select>
+                                </div>
+                                <button type="button" class="button button-primary" id="azevent-apply-lab-model"><?php _e('Áp dụng cho 5 bước', 'azevent-seo-content'); ?></button>
+                                <button type="button" class="button" id="azevent-reset-lab-models"><?php _e('Đặt về kế thừa', 'azevent-seo-content'); ?></button>
+                                <span class="azevent-lab-model-status" id="azevent-lab-model-status" aria-live="polite"></span>
+                            </div>
+                            <div class="azevent-lab-model-grid">
+                                <?php $lab_step_number = 0; ?>
+                                <?php foreach ($lab_prompt_sections as $key => $section) : ?>
+                                    <?php $lab_step_number++; ?>
+                                    <div class="azevent-lab-model-card">
+                                        <div class="azevent-lab-model-card-head">
+                                            <span class="azevent-lab-model-number"><?php echo esc_html($lab_step_number); ?></span>
+                                            <span><strong><?php echo esc_html($section['label']); ?></strong><span><?php echo esc_html($azevent_lab_step_hints[$key] ?? ''); ?></span></span>
+                                        </div>
+                                        <select class="azevent-lab-step-model-select azevent-lab-model-select" id="azevent_lab_<?php echo esc_attr($key); ?>_model" name="azevent_lab_<?php echo esc_attr($key); ?>_model" data-inherit-label="<?php echo esc_attr($azevent_lab_fallback_labels[$key]); ?>">
+                                            <option value="" <?php selected($azevent_lab_step_models[$key], ''); ?>><?php _e('Kế thừa cấu hình hiện tại', 'azevent-seo-content'); ?></option>
+                                            <optgroup label="<?php echo esc_attr(AzEvent_API_Client::get_provider_label($azevent_base_url)); ?>">
+                                                <?php foreach ($azevent_text_models as $model_id => $model_label) : ?>
+                                                    <option value="<?php echo esc_attr($model_id); ?>" <?php selected($azevent_lab_step_models[$key], $model_id); ?>><?php echo esc_html($model_label); ?></option>
+                                                <?php endforeach; ?>
+                                            </optgroup>
+                                            <optgroup label="CKEY.VN">
+                                                <?php foreach ($azevent_ckey_models as $model_id => $model_label) : ?>
+                                                    <?php $model_reference = AzEvent_CKey_Client::model_reference($model_id); ?>
+                                                    <option value="<?php echo esc_attr($model_reference); ?>" <?php selected($azevent_lab_step_models[$key], $model_reference); ?>><?php echo esc_html($model_label); ?></option>
+                                                <?php endforeach; ?>
+                                            </optgroup>
+                                        </select>
+                                        <span class="azevent-lab-model-state"></span>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                        <div class="azevent-settings-section">
+                            <div class="azevent-settings-section-heading">
+                                <div class="azevent-settings-section-title">
+                                    <span class="azevent-settings-section-number">2</span>
+                                    <div>
+                                        <h3><?php _e('Model kiểm định Outline', 'azevent-seo-content'); ?></h3>
+                                        <p><?php _e('Bật bước kiểm định độc lập và chọn model riêng khi cần lượt rà soát mạnh hơn.', 'azevent-seo-content'); ?></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="azevent-serp-box">
+                            <input type="hidden" name="azevent_lab_validate_outline" value="0">
+                            <label class="azevent-workflow-option" for="azevent_lab_validate_outline">
+                                <input id="azevent_lab_validate_outline" type="checkbox" name="azevent_lab_validate_outline" value="1" aria-controls="azevent-outline-validator-model" aria-expanded="<?php echo $azevent_lab_validate_outline ? 'true' : 'false'; ?>" <?php checked($azevent_lab_validate_outline, 1); ?>>
+                                <span>
+                                    <strong><?php _e('Kiểm định Outline bằng AI lần hai', 'azevent-seo-content'); ?></strong>
+                                    <span><?php _e('Thêm bước Kiểm định Outline độc lập sau Brief & Outline để AI rà soát intent, loại heading biên tập nội bộ và gộp mục trùng trước khi viết Content.', 'azevent-seo-content'); ?></span>
+                                </span>
+                            </label>
+                            <div id="azevent-outline-validator-model" class="azevent-field azevent-outline-validator-model azevent-conditional-field" data-controlled-by="azevent_lab_validate_outline" <?php echo $azevent_lab_validate_outline ? '' : 'hidden'; ?>>
+                                <label for="azevent_lab_outline_validation_model"><?php _e('Model kiểm định Outline', 'azevent-seo-content'); ?></label>
+                                <select id="azevent_lab_outline_validation_model" class="azevent-lab-model-select" name="azevent_lab_outline_validation_model" data-inherit-label="<?php echo esc_attr($azevent_lab_effective_labels['brief']); ?>">
+                                    <option value="" <?php selected($azevent_lab_outline_validation_model, ''); ?>><?php printf(esc_html__('Dùng cùng model Brief & Outline — %s', 'azevent-seo-content'), esc_html($azevent_lab_effective_labels['brief'])); ?></option>
+                                    <optgroup label="<?php echo esc_attr(AzEvent_API_Client::get_provider_label($azevent_base_url)); ?>">
+                                        <?php foreach ($azevent_text_models as $model_id => $model_label) : ?>
+                                            <option value="<?php echo esc_attr($model_id); ?>" <?php selected($azevent_lab_outline_validation_model, $model_id); ?>><?php echo esc_html($model_label); ?></option>
+                                        <?php endforeach; ?>
+                                    </optgroup>
+                                    <optgroup label="CKEY.VN">
+                                        <?php foreach ($azevent_ckey_models as $model_id => $model_label) : ?>
+                                            <?php $model_reference = AzEvent_CKey_Client::model_reference($model_id); ?>
+                                            <option value="<?php echo esc_attr($model_reference); ?>" <?php selected($azevent_lab_outline_validation_model, $model_reference); ?>><?php echo esc_html($model_label); ?></option>
+                                        <?php endforeach; ?>
+                                    </optgroup>
+                                </select>
+                                <p class="azevent-help"><?php _e('Để trống để dùng cùng model của bước Brief. Chọn riêng nếu muốn lượt kiểm định dùng model mạnh hơn.', 'azevent-seo-content'); ?></p>
+                            </div>
+                            <p class="azevent-help"><?php _e('Mặc định tắt. Khi bật, Workflow Lab có thêm bước duyệt riêng và một lượt API. Nếu kiểm định lỗi hoặc không đủ H2 hợp lệ, plugin giữ kết quả Brief ban đầu để bạn xem và chạy lại bước này.', 'azevent-seo-content'); ?></p>
+                        </div>
                     </div>
                 </section>
 
@@ -1060,7 +1200,7 @@ $azevent_initial_tab = $azevent_modal_section === 'prompts' ? 'prompts' : ($azev
                                 <span class="azevent-section-icon">◫</span>
                                 <div>
                                 <h2><?php _e('Workflow Lab Prompts', 'azevent-seo-content'); ?></h2>
-                                <p class="azevent-card-description"><?php _e('Prompt và model độc lập cho 5 bước SEO Workflow Lab; không ảnh hưởng Content Studio.', 'azevent-seo-content'); ?></p>
+                                <p class="azevent-card-description"><?php _e('Prompt, dữ liệu SERP và cách chạy riêng của SEO Workflow Lab; model được cấu hình trong Settings.', 'azevent-seo-content'); ?></p>
                                 </div>
                             </div>
                         </div>
@@ -1069,76 +1209,8 @@ $azevent_initial_tab = $azevent_modal_section === 'prompts' ? 'prompts' : ($azev
                                 <div class="azevent-settings-section-title">
                                     <span class="azevent-settings-section-number">1</span>
                                     <div>
-                                        <h3><?php _e('Model theo từng bước', 'azevent-seo-content'); ?></h3>
-                                        <p><?php _e('Chọn một model chung hoặc tinh chỉnh riêng từng bước mà không làm thay đổi prompt.', 'azevent-seo-content'); ?></p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="azevent-lab-model-routing" id="azevent-lab-model-routing">
-                            <div class="azevent-model-routing-header">
-                                <div>
-                                    <h3><?php _e('Chọn nhanh model cho Workflow Lab', 'azevent-seo-content'); ?></h3>
-                                    <p><?php _e('Toàn bộ 5 bước được đặt cạnh nhau. Bạn có thể đổi riêng từng bước hoặc áp dụng một model cho tất cả.', 'azevent-seo-content'); ?></p>
-                                </div>
-                                <span class="azevent-model-routing-badge"><?php _e('5 bước', 'azevent-seo-content'); ?></span>
-                            </div>
-                            <div class="azevent-lab-model-toolbar">
-                                <div class="azevent-field">
-                                    <label for="azevent-lab-bulk-model"><?php _e('Áp dụng nhanh một model', 'azevent-seo-content'); ?></label>
-                                    <select id="azevent-lab-bulk-model" class="azevent-lab-model-select">
-                                        <option value=""><?php _e('Chọn model để áp dụng…', 'azevent-seo-content'); ?></option>
-                                        <optgroup label="<?php echo esc_attr(AzEvent_API_Client::get_provider_label($azevent_base_url)); ?>">
-                                            <?php foreach ($azevent_text_models as $model_id => $model_label) : ?>
-                                                <option value="<?php echo esc_attr($model_id); ?>"><?php echo esc_html($model_label); ?></option>
-                                            <?php endforeach; ?>
-                                        </optgroup>
-                                        <optgroup label="CKEY.VN">
-                                            <?php foreach ($azevent_ckey_models as $model_id => $model_label) : ?>
-                                                <option value="<?php echo esc_attr(AzEvent_CKey_Client::model_reference($model_id)); ?>"><?php echo esc_html($model_label); ?></option>
-                                            <?php endforeach; ?>
-                                        </optgroup>
-                                    </select>
-                                </div>
-                                <button type="button" class="button button-primary" id="azevent-apply-lab-model"><?php _e('Áp dụng cho 5 bước', 'azevent-seo-content'); ?></button>
-                                <button type="button" class="button" id="azevent-reset-lab-models"><?php _e('Đặt về kế thừa', 'azevent-seo-content'); ?></button>
-                                <span class="azevent-lab-model-status" id="azevent-lab-model-status" aria-live="polite"></span>
-                            </div>
-                            <div class="azevent-lab-model-grid">
-                                <?php $lab_step_number = 0; ?>
-                                <?php foreach ($lab_prompt_sections as $key => $section) : ?>
-                                    <?php $lab_step_number++; ?>
-                                    <div class="azevent-lab-model-card">
-                                        <div class="azevent-lab-model-card-head">
-                                            <span class="azevent-lab-model-number"><?php echo esc_html($lab_step_number); ?></span>
-                                            <span><strong><?php echo esc_html($section['label']); ?></strong><span><?php echo esc_html($azevent_lab_step_hints[$key] ?? ''); ?></span></span>
-                                        </div>
-                                        <select class="azevent-lab-step-model-select azevent-lab-model-select" id="azevent_lab_<?php echo esc_attr($key); ?>_model" name="azevent_lab_<?php echo esc_attr($key); ?>_model" data-inherit-label="<?php echo esc_attr($azevent_lab_fallback_labels[$key]); ?>">
-                                            <option value="" <?php selected($azevent_lab_step_models[$key], ''); ?>><?php _e('Kế thừa cấu hình hiện tại', 'azevent-seo-content'); ?></option>
-                                            <optgroup label="<?php echo esc_attr(AzEvent_API_Client::get_provider_label($azevent_base_url)); ?>">
-                                                <?php foreach ($azevent_text_models as $model_id => $model_label) : ?>
-                                                    <option value="<?php echo esc_attr($model_id); ?>" <?php selected($azevent_lab_step_models[$key], $model_id); ?>><?php echo esc_html($model_label); ?></option>
-                                                <?php endforeach; ?>
-                                            </optgroup>
-                                            <optgroup label="CKEY.VN">
-                                                <?php foreach ($azevent_ckey_models as $model_id => $model_label) : ?>
-                                                    <?php $model_reference = AzEvent_CKey_Client::model_reference($model_id); ?>
-                                                    <option value="<?php echo esc_attr($model_reference); ?>" <?php selected($azevent_lab_step_models[$key], $model_reference); ?>><?php echo esc_html($model_label); ?></option>
-                                                <?php endforeach; ?>
-                                            </optgroup>
-                                        </select>
-                                        <span class="azevent-lab-model-state"></span>
-                                    </div>
-                                <?php endforeach; ?>
-                            </div>
-                        </div>
-                        <div class="azevent-settings-section">
-                            <div class="azevent-settings-section-heading">
-                                <div class="azevent-settings-section-title">
-                                    <span class="azevent-settings-section-number">2</span>
-                                    <div>
                                         <h3><?php _e('Dữ liệu và cách chạy Workflow Lab', 'azevent-seo-content'); ?></h3>
-                                        <p><?php _e('Cấu hình SERP, lượt kiểm định Outline và cách chia Content thành background job.', 'azevent-seo-content'); ?></p>
+                                        <p><?php _e('Cấu hình SERP và cách chia Content thành background job.', 'azevent-seo-content'); ?></p>
                                     </div>
                                 </div>
                             </div>
@@ -1185,36 +1257,6 @@ $azevent_initial_tab = $azevent_modal_section === 'prompts' ? 'prompts' : ($azev
                             </div>
                         </div>
                         <div class="azevent-serp-box">
-                            <h3><?php _e('Kiểm định Outline bằng AI', 'azevent-seo-content'); ?></h3>
-                            <input type="hidden" name="azevent_lab_validate_outline" value="0">
-                            <label class="azevent-workflow-option" for="azevent_lab_validate_outline">
-                                <input id="azevent_lab_validate_outline" type="checkbox" name="azevent_lab_validate_outline" value="1" aria-controls="azevent-outline-validator-model" aria-expanded="<?php echo $azevent_lab_validate_outline ? 'true' : 'false'; ?>" <?php checked($azevent_lab_validate_outline, 1); ?>>
-                                <span>
-                                    <strong><?php _e('Kiểm định Outline bằng AI lần hai', 'azevent-seo-content'); ?></strong>
-                                    <span><?php _e('Thêm bước Kiểm định Outline độc lập sau Brief & Outline để AI rà soát intent, loại heading biên tập nội bộ và gộp mục trùng trước khi viết Content.', 'azevent-seo-content'); ?></span>
-                                </span>
-                            </label>
-                            <div id="azevent-outline-validator-model" class="azevent-field azevent-outline-validator-model azevent-conditional-field" data-controlled-by="azevent_lab_validate_outline" <?php echo $azevent_lab_validate_outline ? '' : 'hidden'; ?>>
-                                <label for="azevent_lab_outline_validation_model"><?php _e('Model kiểm định Outline', 'azevent-seo-content'); ?></label>
-                                <select id="azevent_lab_outline_validation_model" class="azevent-lab-model-select" name="azevent_lab_outline_validation_model" data-inherit-label="<?php echo esc_attr($azevent_lab_effective_labels['brief']); ?>">
-                                    <option value="" <?php selected($azevent_lab_outline_validation_model, ''); ?>><?php printf(esc_html__('Dùng cùng model Brief & Outline — %s', 'azevent-seo-content'), esc_html($azevent_lab_effective_labels['brief'])); ?></option>
-                                    <optgroup label="<?php echo esc_attr(AzEvent_API_Client::get_provider_label($azevent_base_url)); ?>">
-                                        <?php foreach ($azevent_text_models as $model_id => $model_label) : ?>
-                                            <option value="<?php echo esc_attr($model_id); ?>" <?php selected($azevent_lab_outline_validation_model, $model_id); ?>><?php echo esc_html($model_label); ?></option>
-                                        <?php endforeach; ?>
-                                    </optgroup>
-                                    <optgroup label="CKEY.VN">
-                                        <?php foreach ($azevent_ckey_models as $model_id => $model_label) : ?>
-                                            <?php $model_reference = AzEvent_CKey_Client::model_reference($model_id); ?>
-                                            <option value="<?php echo esc_attr($model_reference); ?>" <?php selected($azevent_lab_outline_validation_model, $model_reference); ?>><?php echo esc_html($model_label); ?></option>
-                                        <?php endforeach; ?>
-                                    </optgroup>
-                                </select>
-                                <p class="azevent-help"><?php _e('Để trống để dùng cùng model của bước Brief. Chọn riêng nếu muốn lượt kiểm định dùng model mạnh hơn.', 'azevent-seo-content'); ?></p>
-                            </div>
-                            <p class="azevent-help"><?php _e('Mặc định tắt. Khi bật, Workflow Lab có thêm bước duyệt riêng và một lượt API. Nếu kiểm định lỗi hoặc không đủ H2 hợp lệ, plugin giữ kết quả Brief ban đầu để bạn xem và chạy lại bước này.', 'azevent-seo-content'); ?></p>
-                        </div>
-                        <div class="azevent-serp-box">
                             <h3><?php _e('Cách viết nội dung từ Outline', 'azevent-seo-content'); ?></h3>
                             <input type="hidden" name="azevent_lab_split_content_by_outline" value="0">
                             <label class="azevent-workflow-option" for="azevent_lab_split_content_by_outline">
@@ -1230,7 +1272,7 @@ $azevent_initial_tab = $azevent_modal_section === 'prompts' ? 'prompts' : ($azev
                         <div class="azevent-settings-section">
                             <div class="azevent-settings-section-heading">
                                 <div class="azevent-settings-section-title">
-                                    <span class="azevent-settings-section-number">3</span>
+                                    <span class="azevent-settings-section-number">2</span>
                                     <div>
                                         <h3><?php _e('Workflow Lab Prompts chính', 'azevent-seo-content'); ?></h3>
                                         <p><?php _e('Năm cặp System/User Prompt điều khiển nhiệm vụ và định dạng đầu ra của từng bước.', 'azevent-seo-content'); ?></p>

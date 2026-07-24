@@ -17,6 +17,17 @@ $content_pipeline = file_get_contents($root . '/includes/class-azevent-content-p
 $workflow_page = file_get_contents($root . '/admin/views/workflow-lab-page.php');
 $workflow_controller = file_get_contents($root . '/admin/class-azevent-workflow-lab.php');
 $workflow_pipeline = file_get_contents($root . '/includes/class-azevent-workflow-lab-pipeline.php');
+$api_panel_start = strpos($settings, 'id="azevent-panel-api"');
+$studio_models_panel_start = strpos($settings, 'id="azevent-panel-studio-models"');
+$lab_models_panel_start = strpos($settings, 'id="azevent-panel-lab-models"');
+$brand_panel_start = strpos($settings, 'id="azevent-panel-brand"');
+$prompts_panel_start = strpos($settings, 'id="azevent-panel-prompts"');
+$lab_prompts_panel_start = strpos($settings, 'id="azevent-panel-lab-prompts"');
+$settings_main_end = strpos($settings, '</main>', $lab_prompts_panel_start);
+$settings_api_panel = substr($settings, $api_panel_start, $studio_models_panel_start - $api_panel_start);
+$settings_studio_models_panel = substr($settings, $studio_models_panel_start, $lab_models_panel_start - $studio_models_panel_start);
+$settings_lab_models_panel = substr($settings, $lab_models_panel_start, $brand_panel_start - $lab_models_panel_start);
+$settings_lab_prompts_panel = substr($settings, $lab_prompts_panel_start, $settings_main_end - $lab_prompts_panel_start);
 
 function azevent_ui_assert($condition, $message)
 {
@@ -85,8 +96,12 @@ azevent_ui_assert(
 );
 azevent_ui_assert(
     strpos($settings, 'azevent-settings-modal-prompts') !== false
+        && strpos($settings, '.azevent-settings-modal-prompts .azevent-tab[data-tab="studio-models"]') !== false
+        && strpos($settings, '.azevent-settings-modal-prompts .azevent-tab[data-tab="lab-models"]') !== false
+        && strpos($settings, '.azevent-settings-modal-settings .azevent-tab[data-tab="prompts"]') !== false
+        && strpos($settings, '.azevent-settings-modal-settings .azevent-tab[data-tab="lab-prompts"]') !== false
         && strpos($settings, "\$azevent_initial_tab = \$azevent_modal_section === 'prompts' ? 'prompts'") !== false,
-    'Settings modal tách đúng nhóm cấu hình và nhóm Prompt.'
+    'Settings modal chỉ hiện nhóm cấu hình; Prompt modal không hiện hai tab model.'
 );
 azevent_ui_assert(
     strpos($admin, 'public function render_modal_frame_styles()') !== false
@@ -121,10 +136,27 @@ azevent_ui_assert(
     'Content Studio và modal dùng chiều rộng desktop có giới hạn.'
 );
 azevent_ui_assert(
-    substr_count($settings, 'role="tab"') === 5
-        && substr_count($settings, 'role="tabpanel"') === 5
+    substr_count($settings, 'role="tab"') === 7
+        && substr_count($settings, 'role="tabpanel"') === 7
         && strpos($settings, 'role="tablist"') !== false,
     'Settings tabs có đầy đủ semantics tablist/tab/tabpanel.'
+);
+azevent_ui_assert(
+    $api_panel_start !== false
+        && $studio_models_panel_start !== false
+        && $lab_models_panel_start !== false
+        && $brand_panel_start !== false
+        && $prompts_panel_start !== false
+        && $lab_prompts_panel_start !== false
+        && $settings_main_end !== false
+        && strpos($settings_api_panel, 'azevent-model-routing') === false
+        && strpos($settings_studio_models_panel, 'azevent-model-routing') !== false
+        && strpos($settings_studio_models_panel, 'foreach ($azevent_step_model_fields as $step_key => $step_field)') !== false
+        && strpos($settings_lab_models_panel, 'azevent-lab-model-routing') !== false
+        && strpos($settings_lab_models_panel, 'azevent_lab_outline_validation_model') !== false
+        && strpos($settings_lab_prompts_panel, 'azevent-lab-model-routing') === false
+        && strpos($settings_lab_prompts_panel, 'azevent_lab_outline_validation_model') === false,
+    'Model Content Studio và Workflow Lab nằm trong hai tab Settings riêng, không còn lẫn trong Provider hoặc Prompt.'
 );
 azevent_ui_assert(
     strpos($settings, "event.key === 'ArrowRight'") !== false
