@@ -51,6 +51,7 @@ $azq_prompts_url = add_query_arg(
         .azq-hero .button-primary { border-color: #fff; background: #fff; color: #3730a3; }
         .azq-hero .button:hover, .azq-hero .button:focus { border-color: rgba(255,255,255,.7); background: rgba(255,255,255,.2); color: #fff; }
         .azq-hero .button-primary:hover, .azq-hero .button-primary:focus { border-color: #fff; background: #eef2ff; color: #312e81; }
+        .azq-quick-trigger .dashicons { width: 17px; height: 17px; font-size: 17px; }
         .azq-stats { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 12px; margin: 16px 0; }
         .azq-stat { padding: 16px 17px; border: 1px solid #dbe4f3; border-radius: 13px; background: #fff; box-shadow: 0 5px 16px rgba(15,23,42,.04); }
         .azq-stat strong, .azq-stat span { display: block; }
@@ -102,11 +103,33 @@ $azq_prompts_url = add_query_arg(
         .azq-modal-frame { display: block; flex: 1 1 auto; width: 100%; min-height: 0; border: 0; background: #f8fafc; }
         .azq-modal-loading { position: absolute; top: 82px; left: 50%; z-index: 1; transform: translateX(-50%); padding: 7px 11px; border-radius: 999px; background: #eef2ff; color: #4338ca; font-size: 11px; font-weight: 700; box-shadow: 0 4px 14px rgba(15,23,42,.08); }
         .azq-modal.is-loaded .azq-modal-loading { display: none; }
+        .azq-quick-modal[hidden] { display: none; }
+        .azq-quick-modal { position: fixed; z-index: 100200; inset: 0; display: flex; align-items: center; justify-content: center; padding: 18px; }
+        .azq-quick-dialog { position: relative; width: min(680px, calc(100vw - 36px)); overflow: hidden; border: 1px solid #dbe4f3; border-radius: 18px; background: #fff; box-shadow: 0 28px 80px rgba(15,23,42,.36); }
+        .azq-quick-body { padding: 20px 22px 22px; }
+        .azq-quick-intro { margin: 0 0 17px; color: #64748b; font-size: 13px; line-height: 1.55; }
+        .azq-quick-field > label, .azq-quick-destination legend { display: block; margin-bottom: 7px; color: #1e293b; font-size: 12px; font-weight: 800; }
+        .azq-quick-field textarea { display: block; width: 100%; min-height: 132px; padding: 11px 12px; border: 1px solid #cbd5e1; border-radius: 10px; color: #0f172a; font: inherit; line-height: 1.5; resize: vertical; }
+        .azq-quick-field textarea:focus { border-color: #6366f1; box-shadow: 0 0 0 2px rgba(99,102,241,.16); outline: 0; }
+        .azq-quick-field textarea[aria-invalid="true"] { border-color: #dc2626; box-shadow: 0 0 0 2px rgba(220,38,38,.12); }
+        .azq-quick-help { min-height: 19px; margin: 6px 0 0; color: #64748b; font-size: 11px; line-height: 1.45; }
+        .azq-quick-help.is-error { color: #b91c1c; font-weight: 700; }
+        .azq-quick-destination { min-width: 0; margin: 17px 0 0; padding: 0; border: 0; }
+        .azq-quick-options { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+        .azq-quick-option { display: flex; align-items: flex-start; gap: 10px; min-width: 0; padding: 13px; border: 1px solid #dbe4f3; border-radius: 11px; background: #f8fafc; cursor: pointer; }
+        .azq-quick-option:has(input:checked) { border-color: #6366f1; background: #eef2ff; box-shadow: 0 0 0 2px rgba(99,102,241,.1); }
+        .azq-quick-option input { flex: 0 0 auto; margin: 3px 0 0; }
+        .azq-quick-option span, .azq-quick-option strong, .azq-quick-option small { display: block; min-width: 0; }
+        .azq-quick-option strong { color: #1e293b; font-size: 12px; }
+        .azq-quick-option small { margin-top: 4px; color: #64748b; font-size: 10px; line-height: 1.45; }
+        .azq-quick-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+        .azq-quick-actions .button { min-height: 38px; border-radius: 8px; font-weight: 700; }
+        .azq-quick-actions .button-primary { display: inline-flex; align-items: center; gap: 5px; }
         @media (max-width: 1100px) { .azq-hero, .azq-toolbar { align-items: stretch; flex-direction: column; } .azq-hero-actions { display: grid; grid-template-columns: repeat(auto-fit,minmax(120px,1fr)); flex-basis: auto; width: 100%; } .azq-hero-actions .button { justify-content: center; } .azq-toolbar-status { justify-content: space-between; } }
         @media (max-width: 900px) { .azq-stats { grid-template-columns: repeat(2,minmax(0,1fr)); } }
         @media (max-width: 720px) { .azq-hero-actions { grid-template-columns: repeat(3,minmax(0,1fr)); } }
         @media (max-width: 480px) { .azq-hero-actions { grid-template-columns: repeat(2,minmax(0,1fr)); } }
-        @media (max-width: 600px) { .azq-modal { padding: 0; } .azq-modal-dialog { width: 100vw; height: 100vh; border: 0; border-radius: 0; } .azq-modal-header { padding: 10px 12px 10px 15px; } }
+        @media (max-width: 600px) { .azq-modal { padding: 0; } .azq-modal-dialog { width: 100vw; height: 100vh; border: 0; border-radius: 0; } .azq-modal-header { padding: 10px 12px 10px 15px; } .azq-quick-modal { padding: 10px; } .azq-quick-dialog { width: 100%; max-height: calc(100vh - 20px); overflow-y: auto; border-radius: 14px; } .azq-quick-body { padding: 17px; } .azq-quick-options { grid-template-columns: 1fr; } .azq-quick-actions { align-items: stretch; flex-direction: column-reverse; } .azq-quick-actions .button { justify-content: center; width: 100%; } }
         @media (prefers-reduced-motion: reduce) { .azq-table tr:hover td { transition: none; } }
     </style>
 
@@ -131,7 +154,9 @@ $azq_prompts_url = add_query_arg(
                     <span class="dashicons dashicons-edit" aria-hidden="true"></span><?php _e('Prompt', 'azevent-seo-content'); ?>
                 </button>
             <?php endif; ?>
-            <a class="button" href="<?php echo esc_url(admin_url('post-new.php')); ?>"><?php _e('＋ Tạo bài mới', 'azevent-seo-content'); ?></a>
+            <button type="button" class="button azq-quick-trigger" id="azq-open-quick-entry">
+                <span class="dashicons dashicons-plus-alt2" aria-hidden="true"></span><?php _e('Thêm nhanh từ khóa', 'azevent-seo-content'); ?>
+            </button>
         </div>
     </header>
 
@@ -184,6 +209,48 @@ $azq_prompts_url = add_query_arg(
         </div>
     </div>
 
+    <div id="azq-quick-modal" class="azq-quick-modal" hidden aria-hidden="true">
+        <div class="azq-modal-backdrop" data-azq-quick-close></div>
+        <div class="azq-quick-dialog" role="dialog" aria-modal="true" aria-labelledby="azq-quick-title" aria-describedby="azq-quick-description">
+            <header class="azq-modal-header">
+                <div class="azq-modal-heading">
+                    <span class="dashicons dashicons-plus-alt2" aria-hidden="true"></span>
+                    <div><span><?php _e('Khởi tạo nội dung', 'azevent-seo-content'); ?></span><h2 id="azq-quick-title"><?php _e('Thêm nhanh từ khóa', 'azevent-seo-content'); ?></h2></div>
+                </div>
+                <button type="button" class="azq-modal-close" aria-label="<?php esc_attr_e('Đóng cửa sổ', 'azevent-seo-content'); ?>" data-azq-quick-close>
+                    <span class="dashicons dashicons-no-alt" aria-hidden="true"></span>
+                </button>
+            </header>
+            <div class="azq-quick-body">
+                <p id="azq-quick-description" class="azq-quick-intro"><?php _e('Nhập từ khóa rồi chọn công cụ để mở đúng quy trình với dữ liệu đã điền sẵn.', 'azevent-seo-content'); ?></p>
+                <div class="azq-quick-field">
+                    <label for="azq-quick-keywords"><?php _e('Từ khóa chính', 'azevent-seo-content'); ?></label>
+                    <textarea id="azq-quick-keywords" rows="6" aria-describedby="azq-quick-help" placeholder="<?php esc_attr_e("Mỗi dòng một từ khóa. Ví dụ:\nTổ chức hội nghị doanh nghiệp\nDịch vụ gala dinner", 'azevent-seo-content'); ?>"></textarea>
+                    <p id="azq-quick-help" class="azq-quick-help" aria-live="polite"><?php _e('Content Studio nhận nhiều dòng; Workflow Lab nhận một từ khóa mỗi phiên.', 'azevent-seo-content'); ?></p>
+                </div>
+                <fieldset class="azq-quick-destination">
+                    <legend><?php _e('Mở bằng', 'azevent-seo-content'); ?></legend>
+                    <div class="azq-quick-options">
+                        <label class="azq-quick-option">
+                            <input type="radio" name="azq_quick_destination" value="content-studio" checked>
+                            <span><strong><?php _e('Content Studio', 'azevent-seo-content'); ?></strong><small><?php _e('Duyệt từng bước; mỗi dòng tạo một Draft riêng.', 'azevent-seo-content'); ?></small></span>
+                        </label>
+                        <label class="azq-quick-option">
+                            <input type="radio" name="azq_quick_destination" value="workflow-lab">
+                            <span><strong><?php _e('SEO Workflow Lab', 'azevent-seo-content'); ?></strong><small><?php _e('Phân tích chuyên sâu một từ khóa trong mỗi phiên.', 'azevent-seo-content'); ?></small></span>
+                        </label>
+                    </div>
+                </fieldset>
+                <div class="azq-quick-actions">
+                    <button type="button" class="button" data-azq-quick-close><?php _e('Hủy', 'azevent-seo-content'); ?></button>
+                    <button type="button" class="button button-primary" id="azq-quick-continue">
+                        <span><?php _e('Mở Content Studio', 'azevent-seo-content'); ?></span><span class="dashicons dashicons-arrow-right-alt2" aria-hidden="true"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         (function () {
             var ajaxUrl = <?php echo wp_json_encode(admin_url('admin-ajax.php')); ?>;
@@ -198,6 +265,14 @@ $azq_prompts_url = add_query_arg(
             var modalTitle = document.getElementById('azq-modal-title');
             var modalIcon = document.getElementById('azq-modal-icon');
             var modalReturnFocus = null;
+            var quickModal = document.getElementById('azq-quick-modal');
+            var quickDialog = quickModal ? quickModal.querySelector('.azq-quick-dialog') : null;
+            var quickTrigger = document.getElementById('azq-open-quick-entry');
+            var quickKeywords = document.getElementById('azq-quick-keywords');
+            var quickHelp = document.getElementById('azq-quick-help');
+            var quickContinue = document.getElementById('azq-quick-continue');
+            var quickReturnFocus = null;
+            var pendingQuickEntry = null;
             var statusLabels = { pending: 'Đang chờ', processing: 'Đang chạy', paused: 'Chờ tiếp tục', completed: 'Hoàn tất', failed: 'Lỗi' };
             var stepLabels = { start: 'Search Intent', search_intent: 'Search Intent', outline: 'Outline', content: 'Content', seo: 'SEO Metadata', section_images: 'Ảnh H2', image: 'Tạo ảnh', finalize: 'Lưu Draft', completed: 'Đã hoàn tất' };
 
@@ -216,9 +291,9 @@ $azq_prompts_url = add_query_arg(
                 }
                 return null;
             }
-            function openSettingsModal(button) {
+            function openSettingsModal(button, forceReload, returnFocusElement) {
                 if (!settingsModal || !modalFrame) return;
-                modalReturnFocus = button;
+                modalReturnFocus = returnFocusElement || button;
                 modalTitle.textContent = button.dataset.modalTitle || 'Settings';
                 modalIcon.className = 'dashicons ' + (button.dataset.modalIcon || 'dashicons-admin-settings');
                 modalFrame.title = button.dataset.modalTitle || 'AzEvent SEO';
@@ -226,11 +301,18 @@ $azq_prompts_url = add_query_arg(
                 settingsModal.hidden = false;
                 settingsModal.setAttribute('aria-hidden', 'false');
                 document.body.classList.add('azq-modal-open');
-                if (modalFrame.dataset.url !== button.dataset.modalUrl) {
-                    modalFrame.dataset.url = button.dataset.modalUrl;
-                    modalFrame.src = button.dataset.modalUrl;
+                var modalUrl = button.dataset.modalUrl;
+                if (forceReload) {
+                    var freshUrl = new URL(modalUrl, window.location.href);
+                    freshUrl.searchParams.set('azevent_quick', String(Date.now()));
+                    modalUrl = freshUrl.toString();
+                }
+                if (modalFrame.dataset.url !== modalUrl) {
+                    modalFrame.dataset.url = modalUrl;
+                    modalFrame.src = modalUrl;
                 } else {
                     settingsModal.classList.add('is-loaded');
+                    deliverQuickEntry();
                 }
                 window.setTimeout(function () { document.getElementById('azq-modal-close').focus(); }, 20);
             }
@@ -245,6 +327,104 @@ $azq_prompts_url = add_query_arg(
                     window.history.replaceState({}, document.title, currentUrl.toString());
                 }
                 if (modalReturnFocus) modalReturnFocus.focus();
+            }
+            function getQuickDestination() {
+                var selected = document.querySelector('input[name="azq_quick_destination"]:checked');
+                return selected ? selected.value : 'content-studio';
+            }
+            function getQuickKeywords() {
+                var seen = {};
+                return quickKeywords.value.split(/\r?\n/).map(function (keyword) {
+                    return keyword.trim();
+                }).filter(function (keyword) {
+                    var normalized = keyword.toLocaleLowerCase();
+                    if (!keyword || seen[normalized]) return false;
+                    seen[normalized] = true;
+                    return true;
+                });
+            }
+            function setQuickHelp(message, error) {
+                quickHelp.textContent = message;
+                quickHelp.classList.toggle('is-error', Boolean(error));
+                quickKeywords.setAttribute('aria-invalid', error ? 'true' : 'false');
+            }
+            function updateQuickEntry() {
+                var destination = getQuickDestination();
+                var keywords = getQuickKeywords();
+                var label = destination === 'workflow-lab' ? 'Mở SEO Workflow Lab' : 'Mở Content Studio';
+                quickContinue.querySelector('span').textContent = label;
+                if (destination === 'workflow-lab' && keywords.length > 1) {
+                    setQuickHelp('SEO Workflow Lab chỉ nhận một từ khóa mỗi phiên. Hãy giữ lại một dòng.', true);
+                    return;
+                }
+                if (keywords.length > 100) {
+                    setQuickHelp('Mỗi lần thêm nhanh tối đa 100 từ khóa.', true);
+                    return;
+                }
+                if (keywords.length) {
+                    setQuickHelp(
+                        destination === 'workflow-lab'
+                            ? 'Sẵn sàng mở một phiên Workflow Lab với từ khóa này.'
+                            : 'Đã nhận ' + keywords.length + ' từ khóa. Content Studio sẽ điền sẵn mỗi từ khóa trên một dòng.',
+                        false
+                    );
+                    return;
+                }
+                setQuickHelp('Content Studio nhận nhiều dòng; Workflow Lab nhận một từ khóa mỗi phiên.', false);
+            }
+            function openQuickEntry() {
+                if (!quickModal) return;
+                quickReturnFocus = document.activeElement;
+                quickModal.hidden = false;
+                quickModal.setAttribute('aria-hidden', 'false');
+                document.body.classList.add('azq-modal-open');
+                updateQuickEntry();
+                window.setTimeout(function () { quickKeywords.focus(); }, 20);
+            }
+            function closeQuickEntry(restoreFocus) {
+                if (!quickModal) return;
+                quickModal.hidden = true;
+                quickModal.setAttribute('aria-hidden', 'true');
+                document.body.classList.remove('azq-modal-open');
+                if (restoreFocus !== false && quickReturnFocus) quickReturnFocus.focus();
+            }
+            function deliverQuickEntry() {
+                if (!pendingQuickEntry || !modalFrame || !modalFrame.contentWindow) return;
+                modalFrame.contentWindow.postMessage(pendingQuickEntry, window.location.origin);
+                pendingQuickEntry = null;
+            }
+            function submitQuickEntry() {
+                var keywords = getQuickKeywords();
+                var destination = getQuickDestination();
+                if (!keywords.length) {
+                    setQuickHelp('Vui lòng nhập ít nhất một từ khóa.', true);
+                    quickKeywords.focus();
+                    return;
+                }
+                if (keywords.length > 100) {
+                    setQuickHelp('Mỗi lần thêm nhanh tối đa 100 từ khóa.', true);
+                    quickKeywords.focus();
+                    return;
+                }
+                if (destination === 'workflow-lab' && keywords.length !== 1) {
+                    setQuickHelp('SEO Workflow Lab chỉ nhận một từ khóa mỗi phiên. Hãy giữ lại một dòng.', true);
+                    quickKeywords.focus();
+                    return;
+                }
+                var modalSection = destination === 'workflow-lab' ? 'workflow-lab' : 'studio';
+                var destinationButton = document.querySelector('.azq-open-modal[data-modal-section="' + modalSection + '"]');
+                if (!destinationButton) {
+                    setQuickHelp('Không tìm thấy công cụ đã chọn. Hãy tải lại trang và thử lại.', true);
+                    return;
+                }
+                pendingQuickEntry = {
+                    type: 'azevent-quick-keywords',
+                    target: destination,
+                    keywords: keywords
+                };
+                var returnFocusElement = quickReturnFocus || quickTrigger;
+                closeQuickEntry(false);
+                openSettingsModal(destinationButton, true, returnFocusElement);
             }
             function visible(job) { return activeFilter === 'all' || job.workflow_type === activeFilter || job.status === activeFilter; }
             function render() {
@@ -281,8 +461,34 @@ $azq_prompts_url = add_query_arg(
             document.querySelectorAll('.azq-filter').forEach(function (button) { button.addEventListener('click', function () { document.querySelectorAll('.azq-filter').forEach(function (item) { item.classList.toggle('is-active', item === button); }); activeFilter = button.dataset.filter; render(); }); });
             document.querySelectorAll('.azq-open-modal').forEach(function (button) { button.addEventListener('click', function () { openSettingsModal(button); }); });
             document.querySelectorAll('[data-azq-modal-close]').forEach(function (button) { button.addEventListener('click', closeSettingsModal); });
-            if (modalFrame) modalFrame.addEventListener('load', function () { settingsModal.classList.add('is-loaded'); });
-            document.addEventListener('keydown', function (event) { if (event.key === 'Escape' && settingsModal && !settingsModal.hidden) closeSettingsModal(); });
+            if (quickTrigger) quickTrigger.addEventListener('click', openQuickEntry);
+            document.querySelectorAll('[data-azq-quick-close]').forEach(function (button) { button.addEventListener('click', function () { closeQuickEntry(true); }); });
+            document.querySelectorAll('input[name="azq_quick_destination"]').forEach(function (input) { input.addEventListener('change', updateQuickEntry); });
+            if (quickKeywords) quickKeywords.addEventListener('input', updateQuickEntry);
+            if (quickContinue) quickContinue.addEventListener('click', submitQuickEntry);
+            if (modalFrame) modalFrame.addEventListener('load', function () { settingsModal.classList.add('is-loaded'); deliverQuickEntry(); });
+            document.addEventListener('keydown', function (event) {
+                if (event.key === 'Escape' && quickModal && !quickModal.hidden) {
+                    closeQuickEntry(true);
+                    return;
+                }
+                if (event.key === 'Escape' && settingsModal && !settingsModal.hidden) {
+                    closeSettingsModal();
+                    return;
+                }
+                if (event.key !== 'Tab' || !quickModal || quickModal.hidden || !quickDialog) return;
+                var focusable = Array.prototype.slice.call(quickDialog.querySelectorAll('button:not([disabled]), textarea:not([disabled]), input:not([disabled])'));
+                if (!focusable.length) return;
+                var first = focusable[0];
+                var last = focusable[focusable.length - 1];
+                if (event.shiftKey && document.activeElement === first) {
+                    event.preventDefault();
+                    last.focus();
+                } else if (!event.shiftKey && document.activeElement === last) {
+                    event.preventDefault();
+                    first.focus();
+                }
+            });
             window.addEventListener('message', function (event) {
                 if (event.origin === window.location.origin && modalFrame && event.source === modalFrame.contentWindow && event.data === 'azevent-close-admin-modal') {
                     closeSettingsModal();

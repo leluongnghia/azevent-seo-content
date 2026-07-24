@@ -1446,6 +1446,46 @@ jQuery(function($) {
         });
     });
 
+    window.addEventListener('message', function(event) {
+        if (
+            event.origin !== window.location.origin
+            || event.source !== window.parent
+            || !event.data
+            || event.data.type !== 'azevent-quick-keywords'
+            || event.data.target !== 'content-studio'
+        ) {
+            return;
+        }
+
+        const seen = {};
+        const suppliedKeywords = (Array.isArray(event.data.keywords) ? event.data.keywords : [])
+            .map(function(keyword) { return String(keyword || '').trim(); })
+            .filter(function(keyword) {
+                const normalized = keyword.toLocaleLowerCase();
+                if (!keyword || seen[normalized]) {
+                    return false;
+                }
+                seen[normalized] = true;
+                return true;
+            })
+            .slice(0, 100);
+
+        if (!suppliedKeywords.length) {
+            return;
+        }
+
+        resetStudio();
+        $('input[name="azevent_mode"][value="create"]').prop('checked', true).trigger('change');
+        $keywords.val(suppliedKeywords.join('\n'));
+        $keywordHelp.text(
+            'Đã điền sẵn ' + suppliedKeywords.length + ' từ khóa từ Background Queue. Mỗi dòng sẽ tạo một Draft riêng.'
+        ).css('color', '');
+        if ($modal.attr('aria-hidden') === 'true') {
+            openModal();
+        }
+        window.setTimeout(function() { $keywords.trigger('focus'); }, 30);
+    });
+
     if (azevent_seo.standalone) {
         openModal();
     } else if (requestedResumeJobId > 0) {

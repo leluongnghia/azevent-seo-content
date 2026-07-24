@@ -10,6 +10,7 @@ $admin = file_get_contents($root . '/admin/class-azevent-admin.php');
 $updater = file_get_contents($root . '/includes/class-azevent-github-updater.php');
 $editor_integration = file_get_contents($root . '/includes/class-azevent-editor-integration.php');
 $editor_js = file_get_contents($root . '/admin/js/editor.js');
+$workflow_js = file_get_contents($root . '/admin/js/workflow-lab.js');
 $workflow_css = file_get_contents($root . '/admin/css/workflow-lab.css');
 $editor_css = file_get_contents($root . '/admin/css/editor.css');
 
@@ -45,6 +46,38 @@ azevent_ui_assert(
         && strpos($background_queue, "get('azevent_open')") !== false
         && strpos($editor_integration, "'azevent_open' => 'settings'") !== false,
     'Queue có bốn nút công cụ mở modal chung và hỗ trợ phím Escape.'
+);
+azevent_ui_assert(
+    strpos($background_queue, 'id="azq-open-quick-entry"') !== false
+        && strpos($background_queue, 'id="azq-quick-keywords"') !== false
+        && strpos($background_queue, 'value="content-studio" checked') !== false
+        && strpos($background_queue, 'value="workflow-lab"') !== false
+        && strpos($background_queue, "admin_url('post-new.php')") === false,
+    'Nút Tạo bài mới được thay bằng bảng Thêm nhanh từ khóa và lựa chọn hai quy trình.'
+);
+azevent_ui_assert(
+    strpos($background_queue, 'class="azq-quick-dialog" role="dialog" aria-modal="true"') !== false
+        && strpos($background_queue, 'aria-labelledby="azq-quick-title"') !== false
+        && strpos($background_queue, 'aria-describedby="azq-quick-description"') !== false
+        && strpos($background_queue, "event.key !== 'Tab'") !== false
+        && strpos($background_queue, 'aria-live="polite"') !== false,
+    'Bảng Thêm nhanh có semantics dialog, thông báo động và giữ focus bàn phím.'
+);
+azevent_ui_assert(
+    strpos($background_queue, "type: 'azevent-quick-keywords'") !== false
+        && strpos($background_queue, "target: destination") !== false
+        && strpos($background_queue, 'keywords.length > 100') !== false
+        && strpos($background_queue, "destination === 'workflow-lab' && keywords.length !== 1") !== false
+        && strpos($background_queue, 'modalFrame.contentWindow.postMessage(pendingQuickEntry, window.location.origin)') !== false,
+    'Thêm nhanh chuẩn hóa đầu vào, giới hạn số lượng và chỉ chuyển dữ liệu tới iframe cùng origin.'
+);
+azevent_ui_assert(
+    strpos($editor_js, "event.data.target !== 'content-studio'") !== false
+        && strpos($editor_js, 'suppliedKeywords.join(\'\\n\')') !== false
+        && strpos($editor_js, 'input[name="azevent_mode"][value="create"]') !== false
+        && strpos($workflow_js, "event.data.target !== 'workflow-lab'") !== false
+        && strpos($workflow_js, 'elements.keyword.value = keyword') !== false,
+    'Content Studio và Workflow Lab nhận đúng dữ liệu điền sẵn từ bảng Thêm nhanh.'
 );
 azevent_ui_assert(
     strpos($settings, 'azevent-settings-modal-prompts') !== false

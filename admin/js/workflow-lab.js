@@ -969,5 +969,30 @@
         });
     });
 
+    window.addEventListener('message', function (event) {
+        if (
+            event.origin !== window.location.origin
+            || event.source !== window.parent
+            || !event.data
+            || event.data.type !== 'azevent-quick-keywords'
+            || event.data.target !== 'workflow-lab'
+            || postId
+            || busy
+        ) {
+            return;
+        }
+
+        const keyword = Array.isArray(event.data.keywords)
+            ? String(event.data.keywords[0] || '').trim()
+            : '';
+        if (!keyword) {
+            return;
+        }
+
+        elements.keyword.value = keyword;
+        setNotice('Đã điền sẵn từ khóa từ Background Queue. Kiểm tra đầu vào rồi tạo phiên Workflow Lab.', true);
+        elements.keyword.focus();
+    });
+
     loadSession();
 }());
