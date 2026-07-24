@@ -52,7 +52,8 @@ $azq_prompts_url = add_query_arg(
         .azq-hero .button-primary { border-color: #fff; background: #fff; color: #3730a3; }
         .azq-hero .button:hover, .azq-hero .button:focus { border-color: rgba(255,255,255,.7); background: rgba(255,255,255,.2); color: #fff; }
         .azq-hero .button-primary:hover, .azq-hero .button-primary:focus { border-color: #fff; background: #eef2ff; color: #312e81; }
-        .azq-quick-trigger .dashicons { width: 17px; height: 17px; font-size: 17px; }
+        .azq-hero-actions .dashicons, .azq-refresh .dashicons { display: inline-grid; place-items: center; flex: 0 0 18px; width: 18px; height: 18px; margin: 0; font-size: 18px; line-height: 1 !important; vertical-align: middle; transform: translateY(-1px); }
+        .azq-hero-actions .dashicons:before, .azq-refresh .dashicons:before { display: block; width: 18px; height: 18px; line-height: 18px; }
         .azq-stats { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 12px; margin: 16px 0; }
         .azq-stat { padding: 16px 17px; border: 1px solid #dbe4f3; border-radius: 13px; background: #fff; box-shadow: 0 5px 16px rgba(15,23,42,.04); }
         .azq-stat strong, .azq-stat span { display: block; }

@@ -127,8 +127,11 @@ azevent_ui_assert(
         && strpos($background_queue, '.azq-hero, .azq-toolbar { align-items: stretch; flex-direction: column; }') === false
         && strpos($background_queue, '.azq-toolbar-status { justify-content: flex-end; width: 100%;') === false
         && strpos($background_queue, '#azq-updated { overflow: hidden; min-width: 0; text-overflow: ellipsis; white-space: nowrap; }') !== false
-        && strpos($background_queue, '.azq-refresh { display: inline-flex !important; flex: 0 0 auto;') !== false,
-    'Queue responsive theo chiều rộng vùng admin; hero xuống lưới còn Làm mới không tạo hàng trống ở màn hình trung bình.'
+        && strpos($background_queue, '.azq-refresh { display: inline-flex !important; flex: 0 0 auto;') !== false
+        && strpos($background_queue, '.azq-hero-actions .dashicons, .azq-refresh .dashicons { display: inline-grid; place-items: center; flex: 0 0 18px; width: 18px; height: 18px;') !== false
+        && strpos($background_queue, '.azq-hero-actions .dashicons:before, .azq-refresh .dashicons:before { display: block; width: 18px; height: 18px; line-height: 18px; }') !== false
+        && strpos($background_queue, 'transform: translateY(-1px);') !== false,
+    'Queue responsive theo chiều rộng vùng admin; icon và chữ cùng trục dọc, Làm mới không tạo hàng trống ở màn hình trung bình.'
 );
 azevent_ui_assert(
     preg_match('/\\.azevent-settings-page\\s*\\{[^}]*max-width:\\s*1480px;/s', $settings) === 1
