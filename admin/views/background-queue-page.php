@@ -40,7 +40,7 @@ $azq_prompts_url = add_query_arg(
 ?>
 <div class="wrap azevent-queue-page">
     <style>
-        .azevent-queue-page { width: auto; max-width: none; margin: 24px 24px 0 2px; color: #0f172a; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+        .azevent-queue-page { container: azq / inline-size; width: auto; max-width: none; min-width: 0; overflow-x: clip; margin: 24px 24px 0 2px; color: #0f172a; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
         .azevent-queue-page * { box-sizing: border-box; }
         .azq-hero { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; min-width: 0; overflow: hidden; padding: 24px 26px; border: 1px solid #1e3a8a; border-radius: 18px; background: radial-gradient(circle at 86% 8%, rgba(129,140,248,.34), transparent 26%), linear-gradient(135deg, #0f172a, #172554 58%, #312e81); color: #fff; box-shadow: 0 16px 38px rgba(15,23,42,.18); }
         .azq-hero-copy { flex: 1 1 380px; min-width: 0; }
@@ -59,11 +59,11 @@ $azq_prompts_url = add_query_arg(
         .azq-stat strong { color: #172554; font-size: 25px; line-height: 1; }
         .azq-stat span { margin-top: 7px; color: #64748b; font-size: 11px; font-weight: 700; }
         .azq-card { overflow: hidden; border: 1px solid #dbe4f3; border-radius: 15px; background: #fff; box-shadow: 0 10px 28px rgba(15,23,42,.06); }
-        .azq-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px 16px; min-width: 0; padding: 14px 16px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
-        .azq-filters { display: flex; flex: 1 1 520px; flex-wrap: wrap; gap: 7px; min-width: 0; }
+        .azq-toolbar { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 12px 16px; min-width: 0; padding: 14px 16px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
+        .azq-filters { display: flex; flex-wrap: wrap; gap: 7px; min-width: 0; }
         .azq-filter { min-height: 34px; padding: 0 12px; border: 1px solid #dbe4f3; border-radius: 999px; background: #fff; color: #475569; cursor: pointer; font-size: 11px; font-weight: 700; }
         .azq-filter.is-active { border-color: #6366f1; background: #eef2ff; color: #4338ca; box-shadow: 0 0 0 2px rgba(99,102,241,.1); }
-        .azq-toolbar-status { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex: 0 1 auto; min-width: 0; max-width: 100%; margin-left: auto; }
+        .azq-toolbar-status { display: flex; align-items: center; justify-content: flex-end; gap: 10px; min-width: 0; max-width: 100%; }
         #azq-updated { overflow: hidden; min-width: 0; text-overflow: ellipsis; white-space: nowrap; }
         .azq-refresh { display: inline-flex !important; flex: 0 0 auto; align-items: center; gap: 5px; min-height: 38px; border-radius: 8px !important; font-weight: 700 !important; white-space: nowrap; }
         .azq-notice { margin: 14px 16px 0; padding: 11px 13px; border: 1px solid #bbf7d0; border-radius: 9px; background: #f0fdf4; color: #166534; }
@@ -127,11 +127,14 @@ $azq_prompts_url = add_query_arg(
         .azq-quick-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 20px; }
         .azq-quick-actions .button { min-height: 38px; border-radius: 8px; font-weight: 700; }
         .azq-quick-actions .button-primary { display: inline-flex; align-items: center; gap: 5px; }
-        @media (max-width: 1280px) { .azq-hero, .azq-toolbar { align-items: stretch; flex-direction: column; } .azq-hero-copy, .azq-filters { flex: 0 0 auto; } .azq-hero-actions { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); flex-basis: auto; width: 100%; max-width: none; } .azq-toolbar-status { justify-content: flex-end; width: 100%; margin-left: 0; } .azq-stats { grid-template-columns: repeat(3,minmax(0,1fr)); } }
-        @media (max-width: 900px) { .azq-hero-actions { grid-template-columns: repeat(3,minmax(0,1fr)); } .azq-stats { grid-template-columns: repeat(2,minmax(0,1fr)); } }
-        @media (max-width: 720px) { .azq-hero-actions { grid-template-columns: repeat(3,minmax(0,1fr)); } }
-        @media (max-width: 600px) { .azq-toolbar-status { justify-content: space-between; } }
-        @media (max-width: 480px) { .azq-hero-actions { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+        @container azq (max-width: 1280px) { .azq-hero { align-items: stretch; flex-direction: column; } .azq-hero-copy { flex: 0 0 auto; } .azq-hero-actions { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); flex-basis: auto; width: 100%; max-width: none; } .azq-hero-actions .button { grid-column: span 2; width: 100%; } .azq-hero-actions .button:nth-last-child(2):nth-child(3n + 1) { grid-column: 2 / span 2; } .azq-stats { grid-template-columns: repeat(3,minmax(0,1fr)); } }
+        @container azq (max-width: 820px) { .azq-hero-actions { grid-template-columns: repeat(2,minmax(0,1fr)); } .azq-hero-actions .button, .azq-hero-actions .button:nth-last-child(2):nth-child(3n + 1) { grid-column: auto; } .azq-stats { grid-template-columns: repeat(2,minmax(0,1fr)); } .azq-toolbar { grid-template-columns: minmax(0,1fr); } .azq-toolbar-status { justify-content: flex-start; } }
+        @container azq (max-width: 520px) { .azq-hero-actions, .azq-stats { grid-template-columns: minmax(0,1fr); } .azq-toolbar-status { justify-content: space-between; } }
+        @supports not (container-type: inline-size) {
+            @media (max-width: 1460px) { .azq-hero { align-items: stretch; flex-direction: column; } .azq-hero-copy { flex: 0 0 auto; } .azq-hero-actions { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); flex-basis: auto; width: 100%; max-width: none; } .azq-hero-actions .button { grid-column: span 2; width: 100%; } .azq-hero-actions .button:nth-last-child(2):nth-child(3n + 1) { grid-column: 2 / span 2; } .azq-stats { grid-template-columns: repeat(3,minmax(0,1fr)); } }
+            @media (max-width: 1000px) { .azq-hero-actions { grid-template-columns: repeat(2,minmax(0,1fr)); } .azq-hero-actions .button, .azq-hero-actions .button:nth-last-child(2):nth-child(3n + 1) { grid-column: auto; } .azq-stats { grid-template-columns: repeat(2,minmax(0,1fr)); } .azq-toolbar { grid-template-columns: minmax(0,1fr); } .azq-toolbar-status { justify-content: flex-start; } }
+            @media (max-width: 700px) { .azq-hero-actions, .azq-stats { grid-template-columns: minmax(0,1fr); } .azq-toolbar-status { justify-content: space-between; } }
+        }
         @media (max-width: 600px) { .azq-modal { padding: 0; } .azq-modal-dialog { width: 100vw; height: 100vh; border: 0; border-radius: 0; } .azq-modal-header { padding: 10px 12px 10px 15px; } .azq-quick-modal { padding: 10px; } .azq-quick-dialog { width: 100%; max-height: calc(100vh - 20px); overflow-y: auto; border-radius: 14px; } .azq-quick-body { padding: 17px; } .azq-quick-options { grid-template-columns: 1fr; } .azq-quick-actions { align-items: stretch; flex-direction: column-reverse; } .azq-quick-actions .button { justify-content: center; width: 100%; } }
         @media (prefers-reduced-motion: reduce) { .azq-table tr:hover td { transition: none; } }
     </style>

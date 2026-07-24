@@ -112,13 +112,20 @@ azevent_ui_assert(
 azevent_ui_assert(
     strpos($background_queue, 'class="azq-toolbar-status"') !== false
         && strpos($background_queue, 'class="button azq-refresh" id="azq-refresh"') !== false
-        && strpos($background_queue, '@media (max-width: 1280px)') !== false
-        && strpos($background_queue, 'grid-template-columns: repeat(5,minmax(0,1fr))') !== false
+        && strpos($background_queue, 'container: azq / inline-size') !== false
+        && strpos($background_queue, 'overflow-x: clip') !== false
+        && strpos($background_queue, '.azq-toolbar { display: grid; grid-template-columns: minmax(0,1fr) auto;') !== false
+        && strpos($background_queue, '@container azq (max-width: 1280px)') !== false
+        && strpos($background_queue, 'grid-template-columns: repeat(6,minmax(0,1fr))') !== false
+        && strpos($background_queue, 'grid-column: 2 / span 2') !== false
         && strpos($background_queue, 'grid-template-columns: repeat(3,minmax(0,1fr))') !== false
         && strpos($background_queue, 'grid-template-columns: repeat(2,minmax(0,1fr))') !== false
+        && strpos($background_queue, '@container azq (max-width: 520px)') !== false
+        && strpos($background_queue, '.azq-hero, .azq-toolbar { align-items: stretch; flex-direction: column; }') === false
+        && strpos($background_queue, '.azq-toolbar-status { justify-content: flex-end; width: 100%;') === false
         && strpos($background_queue, '#azq-updated { overflow: hidden; min-width: 0; text-overflow: ellipsis; white-space: nowrap; }') !== false
         && strpos($background_queue, '.azq-refresh { display: inline-flex !important; flex: 0 0 auto;') !== false,
-    'Header và toolbar Queue tự xuống hàng, giữ nút Làm mới trong khung ở các chiều rộng hẹp.'
+    'Queue responsive theo chiều rộng vùng admin; hero xuống lưới còn Làm mới không tạo hàng trống ở màn hình trung bình.'
 );
 azevent_ui_assert(
     preg_match('/\\.azevent-settings-page\\s*\\{[^}]*max-width:\\s*1480px;/s', $settings) === 1
